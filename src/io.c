@@ -67,6 +67,46 @@ void printf(const char* format_str, ...) {
                         }
                         put_char(ascii);
                     }
+                    break;
+                }
+                case 'i':
+                case 'd': {
+                    // signed decimal integer (NOT LONG)
+                    // highest possible number of decimal digits =
+                    // ceiling(log10(2^31))
+                    // = 10
+                    int signed_value = va_arg(args, int);
+                    if (signed_value < 0) {
+                        put_char('-');
+                        // TODO: just OR all bits except MSB?
+                        signed_value *= -1;
+                    }
+                    unsigned int value = (int)signed_value;
+                    bool started = false;
+
+                    // edge case that's easier to handle here
+                    if (value == 0) {
+                        put_char('0');
+                        break;
+                    }
+
+                    // 10^9
+                    unsigned int divisor = 1000000000;
+                    while (divisor > 0) {
+                        if (value >= divisor) {
+                            started = true;
+                            const unsigned int digit = value / divisor;
+                            value -= digit * divisor;
+                            put_char('0' + digit);
+                        } else if (started) {
+                            put_char('0');
+                        } else {
+                            // do nothing!
+                        }
+
+                        divisor /= 10;
+                    }
+                    break;
                 }
                     // TODO: default, error
             }
