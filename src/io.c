@@ -2,12 +2,8 @@
 #include "string.h"
 #include "types.h"
 
-// TODO:
-// https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-debug-console.adoc
-
 void put_char(const char ch) {
-    // console putchar
-    sbi_call(ch, 0, 0, 0, 0, 0, 0, 1);
+    sbi_putchar(ch);
 }
 
 void put_c_str(const char* str) {
