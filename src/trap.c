@@ -3,39 +3,16 @@
 #include "io.h"  // IWYU pragma: keep, needed for printf
 #include "sbi.h"
 
-// TODO: push frame onto stack in trap_vector and read it in handle_trap
-
 struct TrapFrame {
-    uint64_t ra;
-    uint64_t gp;
-    uint64_t tp;
-    uint64_t t0;
-    uint64_t t1;
-    uint64_t t2;
-    uint64_t t3;
-    uint64_t t4;
-    uint64_t t5;
-    uint64_t t6;
-    uint64_t a0;
-    uint64_t a1;
-    uint64_t a2;
-    uint64_t a3;
-    uint64_t a4;
-    uint64_t a5;
-    uint64_t a6;
-    uint64_t a7;
-    uint64_t s0;
-    uint64_t s1;
-    uint64_t s2;
-    uint64_t s3;
-    uint64_t s4;
-    uint64_t s5;
-    uint64_t s6;
-    uint64_t s7;
-    uint64_t s8;
-    uint64_t s9;
-    uint64_t s10;
-    uint64_t s11;
+    // return address, global pointer, thread pointer
+    uint64_t ra, gp, tp;
+    // temporaries
+    uint64_t t0, t1, t2, t3, t4, t5, t6;
+    // arguments
+    uint64_t a0, a1, a2, a3, a4, a5, a6, a7;
+    // saved
+    uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
+    // stack pointer
     uint64_t sp;
 } __attribute__((packed));
 typedef struct TrapFrame TrapFrame;
@@ -92,43 +69,43 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
         // store registers
         // clang-format off
         // starting registers
-        REGISTER_STACK(sw, ra, 0)
-        REGISTER_STACK(sw, gp, 1)
-        REGISTER_STACK(sw, tp, 2)
+        REGISTER_STACK(sd, ra, 0)
+        REGISTER_STACK(sd, gp, 1)
+        REGISTER_STACK(sd, tp, 2)
         // t registers
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 0)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 1)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 2)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 3)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 4)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 5)
-        REGISTER_STACK_OFFSET(sw, T_OFFSET, t, 6) //9
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 0)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 1)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 2)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 3)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 4)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 5)
+        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 6) //9
         // a registers
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 0)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 1)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 2)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 3)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 4)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 5)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 6)
-        REGISTER_STACK_OFFSET(sw, A_OFFSET, a, 7) //17
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 0)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 1)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 2)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 3)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 4)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 5)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 6)
+        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 7) //17
         // s registers
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 0)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 1)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 2)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 3)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 4)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 5)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 6)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 7)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 8)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 9)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 10)
-        REGISTER_STACK_OFFSET(sw, S_OFFSET, s, 11) //29
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 0)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 1)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 2)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 3)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 4)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 5)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 6)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 7)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 8)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 9)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 10)
+        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 11) //29
         // read old stack pointer
         "csrr a0, sscratch\n"
         // push it onto stack
-        REGISTER_STACK(sw, a0, 30)
+        REGISTER_STACK(sd, a0, 30)
         // clang-format on
         // a0 (first function argument) points to TrapFrame on stack
         "mv a0, sp\n"
@@ -138,43 +115,44 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
 
         // clang-format off
         // starting registers
-        REGISTER_STACK(lw, ra, 0)
-        REGISTER_STACK(lw, gp, 1)
-        REGISTER_STACK(lw, tp, 2)
+        REGISTER_STACK(ld, ra, 0)
+        REGISTER_STACK(ld, gp, 1)
+        REGISTER_STACK(ld, tp, 2)
         // t registers
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 0)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 1)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 2)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 3)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 4)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 5)
-        REGISTER_STACK_OFFSET(lw, T_OFFSET, t, 6) //9
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 0)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 1)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 2)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 3)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 4)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 5)
+        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 6) //9
         // a registers
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 0)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 1)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 2)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 3)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 4)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 5)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 6)
-        REGISTER_STACK_OFFSET(lw, A_OFFSET, a, 7) //17
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 0)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 1)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 2)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 3)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 4)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 5)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 6)
+        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 7) //17
         // s registers
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 0)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 1)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 2)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 3)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 4)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 5)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 6)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 7)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 8)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 9)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 10)
-        REGISTER_STACK_OFFSET(lw, S_OFFSET, s, 11) //29
-        // old stack pointer (don't restore, just subtract)
-        // REGISTER_STACK(lw, sp, 30)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 0)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 1)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 2)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 3)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 4)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 5)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 6)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 7)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 8)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 9)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 10)
+        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 11) //29
+        // restore old stack pointer
+        REGISTER_STACK(ld, sp, 30)
+        // (technically could just subtract, would avoid a load op)
+        // "addi sp, sp, %[frame_size]\n"
         // clang-format on
-        "addi sp, sp, %[frame_size]\n"
 
         "sret\n"
         :  // no output
