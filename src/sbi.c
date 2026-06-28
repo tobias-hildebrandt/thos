@@ -34,8 +34,8 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
 // console putchar (legacy)
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-legacy.adoc
 SbiReturn sbi_putchar(char ch) {
-    SBI_CALL(0x1 /* Extension: Console Putchar */, 0x0 /* (ignored) */,
-             ch /* character */);
+    return SBI_CALL(0x1 /* Extension: Console Putchar */, 0x0 /* (ignored) */,
+                    ch /* character */);
 }
 
 // system reset shutdown
