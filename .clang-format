@@ -1,0 +1,9 @@
+---
+BasedOnStyle: Google
+IndentWidth: 4
+
+# single line
+AllowShortFunctionsOnASingleLine: false
+
+# pointer style
+PointerAlignment: Left

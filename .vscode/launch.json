@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "LLDB Remote Attach",
+            "type": "lldb",
+            "request": "attach",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/build/kernel.elf"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:7777"
+            ]
+        }
+    ]
+}
