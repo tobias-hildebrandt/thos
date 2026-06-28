@@ -1,4 +1,5 @@
 #include "io.h"
+#include "panic.h"
 #include "sbi.h"
 #include "string.h"
 
@@ -50,6 +51,10 @@ void kernel_main(void) {
         }
     }
     printf("\n");
+
+    PANIC("expected panic");
+
+    // rest of body will not run
 
     printf("shutting down!\n");
     sbi_shutdown();
