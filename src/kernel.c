@@ -2,15 +2,17 @@
 #include "panic.h"
 #include "sbi.h"
 #include "string.h"
+#include "trap.h"
 
 extern char __STACK_START[];
 
 void kernel_main(void) {
+    // read stack pointer into variable immediately
     int stack_pointer;
-    // mv is psuedoinstruction for addi rd,rs,0
-    __asm__ __volatile__("mv %0, sp"
-                         // output
-                         : "=r"(stack_pointer));
+    __asm__ __volatile__("mv %0, sp" : "=r"(stack_pointer));
+
+    // set up exception handler
+    __asm__ __volatile__("csrw stvec, %0" ::"r"((uint64_t)trap_vector));
 
     const char* divider = "----------\n";
     put_c_str(divider);
@@ -36,7 +38,7 @@ void kernel_main(void) {
     printf("all bits 1  0x%x=%d\n", 0xffffffff, 0xffffffff);
     printf("min int     0x%x=%d\n", INT_MIN, INT_MIN);
 
-    const unsigned int LOOP_SPIN = 1024 * 1024;
+    const unsigned int LOOP_SPIN = 1024 /* * 1024 */;
     const unsigned int PER_LINE = 10;
     const unsigned int LINES = 10;
 
@@ -52,16 +54,17 @@ void kernel_main(void) {
     }
     printf("\n");
 
-    PANIC("expected panic");
+    // trigger trap
+    __asm__ __volatile__("unimp");
+
+    printf("this is a line after unimp\n");
+
+    PANIC("this is an expected panic");
 
     // rest of body will not run
 
-    printf("shutting down!\n");
+    printf("should not be printed!\n");
     sbi_shutdown();
-
-    for (;;) {
-        __asm__ __volatile__("wfi");
-    }
 }
 
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
@@ -69,7 +72,7 @@ __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
         // set stack pointer
         "mv sp, %0\n"
         // jump to kernel function
-        "j kernel_main\n"
+        "j " STRINGIFY(kernel_main) "\n"
         // no outputs
         :
         // input

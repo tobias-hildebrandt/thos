@@ -9,7 +9,8 @@ OPTIMIZE ?= -O2
 DEBUG ?= -g3
 
 CC := clang
-CFLAGS := -std=c11 -Wall -Wextra --target=riscv64-unknown-elf -mcmodel=medany -fuse-ld=lld \
+CFLAGS := -std=c11 -Wall -Wextra -fuse-ld=lld \
+	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	-MJ ${COMP_DB_PART} \
 	-I${SRC} \
