@@ -4,8 +4,6 @@
 #include "panic.h"
 #include "types.h"  // IWYU pragma: keep
 
-extern char __PAGES_START[], __PAGES_END[];
-
 static uint64_t next_page = 0;
 
 uint64_t alloc_page() {

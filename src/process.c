@@ -14,10 +14,11 @@
 
 static Process processes[NUM_PROCESSES];
 
-#define PRINT_CONTEXT_REG(context, r) printf(#r ": 0x%x\n", context.r);
+#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%x\n", context.r);
 
-void print_process(Process* process) {
-    printf("process %d (state: %d):\n", process->id, process->state);
+void print_Process(Process* process) {
+    printf("Process {\n\tpid: 0x%x\n\tstate: 0x%x\n", process->id,
+           process->state);
     PRINT_CONTEXT_REG(process->context, ra);
     PRINT_CONTEXT_REG(process->context, sp);
     // PRINT_CONTEXT_REG(process->context, s0);
@@ -32,6 +33,7 @@ void print_process(Process* process) {
     // PRINT_CONTEXT_REG(process->context, s9);
     // PRINT_CONTEXT_REG(process->context, s10);
     // PRINT_CONTEXT_REG(process->context, s11);
+    printf("}\n");
 }
 
 Process* allocate_process(uint64_t entry_address) {
@@ -54,8 +56,10 @@ Process* allocate_process(uint64_t entry_address) {
     // when switched into, stack pointer is set to "top" of processes's own
     // kernel stack
     process->context.sp = (uint64_t)&process->kernel_stack + KERNEL_STACK_SIZE;
+    // TODO: s0 might be the frame pointer, maybe do something with it?
 
-    print_process(process);
+    printf("allocated ");
+    print_Process(process);
 
     return process;
 }

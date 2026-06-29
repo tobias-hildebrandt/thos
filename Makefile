@@ -60,6 +60,9 @@ ${GDB_INIT_FILE}:
 	@sed 's/:PORT_GOES_HERE/:${GDB_PORT}/' < ${GDB_INIT_TEMPLATE} > $@
 
 # run kernel via qemu and wait for a remote gdb to attach
+.PHONY: qemu-dbg
+qemu-dbg: qemu-gdb
+.PHONY: qemu-gdb
 qemu-gdb: kernel ${GDB_INIT_FILE}
 	@echo "-----"
 	@echo "gdb port is: ${GDB_PORT}"
@@ -82,10 +85,10 @@ ${KERNEL_ELF}: ${KERNEL_C_SOURCES} ${KERNEL_HEADERS} ${KERNEL_LINKER_SCRIPT} ${B
 
 # compilation commands database for clangd
 ${COMP_DB}: ${KERNEL_ELF}
-	@printf "[" > ${COMP_DB}
+	@printf "[\n" > ${COMP_DB}
 	@cat ${COMP_DB_PART} >> ${COMP_DB}
 	@truncate -s-2 ${COMP_DB}
-	@printf "]" >> ${COMP_DB}
+	@printf "\n]" >> ${COMP_DB}
 
 # create the build dir itself
 ${BUILD}:

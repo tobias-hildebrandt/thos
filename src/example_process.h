@@ -9,6 +9,7 @@ struct SomeData {
 };
 typedef struct SomeData SomeData;
 
-void process_load_s0(void);
+void process_load_s1(void);
 void process_load_from_stack(void);
 void process_that_returns(void);
+void process_mem_ops(void);

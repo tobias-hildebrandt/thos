@@ -9,6 +9,8 @@ SECTIONS {
     /* start at this address */
     . = 0x80200000;
 
+    __KERNEL_BASE = .;
+
     /* code lives here */
     .text : {
         /* boot function goes first */
