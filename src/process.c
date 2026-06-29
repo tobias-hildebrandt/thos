@@ -1,7 +1,5 @@
 #include "process.h"
 
-#include <string.h>
-
 #include "asm.h"
 #include "io.h"   // IWYU pragma: keep, needed for printf
 #include "mem.h"  // IWYU pragma: keep

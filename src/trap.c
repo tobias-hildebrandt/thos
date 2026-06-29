@@ -3,6 +3,7 @@
 #include "asm.h"
 #include "io.h"  // IWYU pragma: keep, needed for printf
 #include "sbi.h"
+#include "types.h"  // IWYU pragma: keep
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
@@ -156,4 +157,9 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
         : [frame_size] "i"(sizeof(TrapFrame))
 
     );
+}
+
+// set up exception handler
+void enable_trap_vector(void) {
+    __asm__ __volatile__("csrw stvec, %0" ::"r"((uint64_t)trap_vector));
 }

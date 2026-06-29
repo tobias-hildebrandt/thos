@@ -1,14 +1,18 @@
 #include "example_process.h"
 
-#include "alloc.h"
-#include "io.h"  // IWYU pragma: keep
+#include "flags.h"
+#include "io.h"   // IWYU pragma: keep
+#include "mem.h"  // IWYU pragma: keep
+#include "paging.h"
 #include "process.h"
 #include "types.h"
 
-// for longer spins, pass to make: CFLAGS_EXTRA="-DSPIN_TIMES=1024*1024*1024"
-#ifndef SPIN_TIMES
-#define SPIN_TIMES 1024
-#endif
+struct SomeData {
+    uint64_t d;
+    uint32_t w;
+    uint8_t b[16];
+};
+typedef struct SomeData SomeData;
 
 void print_SomeData(SomeData* data) {
     printf("SomeData { d: 0x%x, w: 0x%x, b: %s }\n", data->d, data->w, data->b);
@@ -20,13 +24,9 @@ void spin(int loops) {
     }
 }
 
-// only print if told to by external define (make CFLAGS_EXTRA="-DLOOP_PRINT=1")
+// prints ID and some value (only if enabled)
 void loop_print(uint64_t val) {
-#ifdef LOOP_PRINT
-    printf("%d.%x ", my_pid(), val);
-#else
-    (void)val;
-#endif
+    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%d.%x ", my_pid(), val);
 }
 
 void print_process_start(char* name) {
@@ -38,7 +38,7 @@ void process_loop(uint64_t start) {
     while (1) {
         counter += 1;
         loop_print(counter);
-        spin(SPIN_TIMES);
+        spin(EXAMPLE_PROCESSES_SPIN);
         yield();
     }
 }
@@ -79,7 +79,7 @@ void process_that_returns() {
 
     for (int i = 0; i < 10; i++) {
         loop_print(i);
-        spin(SPIN_TIMES);
+        spin(EXAMPLE_PROCESSES_SPIN);
         yield();
     }
 }
@@ -91,6 +91,8 @@ void process_mem_ops() {
     uint8_t* page = (uint8_t*)alloc_page();
 
     printf("page addr: 0x%x\n", (uint64_t)page);
+
+    yield();
 
     bool should_read = false;
 
@@ -110,4 +112,25 @@ void process_mem_ops() {
         should_read = !should_read;
         yield();
     }
+}
+
+void start_example_processes(void) {
+    Process* p0 = allocate_process((uint64_t)process_load_s1);
+    p0->context.s1 = 0x11111111;
+
+    Process* p1 = allocate_process((uint64_t)process_load_from_stack);
+    // allocate room on kernel stack so process doesn't clobber it
+    // (though this data will never be popped)
+    p1->context.sp -= sizeof(SomeData);
+    // put data on stack
+    SomeData* p1_data = (SomeData*)(p1->context.sp);
+    p1_data->d = 0xdeadbeef;
+    p1_data->w = 0xfeedcafe;
+    memcpy(p1_data->b, "abcdefghijklmno", 16);
+    // pass address to data as s1
+    p1->context.s1 = (uint64_t)p1_data;
+
+    allocate_process((uint64_t)process_that_returns);
+
+    allocate_process((uint64_t)process_mem_ops);
 }

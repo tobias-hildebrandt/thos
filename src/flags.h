@@ -1,0 +1,40 @@
+#pragma once
+
+#ifdef DEBUG
+#define DEBUG_EXAMPLE_PROCESSES 1
+#define DEBUG_MAP_ADDRESS 1
+#define DEBUG_PAGE_ALLOC 1
+#define DEBUG_PRINTF 1
+#endif
+
+#ifndef DEBUG_EXAMPLE_PROCESSES
+#define DEBUG_EXAMPLE_PROCESSES 0
+#endif
+
+#ifndef DEBUG_MAP_ADDRESS
+#define DEBUG_MAP_ADDRESS 0
+#endif
+
+#ifndef DEBUG_PAGE_ALLOC
+#define DEBUG_PAGE_ALLOC 0
+#endif
+
+#ifndef DEBUG_PRINTF
+#define DEBUG_PRINTF 0
+#endif
+
+#ifndef DEBUG_TRAP
+#define DEBUG_TRAP 0
+#endif
+
+#ifndef EXAMPLE_PROCESSES_SPIN
+#define EXAMPLE_PROCESSES_SPIN 1024
+#endif
+
+#ifndef EXAMPLE_PROCESSES_DISABLE
+#define EXAMPLE_PROCESSES_DISABLE 0
+#endif
+
+#ifndef PANIC_LOOP
+#define PANIC_LOOP 0
+#endif

@@ -1,3 +1,7 @@
+# compile-time define flags
+- `./misc/find_compile_flags.sh`
+- pass to make via `make CFLAGS_EXTRA="-DSOMETHING -DANOTHER -DXXXXX"` (probably will need `make clean`)
+
 #
 - `riscv64-unknown-elf-objdump -d build/kernel.elf`
 - `riscv64-unknown-elf-addr2line <addr> -e build/kernel.elf`

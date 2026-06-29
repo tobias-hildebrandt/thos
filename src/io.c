@@ -1,24 +1,8 @@
 #include "sbi.h"
-#include "string.h"
 #include "types.h"
 
 void put_char(const char ch) {
     sbi_putchar(ch);
-}
-
-void put_c_str(const char* str) {
-    for (size_t i = 0; str[i] != '\0'; i++) {
-        put_char(str[i]);
-    }
-}
-
-void put_string(const String* string) {
-    if (string->len == 0) {
-        return;
-    }
-    for (size_t i = 0; i < string->len - 1; i++) {
-        put_char(string->data[i]);
-    }
 }
 
 void printf(const char* format_str, ...) {
@@ -41,16 +25,12 @@ void printf(const char* format_str, ...) {
                     // %%
                     put_char('%');
                     break;
-                case 'S': {
-                    // %S, String
-                    String* string = va_arg(args, String*);
-                    put_string(string);
-                    break;
-                }
                 case 's': {
                     // %s, c string
                     char* c_str = va_arg(args, char*);
-                    put_c_str(c_str);
+                    for (size_t i = 0; c_str[i] != '\0'; i++) {
+                        put_char(c_str[i]);
+                    }
                     break;
                 }
                 case 'x': {
