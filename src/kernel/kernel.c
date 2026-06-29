@@ -1,11 +1,13 @@
+#include <stdio.h>
+
 #include "debug.h"
 #include "example_process.h"
 #include "flags.h"
-#include "io.h"  // IWYU pragma: keep
 #include "paging.h"
 #include "panic.h"
 #include "process.h"
 #include "trap.h"
+#include "types.h"
 
 extern char __STACK_START[];
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {

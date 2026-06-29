@@ -9,6 +9,7 @@
 #
 - https://operating-system-in-1000-lines.vercel.app/en/
 - https://riscv.org/wp-content/uploads/2024/12/riscv-calling.pdf
+- https://lists.riscv.org/g/tech-psabi/attachment/61/0/riscv-abi.pdf
 - https://github.com/mit-pdos/xv6-riscv/blob/riscv/Makefile
 - https://wiki.osdev.org/Expanded_Main_Page
 - https://sourceware.org/binutils/docs/ld/

@@ -1,9 +1,13 @@
 #include "process.h"
 
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "asm.h"
-#include "io.h"   // IWYU pragma: keep, needed for printf
-#include "mem.h"  // IWYU pragma: keep
 #include "panic.h"
+#include "types.h"
 
 // TODO: change process->context.ra once it is switched into for the first time
 //       so it doesn't loop infinitely once it returns

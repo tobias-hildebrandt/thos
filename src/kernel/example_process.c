@@ -1,11 +1,12 @@
 #include "example_process.h"
 
+#include <stdbool.h>
+#include <string.h>
+
 #include "flags.h"
-#include "io.h"   // IWYU pragma: keep
-#include "mem.h"  // IWYU pragma: keep
+#include "io.h"  // IWYU pragma: keep
 #include "paging.h"
 #include "process.h"
-#include "types.h"
 
 struct SomeData {
     uint64_t d;

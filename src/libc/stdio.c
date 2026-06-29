@@ -1,9 +1,7 @@
-#include "sbi.h"
-#include "types.h"
-
-void put_char(const char ch) {
-    sbi_putchar(ch);
-}
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
 void printf(const char* format_str, ...) {
     va_list args;
@@ -11,7 +9,7 @@ void printf(const char* format_str, ...) {
 
     while (*format_str) {
         if (*format_str != '%') {
-            put_char(*format_str);
+            putchar(*format_str);
         } else {
             // skip %
             format_str += 1;
@@ -19,17 +17,17 @@ void printf(const char* format_str, ...) {
             switch (*format_str) {
                 case '\0':
                     // end of format string
-                    put_char('%');
+                    putchar('%');
                     goto printf_cleanup;
                 case '%':
                     // %%
-                    put_char('%');
+                    putchar('%');
                     break;
                 case 's': {
                     // %s, c string
                     char* c_str = va_arg(args, char*);
                     for (size_t i = 0; c_str[i] != '\0'; i++) {
-                        put_char(c_str[i]);
+                        putchar(c_str[i]);
                     }
                     break;
                 }
@@ -45,7 +43,7 @@ void printf(const char* format_str, ...) {
                         } else {
                             ascii = hex + 'a' - 10;
                         }
-                        put_char(ascii);
+                        putchar(ascii);
                     }
                     break;
                 }
@@ -57,7 +55,7 @@ void printf(const char* format_str, ...) {
                     // = 10
                     int signed_value = va_arg(args, int);
                     if (signed_value < 0) {
-                        put_char('-');
+                        putchar('-');
                         // TODO: just OR all bits except MSB?
                         signed_value *= -1;
                     }
@@ -66,7 +64,7 @@ void printf(const char* format_str, ...) {
 
                     // edge case that's easier to handle here
                     if (value == 0) {
-                        put_char('0');
+                        putchar('0');
                         break;
                     }
 
@@ -77,9 +75,9 @@ void printf(const char* format_str, ...) {
                             started = true;
                             const unsigned int digit = value / divisor;
                             value -= digit * divisor;
-                            put_char('0' + digit);
+                            putchar('0' + digit);
                         } else if (started) {
-                            put_char('0');
+                            putchar('0');
                         } else {
                             // do nothing!
                         }

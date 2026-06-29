@@ -1,4 +1,4 @@
-#include "mem.h"
+#include <string.h>
 
 void* memset(void* buf, char c, size_t n) {
     for (size_t i = 0; i < n; i++) {

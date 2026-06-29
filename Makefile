@@ -13,15 +13,18 @@ CFLAGS := -std=c11 -Wall -Wextra -fuse-ld=lld \
 	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	-MJ ${COMP_DB_PART} \
-	-I${SRC} \
+	-I${SRC}/kernel/ \
+	-isystem${SRC}/libc/ \
 	${OPTIMIZE} ${DEBUG} \
 	${CFLAGS_EXTRA}
 
-KERNEL_LINKER_SCRIPT := ${SRC}/kernel.lds
-KERNEL_C_SOURCES := $(shell find ${SRC} -name '*.c')
-KERNEL_HEADERS := $(shell find ${SRC} -name '*.h')
-
+KERNEL_LINKER_SCRIPT := ${SRC}/kernel/kernel.lds
+KERNEL_C_SOURCES := $(shell find ${SRC}/kernel/ -name '*.c')
+KERNEL_HEADERS := $(shell find ${SRC}/kernel/ -name '*.h')
 KERNEL_ELF := ${BUILD}/kernel.elf
+
+LIBC_C_SOURCES := $(shell find ${SRC}/libc/ -name '*.c')
+LIBC_HEADERS := $(shell find ${SRC}/libc/ -name '*.h')
 
 QEMU := qemu-system-riscv64
 QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio --no-reboot -kernel ${KERNEL_ELF}
@@ -80,8 +83,8 @@ clean:
 	rm -rf ${BUILD}
 
 # kernel ELF binary
-${KERNEL_ELF}: ${KERNEL_C_SOURCES} ${KERNEL_HEADERS} ${KERNEL_LINKER_SCRIPT} ${BUILD}
-	${CC} ${CFLAGS} -Wl,-T${KERNEL_LINKER_SCRIPT} -Wl,-Map=${BUILD}/kernel.map -o $@ ${KERNEL_C_SOURCES}
+${KERNEL_ELF}: ${KERNEL_C_SOURCES} ${KERNEL_HEADERS} ${KERNEL_LINKER_SCRIPT} ${BUILD} ${LIBC_C_SOURCES} ${LIBC_HEADERS}
+	${CC} ${CFLAGS} -Wl,-T${KERNEL_LINKER_SCRIPT} -Wl,-Map=${BUILD}/kernel.map -o $@ ${KERNEL_C_SOURCES} ${LIBC_C_SOURCES}
 
 # compilation commands database for clangd
 ${COMP_DB}: ${KERNEL_ELF}

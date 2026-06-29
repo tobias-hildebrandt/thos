@@ -1,7 +1,8 @@
 #pragma once
 
-#include "flags.h"  // IWYU pragma: keep
-#include "io.h"     // IWYU pragma: keep, needed for printf
+#include <stdio.h>  // IWYU pragma: keep, needed for printf
+
+#include "flags.h"  // IWYU pragma: keep, needed for PANIC_LOOP
 #include "sbi.h"    // IWYU pragma: keep, needed for sbi_shutdown
 
 // TODO: extract to function, simplify macros?

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.h"  // IWYU pragma: keep, needed for uint8_t
+#include <stdint.h>
 
 enum ProcessState {
     // not actually a process

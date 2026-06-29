@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.h"  // IWYU pragma: keep
+#include <stdint.h>
 
 #define PAGE_SIZE 4096
 

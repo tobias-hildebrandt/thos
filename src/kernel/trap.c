@@ -1,9 +1,11 @@
 #include "trap.h"
 
+#include <stdint.h>
+#include <stdio.h>
+
 #include "asm.h"
-#include "io.h"  // IWYU pragma: keep, needed for printf
 #include "sbi.h"
-#include "types.h"  // IWYU pragma: keep
+#include "types.h"
 
 struct TrapFrame {
     // return address, global pointer, thread pointer

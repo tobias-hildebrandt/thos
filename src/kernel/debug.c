@@ -1,8 +1,8 @@
 #include "debug.h"
 
-#include "io.h"  // IWYU pragma: keep
+#include <stdio.h>
+
 #include "paging.h"
-#include "types.h"  // IWYU pragma: keep
 
 // page alloc testing
 void debug_page_alloc(void) {
@@ -37,7 +37,7 @@ void debug_printf(void) {
         printf("0x%x=%d\n", i, i);
     }
     printf("zero        0x%x=%d\n", 0, 0);
-    printf("max int     0x%x=%d\n", INT_MAX, INT_MAX);
+    printf("max int     0x%x=%d\n", INT32_MAX, INT32_MAX);
     printf("all bits 1  0x%x=%d\n", 0xffffffff, 0xffffffff);
-    printf("min int     0x%x=%d\n", INT_MIN, INT_MIN);
+    printf("min int     0x%x=%d\n", INT32_MIN, INT32_MIN);
 }

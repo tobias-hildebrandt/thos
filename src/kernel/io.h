@@ -1,8 +1,6 @@
 #pragma once
 
-void put_char(const char ch);
-
-void printf(const char* format_str, ...);
+#include <stdio.h>  // IWYU pragma: keep, needed for printf
 
 #define PRINTF_IF(def, ...)      \
     do {                         \

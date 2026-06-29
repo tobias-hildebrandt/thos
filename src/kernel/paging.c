@@ -1,7 +1,10 @@
 #include "paging.h"
 
+#include <stdbool.h>
+#include <string.h>
+
 #include "flags.h"
-#include "mem.h"  // IWYU pragma: keep
+#include "io.h"
 #include "panic.h"
 #include "sections.h"
 #include "types.h"
