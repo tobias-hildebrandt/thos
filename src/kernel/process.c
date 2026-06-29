@@ -7,7 +7,7 @@
 
 #include "asm.h"
 #include "panic.h"
-#include "types.h"
+#include "util.h"
 
 // TODO: change process->context.ra once it is switched into for the first time
 //       so it doesn't loop infinitely once it returns

@@ -7,7 +7,7 @@
 #include "panic.h"
 #include "process.h"
 #include "trap.h"
-#include "types.h"
+#include "util.h"
 
 extern char __STACK_START[];
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {

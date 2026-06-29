@@ -7,7 +7,7 @@
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
-#include "types.h"
+#include "util.h"
 
 #define RISCV_MODE_SV39 8
 

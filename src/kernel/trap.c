@@ -5,7 +5,7 @@
 
 #include "asm.h"
 #include "sbi.h"
-#include "types.h"
+#include "util.h"
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
