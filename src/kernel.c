@@ -1,14 +1,14 @@
+#include "example_process.h"
 #include "io.h"
+#include "mem.h"  // IWYU pragma: keep, needed for memset
 #include "panic.h"
-#include "sbi.h"
+#include "process.h"
 #include "string.h"
 #include "trap.h"
 
-extern char __STACK_START[];
-
 void kernel_main(void) {
     // read stack pointer into variable immediately
-    int stack_pointer;
+    uint64_t stack_pointer;
     __asm__ __volatile__("mv %0, sp" : "=r"(stack_pointer));
 
     // set up exception handler
@@ -38,35 +38,37 @@ void kernel_main(void) {
     printf("all bits 1  0x%x=%d\n", 0xffffffff, 0xffffffff);
     printf("min int     0x%x=%d\n", INT_MIN, INT_MIN);
 
-    const unsigned int LOOP_SPIN = 1024 /* * 1024 */;
-    const unsigned int PER_LINE = 10;
-    const unsigned int LINES = 10;
-
-    printf("spinning now\n");
-
-    for (unsigned int i = 0; i < LOOP_SPIN * LINES * PER_LINE; i++) {
-        if (0 != i && i % (LOOP_SPIN * PER_LINE) == 0) {
-            put_char('\n');
-        }
-        if (i % LOOP_SPIN == 0) {
-            put_char('.');
-        }
-    }
-    printf("\n");
-
     // trigger trap
     __asm__ __volatile__("unimp");
 
     printf("this is a line after unimp\n");
 
-    PANIC("this is an expected panic");
+    // simple process that gets data from register s0
+    Process* p1 = allocate_process((uint64_t)process_load_s0);
+    p1->context.s0 = 111;
+
+    // process that gets data from kernel stack
+    Process* p2 = allocate_process((uint64_t)process_load_from_stack);
+    // allocate on kernel stack
+    p2->context.sp -= sizeof(SomeData);
+    // put data on stack
+    SomeData* p2_data = (SomeData*)(p2->kernel_stack + 8192 - sizeof(SomeData));
+    p2_data->d = 222;
+    p2_data->w = 10;
+    memcpy(p2_data->b, "abcdefghijklmno", 16);
+    p2_data->b[15] = 0;
+
+    // process the eventually returns
+    allocate_process((uint64_t)process_that_returns);
+
+    // find a process and run it
+    yield();
 
     // rest of body will not run
-
-    printf("should not be printed!\n");
-    sbi_shutdown();
+    PANIC("end of kernel_main");
 }
 
+extern char __STACK_START[];
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
     __asm__ __volatile__(
         // set stack pointer

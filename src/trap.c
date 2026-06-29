@@ -1,5 +1,6 @@
 #include "trap.h"
 
+#include "asm.h"
 #include "io.h"  // IWYU pragma: keep, needed for printf
 #include "sbi.h"
 
@@ -50,10 +51,6 @@ void handle_trap(TrapFrame* frame) {
 }
 
 // macros for asm string creation
-#define REGISTER_STACK(instr, reg, offset) \
-    #instr " " #reg ", 8 * (" #offset ")(sp)\n"
-#define REGISTER_STACK_OFFSET(instr, start_offset, prefix, x) \
-    REGISTER_STACK(instr, prefix##x, start_offset + x)
 
 #define T_OFFSET 3
 #define A_OFFSET (T_OFFSET + 7)
@@ -69,43 +66,43 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
         // store registers
         // clang-format off
         // starting registers
-        REGISTER_STACK(sd, ra, 0)
-        REGISTER_STACK(sd, gp, 1)
-        REGISTER_STACK(sd, tp, 2)
+        REGISTER_MEM(sd, sp, ra, 0)
+        REGISTER_MEM(sd, sp, gp, 1)
+        REGISTER_MEM(sd, sp, tp, 2)
         // t registers
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 0)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 1)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 2)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 3)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 4)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 5)
-        REGISTER_STACK_OFFSET(sd, T_OFFSET, t, 6) //9
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 0)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 1)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 2)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 3)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 4)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 5)
+        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 6) //9
         // a registers
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 0)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 1)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 2)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 3)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 4)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 5)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 6)
-        REGISTER_STACK_OFFSET(sd, A_OFFSET, a, 7) //17
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 0)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 1)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 2)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 3)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 4)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 5)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 6)
+        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 7) //17
         // s registers
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 0)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 1)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 2)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 3)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 4)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 5)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 6)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 7)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 8)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 9)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 10)
-        REGISTER_STACK_OFFSET(sd, S_OFFSET, s, 11) //29
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 0)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 1)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 2)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 3)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 4)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 5)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 6)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 7)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 8)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 9)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 10)
+        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 11) //29
         // read old stack pointer
         "csrr a0, sscratch\n"
         // push it onto stack
-        REGISTER_STACK(sd, a0, 30)
+        REGISTER_MEM(sd, sp, a0, 30)
         // clang-format on
         // a0 (first function argument) points to TrapFrame on stack
         "mv a0, sp\n"
@@ -115,41 +112,41 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
 
         // clang-format off
         // starting registers
-        REGISTER_STACK(ld, ra, 0)
-        REGISTER_STACK(ld, gp, 1)
-        REGISTER_STACK(ld, tp, 2)
+        REGISTER_MEM(ld, sp, ra, 0)
+        REGISTER_MEM(ld, sp, gp, 1)
+        REGISTER_MEM(ld, sp, tp, 2)
         // t registers
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 0)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 1)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 2)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 3)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 4)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 5)
-        REGISTER_STACK_OFFSET(ld, T_OFFSET, t, 6) //9
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 0)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 1)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 2)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 3)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 4)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 5)
+        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 6) //9
         // a registers
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 0)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 1)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 2)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 3)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 4)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 5)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 6)
-        REGISTER_STACK_OFFSET(ld, A_OFFSET, a, 7) //17
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 0)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 1)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 2)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 3)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 4)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 5)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 6)
+        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 7) //17
         // s registers
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 0)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 1)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 2)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 3)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 4)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 5)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 6)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 7)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 8)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 9)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 10)
-        REGISTER_STACK_OFFSET(ld, S_OFFSET, s, 11) //29
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 0)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 1)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 2)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 3)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 4)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 5)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 6)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 7)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 8)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 9)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 10)
+        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 11) //29
         // restore old stack pointer
-        REGISTER_STACK(ld, sp, 30)
+        REGISTER_MEM(ld, sp, sp, 30)
         // (technically could just subtract, would avoid a load op)
         // "addi sp, sp, %[frame_size]\n"
         // clang-format on
