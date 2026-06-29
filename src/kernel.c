@@ -1,3 +1,4 @@
+#include "alloc.h"
 #include "example_process.h"
 #include "io.h"
 #include "mem.h"  // IWYU pragma: keep, needed for memset
@@ -37,6 +38,11 @@ void kernel_main(void) {
     printf("max int     0x%x=%d\n", INT_MAX, INT_MAX);
     printf("all bits 1  0x%x=%d\n", 0xffffffff, 0xffffffff);
     printf("min int     0x%x=%d\n", INT_MIN, INT_MIN);
+
+    for (int i = 0; i < 8; i++) {
+        uint64_t page = alloc_page();
+        printf("page %d alloc at 0x%x\n", i, page);
+    }
 
     // trigger trap
     __asm__ __volatile__("unimp");

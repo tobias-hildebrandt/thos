@@ -39,4 +39,13 @@ SECTIONS {
     . += 64K;
 
     __STACK_START = .;
+
+    /* pages for allocation */
+    . = ALIGN(4096);
+
+    __PAGES_START = .;
+
+    . += 256 * 4096;
+
+    __PAGES_END = .;
 }
