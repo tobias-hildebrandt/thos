@@ -15,10 +15,10 @@ static uint64_t next_page_address = 0;
 
 void* alloc_page(void) {
     if (next_page_address == 0) {
-        next_page_address = (uint64_t)__PAGES_START;
+        next_page_address = (uint64_t)PAGES_START;
     }
 
-    if (next_page_address > (uint64_t)__PAGES_END - PAGE_SIZE) {
+    if (next_page_address > (uint64_t)PAGES_END - PAGE_SIZE) {
         PANIC("page allocation would overflow page memory!");
     }
 
@@ -230,24 +230,13 @@ void activate_PageTable(PageTable table) {
         "sfence.vma\n" ::[reg] "r"(satp_register));
 }
 
-static const uint64_t memory_start = (uint64_t)__KERNEL_BASE;
-static const uint64_t memory_end = (uint64_t)__PAGES_END;
-
-void print_memory_size(void) {
-    const uint64_t total_memory_space = memory_end - memory_start;
-    const uint64_t total_pages = total_memory_space / PAGE_SIZE;
-
-    printf("kernel memory space: %dkB = %d pages\n", total_memory_space / 1024,
-           total_pages);
-}
-
 // enable virtual memory
 void map_all_kernel_memory(PageTable table) {
     // TODO: mega/giga pages for different sections?
 
     // map entire kernel physical memory space
-    for (uint64_t physical_address = memory_start;
-         physical_address < memory_end; physical_address += PAGE_SIZE) {
+    for (uint64_t physical_address = MEMORY_START;
+         physical_address < MEMORY_END; physical_address += PAGE_SIZE) {
         VirtualAddress virtual_address = {0};
         virtual_address.value = physical_address;
 

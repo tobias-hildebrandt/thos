@@ -18,7 +18,8 @@ __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
         // no outputs
         :
         // input
-        : "r"(__STACK_START));
+        // stack starts at top of stack section and grows down in address space
+        : "r"(STACK_END));
 }
 
 void kernel_main(void) {
@@ -29,7 +30,7 @@ void kernel_main(void) {
         "----------\n"
         "Hello kernel_main\n");
 
-    print_memory_size();
+    print_all_sections();
 
     if (DEBUG_PRINTF) {
         debug_printf();

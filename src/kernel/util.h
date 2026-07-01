@@ -5,3 +5,6 @@
 #define offsetof(type, member) __builtin_offsetof(type, member)
 
 #define STRINGIFY(x) #x
+
+// integer division but rounds up
+#define INT_DIV_CEIL(num, denom) ((num + (denom - 1)) / denom)

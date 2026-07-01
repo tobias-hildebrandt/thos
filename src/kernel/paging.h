@@ -62,5 +62,4 @@ void* alloc_page(void);
 
 void map_all_kernel_memory(PageTable table);
 void activate_PageTable(PageTable table);
-void print_memory_size(void);
 uint64_t get_physical_address(PageTable table, VirtualAddress address);
