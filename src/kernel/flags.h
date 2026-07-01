@@ -5,6 +5,7 @@
 #define DEBUG_MAP_ADDRESS 1
 #define DEBUG_PAGE_ALLOC 1
 #define DEBUG_PRINTF 1
+#define DEBUG_ACTIVATE_TABLE 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -25,6 +26,14 @@
 
 #ifndef DEBUG_TRAP
 #define DEBUG_TRAP 0
+#endif
+
+#ifndef DEBUG_ACTIVATE_TABLE
+#define DEBUG_ACTIVATE_TABLE 0
+#endif
+
+#ifndef PAGE_TABLE_PRINT_ALL_FLAGS
+#define PAGE_TABLE_PRINT_ALL_FLAGS 0
 #endif
 
 #ifndef EXAMPLE_PROCESSES_SPIN

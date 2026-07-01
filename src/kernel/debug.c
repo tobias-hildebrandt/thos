@@ -1,15 +1,23 @@
 #include "debug.h"
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "paging.h"
 
 // page alloc testing
 void debug_page_alloc(void) {
-    for (int i = 0; i < 8; i++) {
-        uint64_t page = alloc_page();
-        *(uint64_t*)page = i;
-        printf("page alloc at 0x%x\n", page);
+    for (int page_num = 0; page_num < 8; page_num++) {
+        char* page = (char*)alloc_page();
+
+        // individually write each byte in page
+        const size_t num_values = PAGE_SIZE / sizeof(char);
+        for (size_t index = 0; index > num_values; index++) {
+            page[index] = page_num;
+        }
+
+        printf("page alloc at 0x%x\n", (uint64_t)page);
     }
 }
 

@@ -20,4 +20,4 @@
 - https://gcc.gnu.org/onlinedocs/gcc/Using-Assembly-Language-with-C.html
 - https://xv6-guide.github.io/xv6-riscv-book/index.html
 - https://lupyuen.org/articles/mmu
-
+- https://osdev.wiki/wiki/RISC-V_Paging

@@ -3,13 +3,12 @@
 #include "debug.h"
 #include "example_process.h"
 #include "flags.h"
-#include "paging.h"
 #include "panic.h"
 #include "process.h"
+#include "sections.h"
 #include "trap.h"
 #include "util.h"
 
-extern char __STACK_START[];
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
     __asm__ __volatile__(
         // set stack pointer
@@ -30,7 +29,7 @@ void kernel_main(void) {
         "----------\n"
         "Hello kernel_main\n");
 
-    enable_virtual_memory();
+    print_memory_size();
 
     if (DEBUG_PRINTF) {
         debug_printf();

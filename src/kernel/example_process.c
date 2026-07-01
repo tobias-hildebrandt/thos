@@ -1,6 +1,7 @@
 #include "example_process.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "flags.h"
@@ -91,7 +92,10 @@ void process_mem_ops() {
 
     uint8_t* page = (uint8_t*)alloc_page();
 
-    printf("page addr: 0x%x\n", (uint64_t)page);
+    printf("alloc'd page vaddr: 0x%x\n", (uint64_t)page);
+    printf("alloc'd page paddr: 0x%x\n",
+           get_physical_address(my_page_table(),
+                                (VirtualAddress){.value = (uint64_t)page}));
 
     yield();
 
@@ -131,7 +135,9 @@ void start_example_processes(void) {
     // pass address to data as s1
     p1->context.s1 = (uint64_t)p1_data;
 
-    allocate_process((uint64_t)process_that_returns);
+    Process* p2 = allocate_process((uint64_t)process_that_returns);
+    (void)p2;
 
-    allocate_process((uint64_t)process_mem_ops);
+    Process* p3 = allocate_process((uint64_t)process_mem_ops);
+    (void)p3;
 }

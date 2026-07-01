@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "asm.h"
+#include "paging.h"
 #include "panic.h"
 #include "util.h"
 
@@ -16,11 +17,31 @@
 
 static Process processes[NUM_PROCESSES];
 
-#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%x\n", context.r);
+#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%x,\n", context.r);
+
+void print_ProcessState(ProcessState state) {
+    switch (state) {
+        case PROCESS_UNUSED:
+            printf("UNUSED");
+            break;
+        case PROCESS_READY:
+            printf("READY");
+            break;
+        case PROCESS_RUNNABLE:
+            printf("RUNNABLE");
+            break;
+        case PROCESS_RUNNING:
+            printf("RUNNING");
+            break;
+        default:
+            PANIC("tried to print invalid ProcessState");
+    }
+}
 
 void print_Process(Process* process) {
-    printf("Process {\n\tpid: 0x%x\n\tstate: 0x%x\n", process->id,
-           process->state);
+    printf("Process {\n\tpid: 0x%x,\n\tstate: ", process->id);
+    print_ProcessState(process->state);
+    printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);
     PRINT_CONTEXT_REG(process->context, sp);
     // PRINT_CONTEXT_REG(process->context, s0);
@@ -52,6 +73,10 @@ Process* allocate_process(uint64_t entry_address) {
         PANIC("no more available processes");
     }
 
+    // create page table and map kernel memory
+    PageTable page_table = (PageTable)alloc_page();
+    map_all_kernel_memory(page_table);
+
     process->state = PROCESS_READY;
     // when switched into, "returns" to the entry address
     process->context.ra = entry_address;
@@ -59,6 +84,8 @@ Process* allocate_process(uint64_t entry_address) {
     // kernel stack
     process->context.sp = (uint64_t)&process->kernel_stack + KERNEL_STACK_SIZE;
     // TODO: s0 might be the frame pointer, maybe do something with it?
+
+    process->page_table = page_table;
 
     printf("allocated ");
     print_Process(process);
@@ -159,6 +186,13 @@ uint8_t my_pid() {
     return current_process->id;
 }
 
+PageTable my_page_table() {
+    if (current_process == NULL) {
+        PANIC("my_page_table called while no current process");
+    }
+    return current_process->page_table;
+}
+
 uint8_t increment_loop_id(uint8_t id) {
     id += 1;
     if (id >= NUM_PROCESSES) {
@@ -200,6 +234,8 @@ void yield(void) {
 
     current_process = next_process;
     // state is set in switch_context
+
+    activate_PageTable(current_process->page_table);
 
     // will return INTO the process
     switch_context(previous_context, &(current_process->context),

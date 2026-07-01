@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "paging.h"
+
 enum ProcessState {
     // not actually a process
     PROCESS_UNUSED = 0,
@@ -29,10 +31,12 @@ struct Process {
     ProcessState state;
     uint8_t kernel_stack[KERNEL_STACK_SIZE];
     ProcessContext context;
+    PageTable page_table;
 };
 typedef struct Process Process;
 
 void yield(void);
 Process* allocate_process(uint64_t entry_address);
 uint8_t my_pid();
+PageTable my_page_table();
 void print_Process(Process* process);
