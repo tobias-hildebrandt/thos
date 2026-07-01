@@ -17,7 +17,7 @@
 
 static Process processes[NUM_PROCESSES] = {0};
 
-#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%x,\n", context.r);
+#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%lx,\n", context.r);
 
 void print_ProcessState(ProcessState state) {
     switch (state) {
@@ -95,8 +95,6 @@ Process* allocate_process(uint64_t entry_address) {
 
 #define RESTORE_LABEL STRINGIFY(switch_context) "_restore"
 #define REPLACE_RA_LABEL STRINGIFY(switch_context) "_replace_ra"
-#define RESTORE_REPLACE_RA_LABEL \
-    STRINGIFY(switch_context) "_restore_replaced_ra"
 #define RETURN_LABEL STRINGIFY(switch_context) "_return"
 
 #define S_OFFSET 2

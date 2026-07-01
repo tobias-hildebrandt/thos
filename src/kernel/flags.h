@@ -5,6 +5,7 @@
 #define DEBUG_MAP_ADDRESS 1
 #define DEBUG_PAGE_ALLOC 1
 #define DEBUG_PRINTF 1
+#define DEBUG_TRAP 1
 #define DEBUG_ACTIVATE_TABLE 1
 #endif
 

@@ -32,8 +32,8 @@ void print_section(char* name, uint64_t start, uint64_t end, uint64_t size) {
     uint64_t kb = INT_DIV_CEIL(size, 1024);
     uint64_t pages = INT_DIV_CEIL(size, PAGE_SIZE);
     printf("section %s\n", name);
-    printf("\taddresses:  0x%x - 0x%x\n", start, end);
-    printf("\tsize:       %d pages (~%d kB, %d bytes)\n", pages, kb, size);
+    printf("\taddresses:  0x%lx - 0x%lx\n", start, end);
+    printf("\tsize:       %ld pages (~%ld kB, %ld bytes)\n", pages, kb, size);
 }
 
 void print_all_sections(void) {

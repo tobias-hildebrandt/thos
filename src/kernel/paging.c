@@ -46,7 +46,7 @@ PageTable get_linked_table(PageTableEntry entry) {
 }
 
 void print_VirtualAddress(VirtualAddress virtual_address) {
-    printf("VirtualAddress(0x%x){ ", virtual_address.value);
+    printf("VirtualAddress(0x%lx){ ", virtual_address.value);
     printf("L2: %d, ", virtual_address.level2_entry_number);
     printf("L1: %d, ", virtual_address.level1_entry_number);
     printf("L0: %d, ", virtual_address.level0_entry_number);
@@ -92,7 +92,7 @@ void print_PageTableEntryFlags(PageTableEntryFlags flags,
 void map_address(PageTable first_table, VirtualAddress virtual_address,
                  uint64_t physical_address, PageTableEntryFlags flags) {
     if (DEBUG_MAP_ADDRESS) {
-        printf("map_address(table @ 0x%x, v:0x%x, p:0x%x, f:",
+        printf("map_address(table @ 0x%lx, v:0x%lx, p:0x%lx, f:",
                (uint64_t)first_table, virtual_address.value, physical_address,
                flags);
         print_PageTableEntryFlags(flags, false);
@@ -100,18 +100,18 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     }
 
     if (!is_aligned(virtual_address.value, PAGE_SIZE)) {
-        PANIC("virtual address not aligned %x", virtual_address.value);
+        PANIC("virtual address not aligned %lx", virtual_address.value);
     }
 
     if (!is_aligned(physical_address, PAGE_SIZE)) {
-        PANIC("physical address not aligned %x", physical_address);
+        PANIC("physical address not aligned %lx", physical_address);
     }
 
     if (DEBUG_MAP_ADDRESS) {
         print_VirtualAddress(virtual_address);
     }
 
-    uint64_t level_entry_number[] = {
+    uint16_t level_entry_number[] = {
         virtual_address.level0_entry_number,
         virtual_address.level1_entry_number,
         virtual_address.level2_entry_number,
@@ -130,7 +130,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
         }
 
         PRINTF_IF(DEBUG_MAP_ADDRESS,
-                  "level %i = table @ 0x%x. using entry %d\n", level,
+                  "level %i = table @ 0x%lx. using entry %d\n", level,
                   (uint64_t)current_table, entry_number);
 
         entry = &current_table[entry_number];
@@ -176,7 +176,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
 void print_PageTableEntry(PageTableEntry entry) {
     printf("Entry { flags: ");
     print_PageTableEntryFlags(entry.flags, true);
-    printf(", physical_page_num: 0x%x }\n", entry.physical_page_num);
+    printf(", physical_page_num: 0x%lx }\n", entry.physical_page_num);
 }
 
 struct PrintPageTableRecurse {
@@ -202,7 +202,7 @@ void print_PageTable(PageTable table, bool only_valid_entries,
             printf("(level[%d]) ", recurse.level);
         }
 
-        printf("PageTable 0x%x entry[%d] = ", table, i);
+        printf("PageTable 0x%lx entry[%d] = ", table, i);
         print_PageTableEntry(entry);
 
         if (recurse.recurse && !is_leaf_node(entry.flags)) {

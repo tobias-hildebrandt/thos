@@ -17,7 +17,7 @@ void debug_page_alloc(void) {
             page[index] = page_num;
         }
 
-        printf("page alloc at 0x%x\n", (uint64_t)page);
+        printf("page alloc at 0x%lx\n", (uint64_t)page);
     }
 }
 
@@ -31,10 +31,14 @@ void debug_trap(void) {
 
 // print testing
 void debug_printf(void) {
-    printf("printf hex 0          = 0x%x\n", 0x0);
-    printf("printf hex 0xffffffff = 0x%x\n", 0xffffffff);
-    printf("printf hex 0x01234567 = 0x%x\n", 0x01234567);
-    printf("printf hex 0x89abcdef = 0x%x\n", 0x89abcdef);
+    printf("printf int hex 0          = 0x%x\n", 0x0);
+    printf("printf int hex 0xffffffff = 0x%x\n", 0xffffffff);
+    printf("printf int hex 0x01234567 = 0x%x\n", 0x01234567);
+    printf("printf int hex 0x89abcdef = 0x%x\n", 0x89abcdef);
+
+    printf("printf long hex 0                  = 0x%lx\n", 0x0);
+    printf("printf long hex 0xffffffffffffffff = 0x%lx\n", 0xffffffffffffffff);
+    printf("printf long hex 0x0123456789abcdef = 0x%lx\n", 0x0123456789abcdef);
 
     for (int i = -10; i <= 10; i++) {
         printf("%d ", i);
@@ -42,10 +46,22 @@ void debug_printf(void) {
     printf("\n");
 
     for (int i = -100000; i <= 100000; i += 10000) {
-        printf("0x%x=%d\n", i, i);
+        printf("0x%x = %d\n", i, i);
     }
-    printf("zero        0x%x=%d\n", 0, 0);
-    printf("max int     0x%x=%d\n", INT32_MAX, INT32_MAX);
-    printf("all bits 1  0x%x=%d\n", 0xffffffff, 0xffffffff);
-    printf("min int     0x%x=%d\n", INT32_MIN, INT32_MIN);
+
+    for (long shift = 0; shift < 64; shift += 4) {
+        long value = ((long)1) << shift;
+        printf("0x%lx = %ld\n", value, value);
+    }
+
+    printf("zero int        0x%lx = %ld\n", 0, 0);
+    printf("max int         0x%lx = %ld\n", INT32_MAX, INT32_MAX);
+    printf("all bits 1 int  0x%lx = %ld\n", 0xffffffff, 0xffffffff);
+    printf("min int         0x%lx = %ld\n", INT32_MIN, INT32_MIN);
+
+    printf("zero long       0x%lx = %ld\n", 0, 0);
+    printf("max long        0x%lx = %ld\n", INT64_MAX, INT64_MAX);
+    printf("all bits 1 long 0x%lx = %ld\n", 0xffffffffffffffff,
+           0xffffffffffffffff);
+    printf("min long        0x%lx = %ld\n", INT64_MIN, INT64_MIN);
 }

@@ -17,7 +17,8 @@ struct SomeData {
 typedef struct SomeData SomeData;
 
 void print_SomeData(SomeData* data) {
-    printf("SomeData { d: 0x%x, w: 0x%x, b: %s }\n", data->d, data->w, data->b);
+    printf("SomeData { d: 0x%lx, w: 0x%x, b: %s }\n", data->d, data->w,
+           data->b);
 }
 
 void spin(int loops) {
@@ -28,7 +29,7 @@ void spin(int loops) {
 
 // prints ID and some value (only if enabled)
 void loop_print(uint64_t val) {
-    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%d.%x ", my_pid(), val);
+    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%d.%lx ", my_pid(), val);
 }
 
 void print_process_start(char* name) {
@@ -51,7 +52,7 @@ void process_load_s1(void) {
     __asm__ __volatile__("mv %0, s1" : "=r"(data));
 
     print_process_start((char*)__func__);
-    printf("s1 data: 0x%x\n", data);
+    printf("s1 data: 0x%lx\n", data);
 
     yield();
 
@@ -65,7 +66,7 @@ void process_load_from_stack(void) {
     __asm__ __volatile__("mv %0, s1" : "=r"(data));
     print_process_start((char*)__func__);
 
-    printf("0x%x = ", (uint64_t)data);
+    printf("0x%lx = ", (uint64_t)data);
 
     print_SomeData(data);
 
@@ -92,8 +93,8 @@ void process_mem_ops(void) {
 
     uint8_t* page = (uint8_t*)alloc_page();
 
-    printf("alloc'd page vaddr: 0x%x\n", (uint64_t)page);
-    printf("alloc'd page paddr: 0x%x\n",
+    printf("alloc'd page vaddr: 0x%lx\n", (uint64_t)page);
+    printf("alloc'd page paddr: 0x%lx\n",
            get_physical_address(my_page_table(),
                                 (VirtualAddress){.value = (uint64_t)page}));
 
@@ -121,7 +122,7 @@ void process_mem_ops(void) {
 
 void start_example_processes(void) {
     Process* p0 = allocate_process((uint64_t)process_load_s1);
-    p0->context.s1 = 0x11111111;
+    p0->context.s1 = 0x1111111111111111;
 
     Process* p1 = allocate_process((uint64_t)process_load_from_stack);
     // allocate room on kernel stack so process doesn't clobber it
@@ -129,7 +130,7 @@ void start_example_processes(void) {
     p1->context.sp -= sizeof(SomeData);
     // put data on stack
     SomeData* p1_data = (SomeData*)(p1->context.sp);
-    p1_data->d = 0xdeadbeef;
+    p1_data->d = 0xdeaddeaddeadbeef;
     p1_data->w = 0xfeedcafe;
     memcpy(p1_data->b, "abcdefghijklmno", 16);
     // pass address to data as s1

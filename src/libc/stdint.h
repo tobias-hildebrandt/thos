@@ -28,6 +28,6 @@ typedef int64_t intptr_t;
 #define INT32_MIN 0x80000000
 #define UINT32_MAX 0xffffffff
 
-#define INT64_MAX 0x7fffffffffffffff
-#define INT64_MIN 0x8000000000000000
-#define UINT64_MAX 0xffffffffffffffff
+#define INT64_MAX ((uint64_t)0x7fffffffffffffff)
+#define INT64_MIN ((uint64_t)0x8000000000000000)
+#define UINT64_MAX ((uint64_t)0xffffffffffffffff)

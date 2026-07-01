@@ -7,7 +7,7 @@ COMP_DB_PART := ${COMP_DB}.part
 
 OPTIMIZE ?= -O2
 DEBUG ?= -g3
-WARNINGS ?= -Wall -Wextra -Wpedantic \
+WARNINGS ?= -Wall -Wextra -Wpedantic -Wformat=2 \
 	-Wno-gnu-zero-variadic-macro-arguments
 
 CC := clang
