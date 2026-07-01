@@ -15,7 +15,7 @@
 
 #define NUM_PROCESSES 16
 
-static Process processes[NUM_PROCESSES];
+static Process processes[NUM_PROCESSES] = {0};
 
 #define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%x,\n", context.r);
 
