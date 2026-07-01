@@ -1,6 +1,5 @@
 #include <stdarg.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -26,78 +25,101 @@ bool PrintState_is_clean(PrintState* state) {
            state->min_width == 0;
 }
 
-void print_string(char* str) {
-    for (size_t i = 0; str[i] != '\0'; i++) {
+int print_string(char* str) {
+    int i = 0;
+    for (; str[i] != '\0'; i++) {
         putchar(str[i]);
     }
+
+    return i;
 }
 
-void print_hex(uint64_t value, PrintState* state) {
-    int i;
+int print_hex(uint64_t value, PrintState* state) {
+    int printed = 0;
+    int shift;
     if (state->long_modifier) {
-        i = 16;
+        shift = 16 - 1;
     } else {
-        i = 8;
+        shift = 8 - 1;
     }
 
-    for (; i > 0; i--) {
-        unsigned int shift_amount = i - 1;
-        unsigned int hex = (value >> (shift_amount * 4)) & 0xf;
+    for (; shift >= 0; shift--) {
+        unsigned int place_value = (value >> (shift * 4)) & 0xf;
         unsigned int ascii;
-        if (hex <= 9) {
-            ascii = hex + '0';
+        if (place_value <= 9) {
+            ascii = '0' + place_value;
         } else {
-            ascii = hex + 'a' - 10;
+            ascii = 'a' + place_value - 10;
         }
         putchar(ascii);
+        printed += 1;
     }
+
+    return printed;
 }
 
-void print_signed(int64_t signed_value, PrintState* state) {
+int print_unsigned(uint64_t value, PrintState* state) {
     // highest possible number of decimal digits =
-    // ceil(log10(2^(bitlen-1)))
-    // = 10 (32bit) or 19 (64bit)
+    // ceil(log10(2^bitlen))
+    // = 10 (32bit) or 20 (64bit)
+
+    int printed = 0;
+
     uint64_t divisor;
     if (state->long_modifier) {
-        divisor = 1000000000000000000;
+        divisor = 10000000000000000000UL;
     } else {
-        const uint32_t int_divisor = 1000000000;
+        const uint32_t int_divisor = 1000000000U;
         divisor = (uint64_t)int_divisor;
     }
 
-    if (signed_value < 0) {
-        putchar('-');
-        // TODO: just OR all bits except MSB?
-        signed_value *= -1;
-    }
-    uint64_t positive_value = (uint64_t)signed_value;
     bool started = false;
 
     // edge case that's easier to handle here
-    if (positive_value == 0) {
+    if (value == 0) {
         putchar('0');
-        return;
+        return 1;
     }
 
     while (divisor > 0) {
-        if (positive_value >= divisor) {
+        if (value >= divisor) {
             started = true;
-            const uint64_t digit = positive_value / divisor;
-            positive_value -= digit * divisor;
+            const uint64_t digit = value / divisor;
+            value -= digit * divisor;
             putchar('0' + digit);
+            printed += 1;
         } else if (started) {
             putchar('0');
+            printed += 1;
         } else {
             // do nothing!
         }
 
         divisor /= 10;
     }
+
+    return printed;
 }
 
-void printf(const char* format_str, ...) {
+int print_signed(int64_t signed_value, PrintState* state) {
+    int printed = 0;
+    if (signed_value < 0) {
+        putchar('-');
+        printed += 1;
+
+        // TODO: just OR all bits except MSB?
+        signed_value *= -1;
+    }
+
+    printed += print_unsigned(signed_value, state);
+    return printed;
+}
+
+int printf(const char* format_str, ...) {
     va_list args;
     va_start(args, format_str);
+
+    int printed = 0;
 
     PrintState state = {0};
     while (*format_str != '\0') {
@@ -107,6 +129,7 @@ void printf(const char* format_str, ...) {
                 state.in_conversion_spec = true;
             } else {
                 putchar(*format_str);
+                printed += 1;
             }
         } else {
             // we are currently parsing a conversion spec
@@ -130,6 +153,7 @@ void printf(const char* format_str, ...) {
                             "modifiers");
                     }
                     putchar('%');
+                    printed += 1;
                     PrintState_reset(&state);
                     break;
                 }
@@ -137,20 +161,21 @@ void printf(const char* format_str, ...) {
                     // character
                     int c = va_arg(args, int);
                     putchar(c);
+                    printed += 1;
                     PrintState_reset(&state);
                     break;
                 }
                 case 's': {
                     // string
                     char* str = va_arg(args, char*);
-                    print_string(str);
+                    printed += print_string(str);
                     PrintState_reset(&state);
                     break;
                 }
                 case 'x': {
                     // hexadecimal
                     uint64_t value = va_arg(args, uint64_t);
-                    print_hex(value, &state);
+                    printed += print_hex(value, &state);
                     PrintState_reset(&state);
                     break;
                 }
@@ -158,7 +183,14 @@ void printf(const char* format_str, ...) {
                 case 'd': {
                     // signed decimal integer
                     int64_t signed_value = va_arg(args, int64_t);
-                    print_signed(signed_value, &state);
+                    printed += print_signed(signed_value, &state);
+                    PrintState_reset(&state);
+                    break;
+                }
+                case 'u': {
+                    // unsigned decimal integer
+                    uint64_t value = va_arg(args, uint64_t);
+                    printed += print_unsigned(value, &state);
                     PrintState_reset(&state);
                     break;
                 }
@@ -174,4 +206,6 @@ void printf(const char* format_str, ...) {
     }
 
     va_end(args);
+
+    return printed;
 }

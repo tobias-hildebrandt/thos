@@ -50,18 +50,29 @@ void debug_printf(void) {
     }
 
     for (long shift = 0; shift < 64; shift += 4) {
-        long value = ((long)1) << shift;
-        printf("0x%lx = %ld\n", value, value);
+        long value = (1L) << shift;
+        printf("0x%lx = signed=%ld unsigned=%lu\n", value, value, value);
     }
+    printf("\n");
 
     printf("zero int        0x%lx = %ld\n", 0, 0);
     printf("max int         0x%lx = %ld\n", INT32_MAX, INT32_MAX);
-    printf("all bits 1 int  0x%lx = %ld\n", 0xffffffff, 0xffffffff);
+    printf("all 1s int      0x%lx = %ld\n", 0xffffffff, 0xffffffff);
     printf("min int         0x%lx = %ld\n", INT32_MIN, INT32_MIN);
+    printf("zero uint       0x%lx = %lu\n", 0, 0);
+    printf("max uint        0x%lx = %lu\n", UINT32_MAX, UINT32_MAX);
+    printf("\n");
 
     printf("zero long       0x%lx = %ld\n", 0, 0);
     printf("max long        0x%lx = %ld\n", INT64_MAX, INT64_MAX);
-    printf("all bits 1 long 0x%lx = %ld\n", 0xffffffffffffffff,
+    printf("all 1s long     0x%lx = %ld\n", 0xffffffffffffffff,
            0xffffffffffffffff);
     printf("min long        0x%lx = %ld\n", INT64_MIN, INT64_MIN);
+    printf("zero ulong      0x%lx = %lu\n", 0, 0);
+    printf("max ulong       0x%lx = %lu\n", UINT64_MAX, UINT64_MAX);
+    printf("\n");
+
+    int printed = printf("0123456789");
+    printf("\n");
+    printf("^printed %d characters (not including newline)\n", printed);
 }
