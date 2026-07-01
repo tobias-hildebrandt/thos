@@ -7,15 +7,18 @@ COMP_DB_PART := ${COMP_DB}.part
 
 OPTIMIZE ?= -O2
 DEBUG ?= -g3
+WARNINGS ?= -Wall -Wextra -Wpedantic \
+	-Wno-gnu-zero-variadic-macro-arguments
 
 CC := clang
-CFLAGS := -std=c11 -Wall -Wextra -fuse-ld=lld \
+CFLAGS := -std=c11 -fuse-ld=lld \
 	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	-MJ ${COMP_DB_PART} \
 	-I${SRC}/kernel/ \
 	-isystem${SRC}/libc/ \
 	${OPTIMIZE} ${DEBUG} \
+	${WARNINGS} \
 	${CFLAGS_EXTRA}
 
 KERNEL_LINKER_SCRIPT := ${SRC}/kernel/kernel.lds

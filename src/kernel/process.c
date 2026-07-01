@@ -179,14 +179,14 @@ __attribute__((aligned(4))) void switch_context(ProcessContext* old,
 
 static Process* current_process;
 
-uint8_t my_pid() {
+uint8_t my_pid(void) {
     if (current_process == NULL) {
         PANIC("my_pid called while no current process");
     }
     return current_process->id;
 }
 
-PageTable my_page_table() {
+PageTable my_page_table(void) {
     if (current_process == NULL) {
         PANIC("my_page_table called while no current process");
     }
@@ -242,7 +242,7 @@ void yield(void) {
                    &(current_process->state));
 }
 
-void clean_process() {
+void clean_process(void) {
     printf("clean_process(pid:%d) ", my_pid());
     if (current_process == NULL) {
         PANIC("clean_process called but not current_process");

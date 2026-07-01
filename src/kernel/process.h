@@ -37,6 +37,6 @@ typedef struct Process Process;
 
 void yield(void);
 Process* allocate_process(uint64_t entry_address);
-uint8_t my_pid();
-PageTable my_page_table();
+uint8_t my_pid(void);
+PageTable my_page_table(void);
 void print_Process(Process* process);

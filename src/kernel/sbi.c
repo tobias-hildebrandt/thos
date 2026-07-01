@@ -40,7 +40,7 @@ SbiReturn sbi_putchar(char ch) {
 
 // system reset shutdown
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-sys-reset.adoc
-SbiReturn sbi_shutdown() {
+SbiReturn sbi_shutdown(void) {
     return SBI_CALL(0x53525354 /* System Reset Extension */,
                     0x0 /* Function: System reset */, 0x0 /* Shutdown */,
                     0x0 /* No reason */);

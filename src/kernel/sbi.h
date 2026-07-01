@@ -33,4 +33,4 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
     __sbi_call(arg0, arg1, arg2, arg3, arg4, arg5, fid, eid)
 
 SbiReturn sbi_putchar(char c);
-SbiReturn sbi_shutdown();
+SbiReturn sbi_shutdown(void);

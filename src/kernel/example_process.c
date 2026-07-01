@@ -46,7 +46,7 @@ void process_loop(uint64_t start) {
 }
 
 // process that gets data from s1
-void process_load_s1() {
+void process_load_s1(void) {
     uint64_t data;
     __asm__ __volatile__("mv %0, s1" : "=r"(data));
 
@@ -60,7 +60,7 @@ void process_load_s1() {
 
 // process that gets data from its kernel stack, using s1 as the data pointer
 // TODO: add mechanism to set A registers in order to pass parameters
-void process_load_from_stack() {
+void process_load_from_stack(void) {
     SomeData* data;
     __asm__ __volatile__("mv %0, s1" : "=r"(data));
     print_process_start((char*)__func__);
@@ -75,7 +75,7 @@ void process_load_from_stack() {
 }
 
 // process that returns
-void process_that_returns() {
+void process_that_returns(void) {
     print_process_start((char*)__func__);
     yield();
 
@@ -87,7 +87,7 @@ void process_that_returns() {
 }
 
 // process that allocates its own page and read or writes memory each loop
-void process_mem_ops() {
+void process_mem_ops(void) {
     print_process_start((char*)__func__);
 
     uint8_t* page = (uint8_t*)alloc_page();
