@@ -10,9 +10,6 @@
 #include "panic.h"
 #include "util.h"
 
-// TODO: change process->context.ra once it is switched into for the first time
-//       so it doesn't loop infinitely once it returns
-
 #define NUM_PROCESSES 16
 
 static Process processes[NUM_PROCESSES] = {0};
@@ -39,7 +36,7 @@ void print_ProcessState(ProcessState state) {
 }
 
 void print_Process(Process* process) {
-    printf("Process {\n\tpid: 0x%x,\n\tstate: ", process->id);
+    printf("Process {\n\tpid: 0x%d,\n\tstate: ", process->id);
     print_ProcessState(process->state);
     printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);

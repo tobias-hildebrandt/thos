@@ -33,7 +33,6 @@ void handle_trap(TrapFrame* frame) {
     __asm__ __volatile__("csrr %0, sepc" : "=r"(sepc));
 
     // TODO: actually handle traps
-    // TODO: these are actually longs, need to implement lx
     printf(
         "kernel trap\n"
         "scause: 0x%lx, stval: 0x%lx, sepc: 0x%lx\n",
