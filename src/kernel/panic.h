@@ -13,7 +13,7 @@
         printf(                                           \
             "!!!\n"                                       \
             "Kernel panic!\n"                             \
-            "%s:%d %s()\n"                                \
+            "%s:%u %s()\n"                                \
             "Reason: " format_str "\n!!!\n",              \
             __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
         sbi_shutdown();                                   \
@@ -24,7 +24,7 @@
         printf(                                           \
             "!!!\n"                                       \
             "Kernel panic!\n"                             \
-            "%s:%d %s()\n"                                \
+            "%s:%u %s()\n"                                \
             "Reason: " format_str "\n!!!\n",              \
             __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
         while (1) {                                       \

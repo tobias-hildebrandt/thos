@@ -47,17 +47,17 @@ PageTable get_linked_table(PageTableEntry entry) {
 
 void print_VirtualAddress(VirtualAddress virtual_address) {
     printf("VirtualAddress(0x%lx){ ", virtual_address.value);
-    printf("L2: %d, ", virtual_address.level2_entry_number);
-    printf("L1: %d, ", virtual_address.level1_entry_number);
-    printf("L0: %d, ", virtual_address.level0_entry_number);
-    printf("offset: %d ", virtual_address.page_offset);
+    printf("L2: %u, ", virtual_address.level2_entry_number);
+    printf("L1: %u, ", virtual_address.level1_entry_number);
+    printf("L0: %u, ", virtual_address.level0_entry_number);
+    printf("offset: %u ", virtual_address.page_offset);
     printf("}\n");
 }
 
 void print_PageTableEntryFlags(PageTableEntryFlags flags,
                                bool print_leafiness) {
     if (PAGE_TABLE_PRINT_ALL_FLAGS) {
-        printf("v%dr%dw%dx%du%dg%da%dd%d", flags.valid, flags.read, flags.write,
+        printf("v%ur%uw%ux%uu%ug%ua%ud%u", flags.valid, flags.read, flags.write,
                flags.execute, flags.user, flags.global, flags.accessed,
                flags.dirty);
 
@@ -122,15 +122,15 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     PRINTF_IF(DEBUG_MAP_ADDRESS, "(arg)   ");
 
     // work down from highest level to lowest level
-    for (int level = 2; level >= 0; level--) {
+    for (uint8_t level = 2; level >= 0; level--) {
         uint64_t entry_number = level_entry_number[level];
 
         if (current_table == NULL) {
-            PANIC("null PageTable at level %d", level);
+            PANIC("null PageTable at level %u", level);
         }
 
         PRINTF_IF(DEBUG_MAP_ADDRESS,
-                  "level %i = table @ 0x%lx. using entry %d\n", level,
+                  "level %i = table @ 0x%lx. using entry %u\n", level,
                   (uint64_t)current_table, entry_number);
 
         entry = &current_table[entry_number];
@@ -199,10 +199,10 @@ void print_PageTable(PageTable table, bool only_valid_entries,
         }
 
         if (recurse.recurse) {
-            printf("(level[%d]) ", recurse.level);
+            printf("(level[%u]) ", recurse.level);
         }
 
-        printf("PageTable 0x%lx entry[%d] = ", table, i);
+        printf("PageTable 0x%lx entry[%u] = ", table, i);
         print_PageTableEntry(entry);
 
         if (recurse.recurse && !is_leaf_node(entry.flags)) {
@@ -220,7 +220,7 @@ void activate_PageTable(PageTable table) {
     satp_register.physical_page_num = (uint64_t)table / PAGE_SIZE;
 
     if (DEBUG_ACTIVATE_TABLE) {
-        printf("activating page table (pid %d)\n", my_pid());
+        printf("activating page table (pid %u)\n", my_pid());
         print_PageTable(table, true, PRINT_PAGE_TABLE_RECURSE_FROM_TOP);
     }
 
@@ -264,7 +264,7 @@ uint64_t get_physical_address(PageTable table, VirtualAddress virtual_address) {
         uint64_t entry_number = level_entry_number[level];
 
         if (current_table == NULL) {
-            PANIC("null PageTable at level %d", level);
+            PANIC("null PageTable at level %u", level);
         }
 
         entry = current_table[entry_number];
@@ -274,7 +274,7 @@ uint64_t get_physical_address(PageTable table, VirtualAddress virtual_address) {
         }
 
         if (false == entry.flags.valid) {
-            PANIC("Invalid inner table at level %d", level);
+            PANIC("Invalid inner table at level %u", level);
         }
 
         current_table = get_linked_table(entry);

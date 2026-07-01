@@ -36,7 +36,7 @@ void print_ProcessState(ProcessState state) {
 }
 
 void print_Process(Process* process) {
-    printf("Process {\n\tpid: 0x%d,\n\tstate: ", process->id);
+    printf("Process {\n\tpid: 0x%u,\n\tstate: ", process->id);
     print_ProcessState(process->state);
     printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);
@@ -238,7 +238,7 @@ void yield(void) {
 }
 
 void clean_process(void) {
-    printf("clean_process(pid:%d) ", my_pid());
+    printf("clean_process(pid:%u) ", my_pid());
     if (current_process == NULL) {
         PANIC("clean_process called but not current_process");
     }

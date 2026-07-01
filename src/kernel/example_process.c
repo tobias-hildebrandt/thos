@@ -29,11 +29,11 @@ void spin(int loops) {
 
 // prints ID and some value (only if enabled)
 void loop_print(uint64_t val) {
-    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%d.%lx ", my_pid(), val);
+    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%lx ", my_pid(), val);
 }
 
 void print_process_start(char* name) {
-    printf("%s %d start\n", name, my_pid());
+    printf("%s %u start\n", name, my_pid());
 }
 
 void process_loop(uint64_t start) {
