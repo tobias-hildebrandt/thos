@@ -54,16 +54,24 @@ int print_hex(va_list* args, PrintState* state) {
         printed += 2;
     }
 
+    bool started = false;
+
     for (; shift >= 0; shift--) {
         unsigned int place_value =
             ((state->long_modifier ? long_value : int_value) >> (shift * 4)) &
             0xf;
+
+        if (place_value == 0 && !started && shift != 0) {
+            continue;
+        }
+
         unsigned int ascii;
         if (place_value <= 9) {
             ascii = '0' + place_value;
         } else {
             ascii = 'a' + place_value - 10;
         }
+        started = true;
         putchar(ascii);
         printed += 1;
     }
