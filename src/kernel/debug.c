@@ -75,7 +75,7 @@ void debug_printf(void) {
     printf("zero int        0x%x = %d\n", 0, 0);
     printf("max int         0x%x = %d\n", INT32_MAX, INT32_MAX);
     printf("all 1s int      0x%x = %d\n", 0xffffffff, 0xffffffff);
-    printf("min int         0x%lx = %ld\n", INT32_MIN, INT32_MIN);
+    printf("min int         0x%x = %d\n", INT32_MIN, INT32_MIN);
     printf("zero uint       0x%x = %u\n", 0, 0);
     printf("max uint        0x%x = %u\n", UINT32_MAX, UINT32_MAX);
     printf("\n");
