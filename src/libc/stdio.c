@@ -1,7 +1,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "panic.h"
 
@@ -13,6 +15,7 @@ struct PrintState {
     bool long_modifier;
     bool zero_pad;
     bool alternative;
+    const char* min_width_chars;
     int min_width;
 };
 typedef struct PrintState PrintState;
@@ -26,10 +29,23 @@ bool PrintState_is_clean(PrintState* state) {
            state->min_width == 0;
 }
 
-int print_string(char* str) {
+// only putchar if not min_width
+// used to calculate length of real print before actually printing
+void maybe_putchar(int ch, PrintState* state) {
+    if (state->min_width == 0) {
+        putchar(ch);
+    }
+}
+
+int print_char(int ch, PrintState* state) {
+    maybe_putchar(ch, state);
+    return 1;
+}
+
+int print_string(char* str, PrintState* state) {
     int i = 0;
     for (; str[i] != '\0'; i++) {
-        putchar(str[i]);
+        maybe_putchar(str[i], state);
     }
 
     return i;
@@ -49,8 +65,8 @@ int print_hex(va_list* args, PrintState* state) {
     }
 
     if (state->alternative) {
-        putchar('0');
-        putchar('x');
+        maybe_putchar('0', state);
+        maybe_putchar('x', state);
         printed += 2;
     }
 
@@ -72,7 +88,7 @@ int print_hex(va_list* args, PrintState* state) {
             ascii = 'a' + place_value - 10;
         }
         started = true;
-        putchar(ascii);
+        maybe_putchar(ascii, state);
         printed += 1;
     }
 
@@ -86,19 +102,21 @@ int print_hex(va_list* args, PrintState* state) {
         type divisor = starting_divisor;                       \
         bool started = false;                                  \
                                                                \
+        /* edge case easier to handle here*/                   \
         if (value == 0) {                                      \
-            putchar('0');                                      \
+            maybe_putchar('0', state);                         \
             return 1;                                          \
         }                                                      \
+                                                               \
         while (divisor > 0) {                                  \
             if (value >= divisor) {                            \
                 started = true;                                \
                 const type digit = value / divisor;            \
                 value -= digit * divisor;                      \
-                putchar('0' + digit);                          \
+                maybe_putchar('0' + digit, state);             \
                 printed += 1;                                  \
             } else if (started) {                              \
-                putchar('0');                                  \
+                maybe_putchar('0', state);                     \
                 printed += 1;                                  \
             }                                                  \
             divisor /= 10;                                     \
@@ -125,7 +143,7 @@ int print_signed(va_list* args, PrintState* state) {
     if (state->long_modifier) {
         int64_t value = va_arg(*args, int64_t);
         if (value < 0) {
-            putchar('-');
+            maybe_putchar('-', state);
             printed += 1;
             value *= -1;
         }
@@ -133,7 +151,7 @@ int print_signed(va_list* args, PrintState* state) {
     } else {
         int32_t value = va_arg(*args, int32_t);
         if (value < 0) {
-            putchar('-');
+            maybe_putchar('-', state);
             printed += 1;
             value *= -1;
         }
@@ -142,6 +160,33 @@ int print_signed(va_list* args, PrintState* state) {
 
     return printed;
 }
+
+// TODO: handle +/- sign with zero-padding
+// TODO: handle right-align
+#define MIN_WIDTH_CALL(STATE, PRINTED, FAKE_CALL, REAL_CALL)       \
+    do {                                                           \
+        if (STATE.min_width > 0) {                                 \
+            int requested = STATE.min_width;                       \
+            /* call with real min_width, doesn't actually print */ \
+            int would_print = FAKE_CALL;                           \
+            if (requested > would_print) {                         \
+                int to_print = requested - would_print;            \
+                for (int i = 0; i < to_print; i++) {               \
+                    if (STATE.zero_pad) {                          \
+                        putchar('0');                              \
+                    } else {                                       \
+                        putchar(' ');                              \
+                    }                                              \
+                    PRINTED += 1;                                  \
+                }                                                  \
+            }                                                      \
+            /* call with min_width 0, will print */                \
+            STATE.min_width = 0;                                   \
+            PRINTED += REAL_CALL;                                  \
+        } else {                                                   \
+            PRINTED += REAL_CALL;                                  \
+        }                                                          \
+    } while (0)
 
 int printf(const char* format_str, ...) {
     va_list args;
@@ -160,6 +205,36 @@ int printf(const char* format_str, ...) {
                 printed += 1;
             }
         } else {
+            // zero-pad
+            if (state.zero_pad == false && state.min_width_chars == NULL &&
+                *format_str == '0') {
+                state.zero_pad = true;
+
+                // done parsing this character
+                format_str += 1;
+                continue;
+            }
+
+            // min width
+            if (*format_str >= '0' && *format_str <= '9') {
+                if (state.min_width_chars == NULL) {
+                    // start of min width string
+                    state.min_width_chars = format_str;
+                } else {
+                    // middle of min width string
+                }
+
+                // done parsing this character
+                format_str += 1;
+                continue;
+            } else if (state.min_width_chars != NULL) {
+                // end of min width string
+                state.min_width = atoi(state.min_width_chars);
+                state.min_width_chars = NULL;
+
+                // keep parsing this char
+            }
+
             // we are currently parsing a conversion spec
             switch (*format_str) {
                 case '\0': {
@@ -192,35 +267,48 @@ int printf(const char* format_str, ...) {
                 }
                 case 'c': {
                     // character
-                    int c = va_arg(args, int);
-                    putchar(c);
-                    printed += 1;
+                    int ch = va_arg(args, int);
+                    MIN_WIDTH_CALL(state, printed, print_char(ch, &state),
+                                   print_char(ch, &state));
                     PrintState_reset(&state);
                     break;
                 }
                 case 's': {
                     // string
                     char* str = va_arg(args, char*);
-                    printed += print_string(str);
+                    MIN_WIDTH_CALL(state, printed, print_string(str, &state),
+                                   print_string(str, &state));
                     PrintState_reset(&state);
                     break;
                 }
                 case 'x': {
                     // hexadecimal
-                    printed += print_hex(&args, &state);
+                    va_list args_copy;
+                    va_copy(args_copy, args);
+                    MIN_WIDTH_CALL(state, printed,
+                                   print_hex(&args_copy, &state),
+                                   print_hex(&args, &state));
                     PrintState_reset(&state);
                     break;
                 }
                 case 'i':
                 case 'd': {
                     // signed decimal integer
-                    printed += print_signed(&args, &state);
+                    va_list args_copy;
+                    va_copy(args_copy, args);
+                    MIN_WIDTH_CALL(state, printed,
+                                   print_signed(&args_copy, &state),
+                                   print_signed(&args, &state));
                     PrintState_reset(&state);
                     break;
                 }
                 case 'u': {
                     // unsigned decimal integer
-                    printed += print_unsigned(&args, &state);
+                    va_list args_copy;
+                    va_copy(args_copy, args);
+                    MIN_WIDTH_CALL(state, printed,
+                                   print_unsigned(&args_copy, &state),
+                                   print_unsigned(&args, &state));
                     PrintState_reset(&state);
                     break;
                 }

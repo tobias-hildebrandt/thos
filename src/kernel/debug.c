@@ -92,6 +92,16 @@ void debug_printf(void) {
     int printed = printf("0123456789");
     printf("\n");
     printf("^printed %d characters (not including newline)\n", printed);
+
+    printf("\n");
+    printf("min width 10 \"abc\":               _%10s_\n", "abc");
+    printf("min width 10 \"12345\":             _%10u_\n", 12345);
+    printf("min width 10 \"-12345\":            _%10d_\n", -12345);
+    printf("min width 10 \"ffff\":              _%10x_\n", 0xffff);
+
+    printf("min width 10, zero-pad \"12345\":   _%010u_\n", 12345);
+    printf("min width 10, zero-pad \"ffff\":    _%010x_\n", 0xffff);
+    printf("min width 8, zero-pad \"ffff\":     _%08x_\n", 0xffff);
 }
 
 // TODO: assert
