@@ -41,6 +41,22 @@ void debug_printf(void) {
     printf("printf long hex 0xffffffffffffffff = 0x%lx\n", 0xffffffffffffffff);
     printf("printf long hex 0x0123456789abcdef = 0x%lx\n", 0x0123456789abcdef);
 
+    printf("printf %%x but pass long: 0x0123456789abcdef = 0x%x\n",
+           0x0123456789abcdef);
+    printf("printf %%lx but pass int: 0x01234567 = 0x%lx\n",
+           ((uint32_t)0x01234567));
+
+    printf("printf alt# int hex 0          = %#x\n", 0x0);
+    printf("printf alt# int hex 0xffffffff = %#x\n", 0xffffffff);
+    printf("printf alt# int hex 0x01234567 = %#x\n", 0x01234567);
+    printf("printf alt# int hex 0x89abcdef = %#x\n", 0x89abcdef);
+
+    printf("printf alt# long hex 0                  = %#lx\n", 0x0);
+    printf("printf alt# long hex 0xffffffffffffffff = %#lx\n",
+           0xffffffffffffffff);
+    printf("printf alt# long hex 0x0123456789abcdef = %#lx\n",
+           0x0123456789abcdef);
+
     for (int i = -10; i <= 10; i++) {
         printf("%d ", i);
     }

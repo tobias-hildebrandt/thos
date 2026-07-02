@@ -12,6 +12,7 @@ struct PrintState {
     bool in_conversion_spec;
     bool long_modifier;
     bool zero_pad;
+    bool alternative;
     int min_width;
 };
 typedef struct PrintState PrintState;
@@ -34,21 +35,29 @@ int print_string(char* str) {
     return i;
 }
 
-// TODO: don't just pass a long to print_{hex,signed,unsigned}!
-// TODO: pass args and read in a int or long depending on state
-
-int print_hex(uint64_t value, PrintState* state) {
+int print_hex(va_list* args, PrintState* state) {
     int printed = 0;
     int shift;
+    uint32_t int_value;
+    uint64_t long_value;
     if (state->long_modifier) {
+        long_value = va_arg(*args, int64_t);
         shift = 16 - 1;
     } else {
-        value = (value & UINT32_MAX);
+        int_value = va_arg(*args, int32_t);
         shift = 8 - 1;
     }
 
+    if (state->alternative) {
+        putchar('0');
+        putchar('x');
+        printed += 2;
+    }
+
     for (; shift >= 0; shift--) {
-        unsigned int place_value = (value >> (shift * 4)) & 0xf;
+        unsigned int place_value =
+            ((state->long_modifier ? long_value : int_value) >> (shift * 4)) &
+            0xf;
         unsigned int ascii;
         if (place_value <= 9) {
             ascii = '0' + place_value;
@@ -61,6 +70,9 @@ int print_hex(uint64_t value, PrintState* state) {
 
     return printed;
 }
+
+// TODO: don't just pass a long to print_{signed,unsigned}!
+// TODO: pass args and read in a int or long depending on state
 
 int print_unsigned(uint64_t value, PrintState* state) {
     // highest possible number of decimal digits =
@@ -144,6 +156,11 @@ int printf(const char* format_str, ...) {
                     PANIC("end of format string inside of conversion spec");
                 }
                 // modifiers
+                case '#': {
+                    // alternative
+                    state.alternative = true;
+                    break;
+                }
                 case 'l': {
                     // long
                     state.long_modifier = true;
@@ -179,8 +196,7 @@ int printf(const char* format_str, ...) {
                 }
                 case 'x': {
                     // hexadecimal
-                    uint64_t value = va_arg(args, uint64_t);
-                    printed += print_hex(value, &state);
+                    printed += print_hex(&args, &state);
                     PrintState_reset(&state);
                     break;
                 }
