@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "paging.h"
 
@@ -55,12 +56,12 @@ void debug_printf(void) {
     }
     printf("\n");
 
-    printf("zero int        0x%lx = %ld\n", 0, 0);
-    printf("max int         0x%lx = %ld\n", INT32_MAX, INT32_MAX);
-    printf("all 1s int      0x%lx = %ld\n", 0xffffffff, 0xffffffff);
+    printf("zero int        0x%x = %d\n", 0, 0);
+    printf("max int         0x%x = %d\n", INT32_MAX, INT32_MAX);
+    printf("all 1s int      0x%x = %d\n", 0xffffffff, 0xffffffff);
     printf("min int         0x%lx = %ld\n", INT32_MIN, INT32_MIN);
-    printf("zero uint       0x%lx = %lu\n", 0, 0);
-    printf("max uint        0x%lx = %lu\n", UINT32_MAX, UINT32_MAX);
+    printf("zero uint       0x%x = %u\n", 0, 0);
+    printf("max uint        0x%x = %u\n", UINT32_MAX, UINT32_MAX);
     printf("\n");
 
     printf("zero long       0x%lx = %ld\n", 0, 0);
@@ -75,4 +76,41 @@ void debug_printf(void) {
     int printed = printf("0123456789");
     printf("\n");
     printf("^printed %d characters (not including newline)\n", printed);
+}
+
+// TODO: assert
+#define PRINT_ATOX(func, printfmt, number, expected)                           \
+    printf(#func "(" #number ") = " printfmt ", should be " printfmt ", %s\n", \
+           func(number), expected, func(number) == expected ? "OK" : "FAIL!")
+
+// integer parsing testing
+void debug_atoi(void) {
+    PRINT_ATOX(atoi, "%d", "0", 0);
+    PRINT_ATOX(atoi, "%d", "10", 10);
+    PRINT_ATOX(atoi, "%d", "999999", 999999);
+    PRINT_ATOX(atoi, "%d", "0000999999", 999999);
+
+    PRINT_ATOX(atoi, "%d", "+10", 10);
+    PRINT_ATOX(atoi, "%d", "+999999", 999999);
+    PRINT_ATOX(atoi, "%d", "-10", -10);
+    PRINT_ATOX(atoi, "%d", "-999999", -999999);
+
+    PRINT_ATOX(atoi, "%d", "     10", 10);
+    PRINT_ATOX(atoi, "%d", "     10        ", 10);
+    PRINT_ATOX(atoi, "%d", "-999999asdfeswesgrarewf", -999999);
+    PRINT_ATOX(atoi, "%d", "0x123", 0);  // prank'd!
+
+    printf("\n");
+
+    PRINT_ATOX(atol, "%ld", "0", 0);
+    PRINT_ATOX(atol, "%ld", "-1000000000000000", -1000000000000000);
+    PRINT_ATOX(atol, "%ld", "1000000000000000", 1000000000000000);
+
+    printf("\n");
+
+    PRINT_ATOX(atoi, "%d", "", 0);
+    PRINT_ATOX(atoi, "%d", "aaaaaaa", 0);
+    PRINT_ATOX(atoi, "%d", "+aaaaa", 0);
+    PRINT_ATOX(atoi, "%d", "++++111", 0);
+    PRINT_ATOX(atoi, "%d", "    \t\n\t\n       ", 0);
 }

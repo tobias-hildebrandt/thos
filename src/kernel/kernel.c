@@ -44,6 +44,10 @@ void kernel_main(void) {
         debug_page_alloc();
     }
 
+    if (DEBUG_ATOI) {
+        debug_atoi();
+    }
+
     if (!EXAMPLE_PROCESSES_DISABLE) {
         start_example_processes();
 

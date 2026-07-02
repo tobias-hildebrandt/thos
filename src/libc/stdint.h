@@ -24,10 +24,10 @@ typedef int64_t intptr_t;
 #define UINT16_MAX 65535
 
 // two's complement
-#define INT32_MAX 0x7fffffff
-#define INT32_MIN 0x80000000
-#define UINT32_MAX 0xffffffffU
+#define INT32_MAX ((int32_t)0x7fffffff)
+#define INT32_MIN ((int32_t)0x80000000)
+#define UINT32_MAX ((uint32_t)0xffffffffU)
 
-#define INT64_MAX 0x7fffffffffffffffL
-#define INT64_MIN 0x8000000000000000L
-#define UINT64_MAX 0xffffffffffffffffUL
+#define INT64_MAX ((int64_t)0x7fffffffffffffffL)
+#define INT64_MIN ((int64_t)0x8000000000000000L)
+#define UINT64_MAX ((uint64_t)0xffffffffffffffffUL)

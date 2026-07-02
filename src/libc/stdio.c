@@ -34,12 +34,16 @@ int print_string(char* str) {
     return i;
 }
 
+// TODO: don't just pass a long to print_{hex,signed,unsigned}!
+// TODO: pass args and read in a int or long depending on state
+
 int print_hex(uint64_t value, PrintState* state) {
     int printed = 0;
     int shift;
     if (state->long_modifier) {
         shift = 16 - 1;
     } else {
+        value = (value & UINT32_MAX);
         shift = 8 - 1;
     }
 
@@ -70,6 +74,7 @@ int print_unsigned(uint64_t value, PrintState* state) {
         divisor = 10000000000000000000UL;
     } else {
         const uint32_t int_divisor = 1000000000U;
+        value = (value & UINT64_MAX);
         divisor = (uint64_t)int_divisor;
     }
 
@@ -107,7 +112,7 @@ int print_signed(int64_t signed_value, PrintState* state) {
         putchar('-');
         printed += 1;
 
-        // TODO: just OR all bits except MSB?
+        // TODO: just AND all bits except MSB?
         signed_value *= -1;
     }
 

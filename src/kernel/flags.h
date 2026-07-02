@@ -7,6 +7,7 @@
 #define DEBUG_PRINTF 1
 #define DEBUG_TRAP 1
 #define DEBUG_ACTIVATE_TABLE 1
+#define DEBUG_ATOI 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -31,6 +32,10 @@
 
 #ifndef DEBUG_ACTIVATE_TABLE
 #define DEBUG_ACTIVATE_TABLE 0
+#endif
+
+#ifndef DEBUG_ATOI
+#define DEBUG_ATOI 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS
