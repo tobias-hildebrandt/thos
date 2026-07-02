@@ -71,64 +71,67 @@ int print_hex(va_list* args, PrintState* state) {
     return printed;
 }
 
-// TODO: don't just pass a long to print_{signed,unsigned}!
-// TODO: pass args and read in a int or long depending on state
+#define DECLARE_PRINT_UNSIGNED_X(type, starting_divisor)       \
+    int print_unsigned_##type(type value, PrintState* state) { \
+        (void)state;                                           \
+        int printed = 0;                                       \
+        type divisor = starting_divisor;                       \
+        bool started = false;                                  \
+                                                               \
+        if (value == 0) {                                      \
+            putchar('0');                                      \
+            return 1;                                          \
+        }                                                      \
+        while (divisor > 0) {                                  \
+            if (value >= divisor) {                            \
+                started = true;                                \
+                const type digit = value / divisor;            \
+                value -= digit * divisor;                      \
+                putchar('0' + digit);                          \
+                printed += 1;                                  \
+            } else if (started) {                              \
+                putchar('0');                                  \
+                printed += 1;                                  \
+            }                                                  \
+            divisor /= 10;                                     \
+        }                                                      \
+        return printed;                                        \
+    }
 
-int print_unsigned(uint64_t value, PrintState* state) {
-    // highest possible number of decimal digits =
-    // ceil(log10(2^bitlen))
-    // = 10 (32bit) or 20 (64bit)
+DECLARE_PRINT_UNSIGNED_X(uint32_t, 1000000000U)
+DECLARE_PRINT_UNSIGNED_X(uint64_t, 10000000000000000000UL)
 
-    int printed = 0;
-
-    uint64_t divisor;
+int print_unsigned(va_list* args, PrintState* state) {
     if (state->long_modifier) {
-        divisor = 10000000000000000000UL;
+        uint64_t value = va_arg(*args, uint64_t);
+        return print_unsigned_uint64_t(value, state);
     } else {
-        const uint32_t int_divisor = 1000000000U;
-        value = (value & UINT64_MAX);
-        divisor = (uint64_t)int_divisor;
+        uint32_t value = va_arg(*args, uint32_t);
+        return print_unsigned_uint32_t(value, state);
     }
-
-    bool started = false;
-
-    // edge case that's easier to handle here
-    if (value == 0) {
-        putchar('0');
-        return 1;
-    }
-
-    while (divisor > 0) {
-        if (value >= divisor) {
-            started = true;
-            const uint64_t digit = value / divisor;
-            value -= digit * divisor;
-            putchar('0' + digit);
-            printed += 1;
-        } else if (started) {
-            putchar('0');
-            printed += 1;
-        } else {
-            // do nothing!
-        }
-
-        divisor /= 10;
-    }
-
-    return printed;
 }
 
-int print_signed(int64_t signed_value, PrintState* state) {
+int print_signed(va_list* args, PrintState* state) {
     int printed = 0;
-    if (signed_value < 0) {
-        putchar('-');
-        printed += 1;
 
-        // TODO: just AND all bits except MSB?
-        signed_value *= -1;
+    if (state->long_modifier) {
+        int64_t value = va_arg(*args, int64_t);
+        if (value < 0) {
+            putchar('-');
+            printed += 1;
+            value *= -1;
+        }
+        printed += print_unsigned_uint64_t((uint64_t)value, state);
+    } else {
+        int32_t value = va_arg(*args, int32_t);
+        if (value < 0) {
+            putchar('-');
+            printed += 1;
+            value *= -1;
+        }
+        printed += print_unsigned_uint32_t((uint32_t)value, state);
     }
 
-    printed += print_unsigned(signed_value, state);
     return printed;
 }
 
@@ -203,15 +206,13 @@ int printf(const char* format_str, ...) {
                 case 'i':
                 case 'd': {
                     // signed decimal integer
-                    int64_t signed_value = va_arg(args, int64_t);
-                    printed += print_signed(signed_value, &state);
+                    printed += print_signed(&args, &state);
                     PrintState_reset(&state);
                     break;
                 }
                 case 'u': {
                     // unsigned decimal integer
-                    uint64_t value = va_arg(args, uint64_t);
-                    printed += print_unsigned(value, &state);
+                    printed += print_unsigned(&args, &state);
                     PrintState_reset(&state);
                     break;
                 }
