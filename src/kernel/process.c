@@ -14,7 +14,8 @@
 
 static Process processes[NUM_PROCESSES] = {0};
 
-#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%lx,\n", context.r);
+#define PRINT_CONTEXT_REG(context, r) \
+    printf("\t" #r ": 0x%016lx,\n", context.r);
 
 void print_ProcessState(ProcessState state) {
     switch (state) {

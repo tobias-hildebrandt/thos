@@ -35,7 +35,7 @@ void handle_trap(TrapFrame* frame) {
     // TODO: actually handle traps
     printf(
         "kernel trap\n"
-        "scause: 0x%lx, stval: 0x%lx, sepc: 0x%lx\n",
+        "scause: 0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n",
         scause, stval, sepc);
 
     // TODO: determine which exceptions are fatal and which are recoverable

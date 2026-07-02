@@ -93,8 +93,8 @@ void process_mem_ops(void) {
 
     uint8_t* page = (uint8_t*)alloc_page();
 
-    printf("alloc'd page vaddr: 0x%lx\n", (uint64_t)page);
-    printf("alloc'd page paddr: 0x%lx\n",
+    printf("alloc'd page vaddr: %p\n", page);
+    printf("alloc'd page paddr: %p\n",
            get_physical_address(my_page_table(),
                                 (VirtualAddress){.value = (uint64_t)page}));
 

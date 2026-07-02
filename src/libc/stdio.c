@@ -312,6 +312,26 @@ int printf(const char* format_str, ...) {
                     PrintState_reset(&state);
                     break;
                 }
+                case 'p': {
+                    // pointer
+                    // implementation specific, we can do whatever we want
+
+                    // essentially: "0x%016lx"
+                    putchar('0');
+                    putchar('x');
+                    printed += 2;
+
+                    state.long_modifier = true;
+                    state.min_width = 16;
+                    state.zero_pad = true;
+                    va_list args_copy;
+                    va_copy(args_copy, args);
+                    MIN_WIDTH_CALL(state, printed,
+                                   print_hex(&args_copy, &state),
+                                   print_hex(&args, &state));
+                    PrintState_reset(&state);
+                    break;
+                }
                 default: {
                     PANIC("unknown conversion specification character: %c",
                           *format_str);

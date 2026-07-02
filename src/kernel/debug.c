@@ -70,7 +70,6 @@ void debug_printf(void) {
         long value = (1L) << shift;
         printf("0x%lx = signed=%ld unsigned=%lu\n", value, value, value);
     }
-    printf("\n");
 
     printf("zero int        0x%x = %d\n", 0, 0);
     printf("max int         0x%x = %d\n", INT32_MAX, INT32_MAX);
@@ -78,7 +77,6 @@ void debug_printf(void) {
     printf("min int         0x%x = %d\n", INT32_MIN, INT32_MIN);
     printf("zero uint       0x%x = %u\n", 0, 0);
     printf("max uint        0x%x = %u\n", UINT32_MAX, UINT32_MAX);
-    printf("\n");
 
     printf("zero long       0x%lx = %ld\n", 0, 0);
     printf("max long        0x%lx = %ld\n", INT64_MAX, INT64_MAX);
@@ -87,13 +85,11 @@ void debug_printf(void) {
     printf("min long        0x%lx = %ld\n", INT64_MIN, INT64_MIN);
     printf("zero ulong      0x%lx = %lu\n", 0, 0);
     printf("max ulong       0x%lx = %lu\n", UINT64_MAX, UINT64_MAX);
-    printf("\n");
 
     int printed = printf("0123456789");
-    printf("\n");
+
     printf("^printed %d characters (not including newline)\n", printed);
 
-    printf("\n");
     printf("min width 10 \"abc\":               _%10s_\n", "abc");
     printf("min width 10 \"12345\":             _%10u_\n", 12345);
     printf("min width 10 \"-12345\":            _%10d_\n", -12345);
@@ -102,6 +98,10 @@ void debug_printf(void) {
     printf("min width 10, zero-pad \"12345\":   _%010u_\n", 12345);
     printf("min width 10, zero-pad \"ffff\":    _%010x_\n", 0xffff);
     printf("min width 8, zero-pad \"ffff\":     _%08x_\n", 0xffff);
+
+    printf("pointer 0x0:                %p\n", 0);
+    printf("pointer 0xffff:             %p\n", 0xffff);
+    printf("pointer 0x0123456789abcdef: %p\n", 0x0123456789abcdef);
 }
 
 // TODO: assert
@@ -126,13 +126,9 @@ void debug_atoi(void) {
     PRINT_ATOX(atoi, "%d", "-999999asdfeswesgrarewf", -999999);
     PRINT_ATOX(atoi, "%d", "0x123", 0);  // prank'd!
 
-    printf("\n");
-
     PRINT_ATOX(atol, "%ld", "0", 0);
     PRINT_ATOX(atol, "%ld", "-1000000000000000", -1000000000000000);
     PRINT_ATOX(atol, "%ld", "1000000000000000", 1000000000000000);
-
-    printf("\n");
 
     PRINT_ATOX(atoi, "%d", "", 0);
     PRINT_ATOX(atoi, "%d", "aaaaaaa", 0);

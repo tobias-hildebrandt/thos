@@ -46,7 +46,7 @@ PageTable get_linked_table(PageTableEntry entry) {
 }
 
 void print_VirtualAddress(VirtualAddress virtual_address) {
-    printf("VirtualAddress(0x%lx){ ", virtual_address.value);
+    printf("VirtualAddress(%p){ ", virtual_address.value);
     printf("L2: %u, ", virtual_address.level2_entry_number);
     printf("L1: %u, ", virtual_address.level1_entry_number);
     printf("L0: %u, ", virtual_address.level0_entry_number);
@@ -92,19 +92,18 @@ void print_PageTableEntryFlags(PageTableEntryFlags flags,
 void map_address(PageTable first_table, VirtualAddress virtual_address,
                  uint64_t physical_address, PageTableEntryFlags flags) {
     if (DEBUG_MAP_ADDRESS) {
-        printf("map_address(table @ 0x%lx, v:0x%lx, p:0x%lx, f:",
-               (uint64_t)first_table, virtual_address.value, physical_address,
-               flags);
+        printf("map_address(table @ %p, v:%p, p:%p, f:", (uint64_t)first_table,
+               virtual_address.value, physical_address, flags);
         print_PageTableEntryFlags(flags, false);
         printf(")\n");
     }
 
     if (!is_aligned(virtual_address.value, PAGE_SIZE)) {
-        PANIC("virtual address not aligned %lx", virtual_address.value);
+        PANIC("virtual address not aligned %p", virtual_address.value);
     }
 
     if (!is_aligned(physical_address, PAGE_SIZE)) {
-        PANIC("physical address not aligned %lx", physical_address);
+        PANIC("physical address not aligned %p", physical_address);
     }
 
     if (DEBUG_MAP_ADDRESS) {
@@ -130,7 +129,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
         }
 
         PRINTF_IF(DEBUG_MAP_ADDRESS,
-                  "level %i = table @ 0x%lx. using entry %u\n", level,
+                  "level %i = table @ 0x%016lx. using entry %u\n", level,
                   (uint64_t)current_table, entry_number);
 
         entry = &current_table[entry_number];
@@ -202,7 +201,7 @@ void print_PageTable(PageTable table, bool only_valid_entries,
             printf("(level[%u]) ", recurse.level);
         }
 
-        printf("PageTable 0x%lx entry[%u] = ", table, i);
+        printf("PageTable %p entry[%u] = ", table, i);
         print_PageTableEntry(entry);
 
         if (recurse.recurse && !is_leaf_node(entry.flags)) {
