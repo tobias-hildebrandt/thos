@@ -14,14 +14,18 @@
 #define PRINT_MEM(PTR, MEM) printf(#MEM ":\t%p\n", PTR->MEM)
 
 // 12.1.1.8. Supervisor Cause (scause) Register
-#define SCAUSE(INTERRUPT, EXCEPTION) (INTERRUPT##L << 63 | EXCEPTION##L)
+#define SCAUSE(INTERRUPT, EXCEPTION) (INTERRUPT##UL << 63 | EXCEPTION##UL)
 #define SCAUSE_CASE(INTERRUPT, EXCEPTION, STRING) \
     case SCAUSE(INTERRUPT, EXCEPTION):            \
         return STRING
 
+#define SUPERVISOR_SOFTWARE_INTERRUPT SCAUSE(1, 1)
+#define ECALL_U_MODE SCAUSE(0, 8)
+
 const char* decode_scause(uint64_t scause) {
     switch (scause) {
-        SCAUSE_CASE(1, 1, "Supervisor software interrupt");
+            // clang-format off
+        case SUPERVISOR_SOFTWARE_INTERRUPT: return "Supervisor software interrupt";
         SCAUSE_CASE(1, 5, "Supervisor timer interrupt");
         SCAUSE_CASE(1, 9, "Supervisor external interrupt");
         SCAUSE_CASE(1, 13, "Counter-overflow interrupt");
@@ -33,13 +37,14 @@ const char* decode_scause(uint64_t scause) {
         SCAUSE_CASE(0, 5, "Load access fault");
         SCAUSE_CASE(0, 6, "Store/AMO address misaligned");
         SCAUSE_CASE(0, 7, "Store/AMO access fault");
-        SCAUSE_CASE(0, 8, "Environment call from U-mode");
+        case ECALL_U_MODE: return "Environment call from U-mode";
         SCAUSE_CASE(0, 9, "Environment call from S-mode");
         SCAUSE_CASE(0, 12, "Instruction page fault");
         SCAUSE_CASE(0, 13, "Load page fault");
         SCAUSE_CASE(0, 15, "Store/AMO page fault");
         SCAUSE_CASE(0, 18, "Software check");
         SCAUSE_CASE(0, 19, "Hardware error");
+        // clang-format on
         default:
             return "(unknown)";
     }
@@ -95,10 +100,11 @@ void handle_trap(TrapFrame* frame) {
     ASM("csrr %0, sstatus" : "=r"(sstatus));
 
     bool was_in_kernel_mode = (sstatus & (1 << 8)) >> 8;
-    bool is_software_interrupt = (scause == 0x8000000000000001L);
+    bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
+    bool ecall = (scause == ECALL_U_MODE);
 
     // TODO: actually handle traps
-    if (!is_software_interrupt || DEBUG_SOFTWARE_INTERRUPTS) {
+    if (!(software_interrupt || ecall) || DEBUG_SOFTWARE_INTERRUPTS) {
         printf(
             "\n***\nkernel trap: %s\n"
             "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
@@ -110,7 +116,7 @@ void handle_trap(TrapFrame* frame) {
 
     // TODO: determine which other exceptions are recoverable?
 
-    if (is_software_interrupt) {
+    if (software_interrupt || ecall) {
         // clear interrupt
         ASM("csrw sip, %[val]\n" ::[val] "r"(0x0));
 
@@ -153,12 +159,28 @@ trap_vector(void) {
         // store process's stack pointer in scratch
         "csrw sscratch, sp\n"
 
-        // TODO: need to change stack pointer for user programs?
+        // change stack pointer to process's kernel stack
+        // load address of process struct
+        "ld sp, " STRINGIFY(current_process) "\n"
+        // navigate to start of kernel_stack array
+        "addi sp, sp, %[stack_offset]\n"
+        // go to top of array (STACK GROWS DOWN)
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
+        "addi sp, sp, %[stack_size_eighth]\n"
 
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
         // make sure we align to 16
-        ::[frame_size] "i"(align_up(sizeof(TrapFrame), 16)));
+        ::[frame_size] "i"(align_up(sizeof(TrapFrame), 16)),
+        [stack_offset]"i"(offsetof(Process, kernel_stack)),
+        [stack_size_eighth]"i"(KERNEL_STACK_SIZE / 8)
+    );
 
     // store registers in stack's trap frame
     // starting registers

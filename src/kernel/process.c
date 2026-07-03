@@ -99,6 +99,7 @@ Process* allocate_process(ProcessArguments args) {
 
     // create page table and map kernel memory
     if (args.is_user_program) {
+        // needs page for page_table
         PageTable page_table = (PageTable)alloc_page();
 
         // TODO: copy into owned version
@@ -107,22 +108,28 @@ Process* allocate_process(ProcessArguments args) {
                                      args.entry_address, args.user_program_end);
 
         process->page_table = page_table;
+
         // when switched into, "returns" to the virtual address base
         // of all user programs
         process->context.ra = USER_PROGRAM_BASE;
 
-        // TODO: need to map process's kernelstack to accessible memory?
-        //       or use own stack
+        // set stack pointer to user_program_end
+        // TODO: maybe just leave it up to the user program?
+        process->context.sp = args.user_program_end;
     } else {
+        // uses normal kernel page table
         process->page_table = kernel_page_table;
+
+        // needs room for stack
+        uint64_t stack_page = (uint64_t)alloc_page();
+        // points at top(!) of page
+        process->context.sp = stack_page + PAGE_SIZE;
+
         // when switched into, "returns" to the entry address like normal
         process->context.ra = args.entry_address;
     }
 
     process->state = PROCESS_READY;
-    // when switched into, stack pointer is set to "top" of processes's own
-    // kernel stack
-    process->context.sp = (uint64_t)&process->kernel_stack + KERNEL_STACK_SIZE;
     // TODO: s0 might be the frame pointer, maybe do something with it?
 
     printf("allocated ");
@@ -280,14 +287,7 @@ void kernel_switch(TrapFrame* frame) {
                is_kernel_process(current_process) ? "kernel" : "user  ", sepc);
     }
 
-    // check stack pointer
-    if (current_process->context.sp < (uint64_t)current_process->kernel_stack ||
-        current_process->context.sp >
-            (uint64_t)&(current_process->kernel_stack[KERNEL_STACK_SIZE])) {
-        PANIC(
-            "process %d sp outside of kernel stack!\nsp:%p\nkernel stack: %p\n",
-            current_process->context.sp, current_process->kernel_stack);
-    }
+    // TODO: memset 0 process's kernel stack?
 
     // set sret to go to kernel mode or user mode
     uint64_t sstatus;

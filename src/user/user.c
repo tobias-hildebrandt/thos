@@ -6,6 +6,9 @@ int main(void) {
     volatile int sum = 0;
     while (1) {
         sum += 1;  // text[i];
+        if (sum % 10 == 0) {
+            __asm__ __volatile__("ecall\n");
+        }
     }
     return sum;
 }
