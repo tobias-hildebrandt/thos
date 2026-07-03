@@ -10,6 +10,7 @@
 #include "io.h"
 #include "paging.h"
 #include "process.h"
+#include "sections.h"
 
 struct SomeData {
     uint64_t d;
@@ -156,4 +157,11 @@ void start_example_processes(void) {
         .is_user_program = false,
     });
     (void)p3;
+
+    Process* p4 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)USER_user_START,
+        .is_user_program = true,
+        .user_program_end = (uint64_t)USER_user_END,
+    });
+    (void)p4;
 }

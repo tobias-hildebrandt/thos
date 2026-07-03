@@ -11,8 +11,9 @@
 #include "util.h"
 
 static uint64_t next_page_address = 0;
-PageTable kernel_page_table = NULL;
-SatpRegister kernel_page_satp = {0};
+
+IN_USER_SPECIAL PageTable kernel_page_table = NULL;
+IN_USER_SPECIAL SatpRegister kernel_page_satp = {0};
 
 void* alloc_page(void) {
     if (next_page_address == 0) {
@@ -222,6 +223,13 @@ SatpRegister satp_from_page_table(PageTable table) {
     return satp_register;
 }
 
+// adds the user special page, which is outside of normal memory, to the page
+// table at its physical address
+void map_user_special_page(PageTable page_table, PageTableEntryFlags flags) {
+    map_address(page_table, (VirtualAddress){.value = USER_SPECIAL_PAGE},
+                USER_SPECIAL_PAGE, flags);
+}
+
 // map entire kernel address space
 void init_kernel_page_table(void) {
     // TODO: mega/giga pages for different sections?
@@ -245,6 +253,10 @@ void init_kernel_page_table(void) {
         map_address(kernel_page_table, virtual_address, physical_address,
                     flags);
     }
+
+    map_user_special_page(
+        kernel_page_table,
+        (PageTableEntryFlags){.read = true, .write = true, .execute = true});
 }
 
 // TODO: deduplicate with init_kernel_page_table
@@ -262,11 +274,15 @@ void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
         flags.execute = true;
         flags.read = true;
         flags.write = true;
+        flags.user = true;
 
         map_address(page_table, virtual_address, physical_address, flags);
 
         virtual_address.value += PAGE_SIZE;
     }
+
+    map_user_special_page(page_table,
+                          (PageTableEntryFlags){.read = true, .execute = true});
 }
 
 uint64_t get_physical_address(PageTable table, VirtualAddress virtual_address) {

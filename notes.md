@@ -23,3 +23,4 @@
 - https://xv6-guide.github.io/xv6-riscv-book/index.html
 - https://lupyuen.org/articles/mmu
 - https://osdev.wiki/wiki/RISC-V_Paging
+- https://sourceware.org/binutils/docs/as/

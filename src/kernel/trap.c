@@ -5,14 +5,45 @@
 #include <stdio.h>
 
 #include "asm.h"
-#include "flags.h"
-#include "io.h"
 #include "paging.h"
 #include "panic.h"
 #include "process.h"
+#include "sections.h"
 #include "util.h"
 
 #define PRINT_MEM(PTR, MEM) printf(#MEM ":\t%p\n", PTR->MEM)
+
+// 12.1.1.8. Supervisor Cause (scause) Register
+#define SCAUSE(INTERRUPT, EXCEPTION) (INTERRUPT##L << 63 | EXCEPTION##L)
+#define SCAUSE_CASE(INTERRUPT, EXCEPTION, STRING) \
+    case SCAUSE(INTERRUPT, EXCEPTION):            \
+        return STRING
+
+const char* decode_scause(uint64_t scause) {
+    switch (scause) {
+        SCAUSE_CASE(1, 1, "Supervisor software interrupt");
+        SCAUSE_CASE(1, 5, "Supervisor timer interrupt");
+        SCAUSE_CASE(1, 9, "Supervisor external interrupt");
+        SCAUSE_CASE(1, 13, "Counter-overflow interrupt");
+        SCAUSE_CASE(0, 0, "Instruction address misaligned");
+        SCAUSE_CASE(0, 1, "Instruction access fault");
+        SCAUSE_CASE(0, 2, "Illegal instruction");
+        SCAUSE_CASE(0, 3, "Breakpoint");
+        SCAUSE_CASE(0, 4, "Load address misaligned");
+        SCAUSE_CASE(0, 5, "Load access fault");
+        SCAUSE_CASE(0, 6, "Store/AMO address misaligned");
+        SCAUSE_CASE(0, 7, "Store/AMO access fault");
+        SCAUSE_CASE(0, 8, "Environment call from U-mode");
+        SCAUSE_CASE(0, 9, "Environment call from S-mode");
+        SCAUSE_CASE(0, 12, "Instruction page fault");
+        SCAUSE_CASE(0, 13, "Load page fault");
+        SCAUSE_CASE(0, 15, "Store/AMO page fault");
+        SCAUSE_CASE(0, 18, "Software check");
+        SCAUSE_CASE(0, 19, "Hardware error");
+        default:
+            return "(unknown)";
+    }
+}
 
 void print_TrapFrame(TrapFrame* frame) {
     PRINT_MEM(frame, ra);
@@ -63,23 +94,23 @@ void handle_trap(TrapFrame* frame) {
     ASM("csrr %0, sepc" : "=r"(sepc));
     ASM("csrr %0, sstatus" : "=r"(sstatus));
 
+    bool was_in_kernel_mode = (sstatus & (1 << 8)) >> 8;
     bool is_software_interrupt = (scause == 0x8000000000000001L);
 
     // TODO: actually handle traps
     if (!is_software_interrupt || DEBUG_SOFTWARE_INTERRUPTS) {
         printf(
-            "\n***\nkernel trap\n"
-            "scause: 0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
-            "sstatus: 0x%016lx\n",
-            scause, stval, sepc, sstatus);
+            "\n***\nkernel trap: %s\n"
+            "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
+            "sstatus: 0x%016lx\n"
+            "(was in %s mode)\n",
+            decode_scause(scause), scause, stval, sepc, sstatus,
+            was_in_kernel_mode ? "kernel" : "user");
     }
 
     // TODO: determine which other exceptions are recoverable?
 
     if (is_software_interrupt) {
-        // kernel software interrupt!
-        PRINTF_IF(DEBUG_SOFTWARE_INTERRUPTS,
-                  "kernel software interrupt\n***\n");
         // clear interrupt
         ASM("csrw sip, %[val]\n" ::[val] "r"(0x0));
 
@@ -97,7 +128,8 @@ void handle_trap(TrapFrame* frame) {
 // "the address must be 4-byte aligned"
 // TODO: __attribute__(interrupt)?
 // https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
-__attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
+IN_USER_SPECIAL __attribute__((naked)) __attribute__((aligned(4))) void
+trap_vector(void) {
     ASM(
         // need to swap to kernel page table NOW, before touching stack
 
@@ -105,7 +137,8 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
         "csrw sscratch, t0\n"
 
         // load kernel page satp into t0
-        // TODO: user processes MUST have mapping of this
+        // located in user special page
+        // which is mapped for both kernel and user processes
         "la t0, " STRINGIFY(kernel_page_satp) "\n"
         "ld t0, (t0)\n"
 
@@ -182,8 +215,8 @@ __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
 // restores current_process context
 // sepc should be set before jumping here!
 // stack should be clean!
-__attribute__((naked)) void restore_after_trap(ProcessContext* context,
-                                               SatpRegister satp) {
+IN_USER_SPECIAL __attribute__((naked)) void restore_after_trap(
+    ProcessContext* context, SatpRegister satp) {
     // start still in kernel page table
 
     // load context
@@ -207,13 +240,16 @@ __attribute__((naked)) void restore_after_trap(ProcessContext* context,
         "csrw satp, a1\n"
         "sfence.vma\n");
 
+    ASM("nop\n");
+
     // return to whatever is in sepc
     ASM("sret\n");
 }
 
 // set up exception handler
-// TODO: user processes MUST have mapping of this
 void enable_trap_vector(void) {
+    // located in user special page
+    // which is mapped for both kernel and user processes
     ASM("csrw stvec, %0" ::"r"((uint64_t)trap_vector));
 }
 

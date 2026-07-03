@@ -22,7 +22,7 @@ struct ProcessContext {
     uint64_t ra, sp;
     // saved registers
     uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
-    // program counter to return to (from sepc+4)
+    // program counter to return to
     uint64_t program_counter;
 };
 typedef struct ProcessContext ProcessContext;

@@ -25,4 +25,9 @@ SECTION_DECLARE(PAGES);
 SECTION_DECLARE(USER_user);
 SECTION_DECLARE(USER_user2);
 
+// places symbol in the user special page
+#define IN_USER_SPECIAL __attribute__((section(".user_special")))
+// user special page physical address
+extern const uint64_t USER_SPECIAL_PAGE;
+
 void print_all_sections(void);

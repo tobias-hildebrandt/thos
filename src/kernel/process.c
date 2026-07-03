@@ -6,7 +6,6 @@
 #include <stdio.h>
 
 #include "asm.h"
-#include "flags.h"
 #include "io.h"
 #include "paging.h"
 #include "panic.h"
@@ -64,6 +63,10 @@ void print_Process(Process* process) {
     print_ProcessState(process->state);
     printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);
+    printf(
+        "\tra vaddr = paddr %p,\n",
+        get_physical_address(process->page_table,
+                             (VirtualAddress){.value = process->context.ra}));
     PRINT_CONTEXT_REG(process->context, sp);
     // PRINT_CONTEXT_REG(process->context, s0);
     // PRINT_CONTEXT_REG(process->context, s1);
@@ -97,18 +100,26 @@ Process* allocate_process(ProcessArguments args) {
     // create page table and map kernel memory
     if (args.is_user_program) {
         PageTable page_table = (PageTable)alloc_page();
+
+        // TODO: copy into owned version
         // map process memory
         init_user_program_page_table(page_table, USER_PROGRAM_BASE,
                                      args.entry_address, args.user_program_end);
 
         process->page_table = page_table;
+        // when switched into, "returns" to the virtual address base
+        // of all user programs
+        process->context.ra = USER_PROGRAM_BASE;
+
+        // TODO: need to map process's kernelstack to accessible memory?
+        //       or use own stack
     } else {
         process->page_table = kernel_page_table;
+        // when switched into, "returns" to the entry address like normal
+        process->context.ra = args.entry_address;
     }
 
     process->state = PROCESS_READY;
-    // when switched into, "returns" to the entry address
-    process->context.ra = args.entry_address;
     // when switched into, stack pointer is set to "top" of processes's own
     // kernel stack
     process->context.sp = (uint64_t)&process->kernel_stack + KERNEL_STACK_SIZE;
@@ -235,8 +246,11 @@ void kernel_switch(TrapFrame* frame) {
         ASM("csrr %0, sepc\n" : "=r"(sepc));
         context->program_counter = sepc;
         current_process->state = PROCESS_RUNNABLE;
-        PRINTF_IF(DEBUG_SWITCH, "kernel_switch: switch off pid %2d, pc   %p\n",
-                  current_process->id, context->program_counter);
+        PRINTF_IF(DEBUG_SWITCH,
+                  "kernel_switch: switch off pid %2d, %s, c.pc %p\n",
+                  current_process->id,
+                  is_kernel_process(current_process) ? "kernel" : "user  ",
+                  context->program_counter);
     }
 
     current_process = next_process;
@@ -261,8 +275,9 @@ void kernel_switch(TrapFrame* frame) {
     if (DEBUG_SWITCH) {
         uint64_t sepc;
         ASM("csrr %0, sepc\n" : "=r"(sepc));
-        printf("kernel_switch: switch on  pid %2d, sepc %p\n",
-               current_process->id, sepc);
+        printf("kernel_switch: switch on  pid %2d, %s, sepc %p\n",
+               current_process->id,
+               is_kernel_process(current_process) ? "kernel" : "user  ", sepc);
     }
 
     // check stack pointer
@@ -288,6 +303,11 @@ void kernel_switch(TrapFrame* frame) {
     enable_kernel_traps();
 
     SatpRegister new_satp = satp_from_page_table(current_process->page_table);
+
+    if (DEBUG_SWITCH) {
+        printf("kernel_switch: new page table %p, new satp: %p\n",
+               current_process->page_table, new_satp.value);
+    }
 
     restore_after_trap(&current_process->context, new_satp);
 }

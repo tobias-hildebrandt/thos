@@ -3,9 +3,9 @@ const char text[] = "this is some example text\n";
 const char lotta_space[4196];
 
 int main(void) {
-    int sum = 0;
-    for (int i = 0; i < (int)sizeof(text); i++) {
-        sum += text[i];
+    volatile int sum = 0;
+    while (1) {
+        sum += 1;  // text[i];
     }
     return sum;
 }
@@ -16,5 +16,5 @@ __attribute__((section(".text.start"))) __attribute__((naked)) void start(
     void) {
     __asm__ __volatile__(
         "mv sp, %[stack_top]\n"
-        "call main\n" ::[stack_top] "r"(__stack_top));
+        "j main\n" ::[stack_top] "r"(__stack_top));
 }

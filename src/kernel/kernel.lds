@@ -6,7 +6,7 @@ OUTPUT_ARCH("riscv")
 ENTRY(boot)
 
 SECTIONS {
-    /* start at this address */
+    /* normal memory starts at this address */
     . = 0x80200000;
 
     __MEMORY_START = .;
@@ -40,6 +40,13 @@ SECTIONS {
         *(.bss .bss.* .sbss .sbss.*);
     } = 0x0
     __BSS_END = .;
+
+    /* user special page */
+    .user_special : ALIGN(4096) {
+        __USER_SPECIAL_PAGE = .;
+        *(.user_special)''
+    } = 0x0
+    . += 4096;
 
     /* stack (grows down) */
     . = ALIGN(16);
