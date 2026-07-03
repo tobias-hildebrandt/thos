@@ -12,6 +12,7 @@
 #include "util.h"
 
 static uint64_t next_page_address = 0;
+PageTable kernel_page_table;
 
 void* alloc_page(void) {
     if (next_page_address == 0) {
@@ -213,6 +214,7 @@ void print_PageTable(PageTable table, bool only_valid_entries,
     }
 }
 
+// TODO: rewrite in raw assembly avoiding all memory operations?
 void activate_PageTable(PageTable table) {
     SatpRegister satp_register = {0};
     satp_register.mode = RISCV_MODE_SV39;
@@ -229,15 +231,16 @@ void activate_PageTable(PageTable table) {
         "sfence.vma\n" ::[reg] "r"(satp_register));
 }
 
-// enable virtual memory
-void map_all_kernel_memory(PageTable table) {
+// map entire kernel address space
+void init_kernel_page_table(void) {
     // TODO: mega/giga pages for different sections?
 
-    // map entire kernel physical memory space
+    kernel_page_table = alloc_page();
+
     for (uint64_t physical_address = MEMORY_START;
          physical_address < MEMORY_END; physical_address += PAGE_SIZE) {
-        VirtualAddress virtual_address = {0};
-        virtual_address.value = physical_address;
+        // virtual address = physical address
+        VirtualAddress virtual_address = {.value = physical_address};
 
         PageTableEntryFlags flags = {0};
         // TODO: different flags for different sections
@@ -245,7 +248,30 @@ void map_all_kernel_memory(PageTable table) {
         flags.read = true;
         flags.write = true;
 
-        map_address(table, virtual_address, physical_address, flags);
+        map_address(kernel_page_table, virtual_address, physical_address,
+                    flags);
+    }
+}
+
+// TODO: deduplicate with init_kernel_page_table
+// map program address space
+void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
+                                  uint64_t start_physical,
+                                  uint64_t end_physical) {
+    // virtual address starts at zero
+    VirtualAddress virtual_address = {.value = start_virtual};
+
+    for (uint64_t physical_address = start_physical;
+         physical_address < end_physical; physical_address += PAGE_SIZE) {
+        PageTableEntryFlags flags = {0};
+        // TODO: different flags for different sections?
+        flags.execute = true;
+        flags.read = true;
+        flags.write = true;
+
+        map_address(page_table, virtual_address, physical_address, flags);
+
+        virtual_address.value += PAGE_SIZE;
     }
 }
 

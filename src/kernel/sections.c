@@ -9,13 +9,12 @@
 // grabs the actual __<section>_START and __<section>_END defs, which are set in
 // the linker script
 // assigns values to symbols declared in header
-#define SECTION_IMPL(section)                         \
-    extern char SECTION_CONCAT(__##section, START)[]; \
-    extern char SECTION_CONCAT(__##section, END)[];   \
-    uint64_t SECTION_CONCAT(section, START) =         \
-        (uint64_t)SECTION_CONCAT(__##section, START); \
-    uint64_t SECTION_CONCAT(section, END) =           \
-        (uint64_t)SECTION_CONCAT(__##section, END)
+#define SECTION_IMPL(section)                        \
+    extern const char CONCAT_(__##section, START)[]; \
+    extern const char CONCAT_(__##section, END)[];   \
+    const uint64_t CONCAT_(section, START) =         \
+        (uint64_t)CONCAT_(__##section, START);       \
+    const uint64_t CONCAT_(section, END) = (uint64_t)CONCAT_(__##section, END)
 
 SECTION_IMPL(MEMORY);
 SECTION_IMPL(TEXT);
@@ -24,9 +23,12 @@ SECTION_IMPL(BSS);
 SECTION_IMPL(STACK);
 SECTION_IMPL(PAGES);
 
-#define PRINT_SECTION(section)                              \
-    print_section(#section, SECTION_CONCAT(section, START), \
-                  SECTION_CONCAT(section, END), SECTION_SIZE(section))
+SECTION_IMPL(USER_user);
+SECTION_IMPL(USER_user2);
+
+#define PRINT_SECTION(section)                                              \
+    print_section(#section, CONCAT_(section, START), CONCAT_(section, END), \
+                  SECTION_SIZE(section))
 
 void print_section(char* name, uint64_t start, uint64_t end, uint64_t size) {
     uint64_t kb = INT_DIV_CEIL(size, 1024);
@@ -43,4 +45,7 @@ void print_all_sections(void) {
     PRINT_SECTION(BSS);
     PRINT_SECTION(STACK);
     PRINT_SECTION(PAGES);
+
+    PRINT_SECTION(USER_user);
+    PRINT_SECTION(USER_user2);
 }

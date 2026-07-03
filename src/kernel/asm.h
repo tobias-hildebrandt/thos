@@ -1,10 +1,17 @@
 #pragma once
 
-// macros for asm string creation
-#define REGISTER_MEM(instr, base, reg, offset) \
-    #instr " " #reg ", 8 * (" #offset ")(" #base ")\n"
-#define REGISTER_MEM_PREFIX(instr, base, start_offset, prefix, x) \
-    REGISTER_MEM(instr, base, prefix##x, start_offset + x)
+#include <stddef.h>
+
+// inline assembly
+#define ASM(...) __asm__ __volatile__(__VA_ARGS__)
+
+#define ASM_SET_LABEL(x) x ":\n"
+
+// asm string generation to load/store registers in memory
+#define REGISTER_MEM(instr, base, reg, type) \
+    ASM(#instr " " #reg ", %[offset](" #base \
+               ")\n" : : [offset] "i"(offsetof(type, reg)))
 
 // declare a register variable
-#define REGISTER(REGISTER) register long REGISTER __asm__(#REGISTER)
+#define NAMED_REGISTER(NAME, REGISTER) register long NAME __asm__(#REGISTER)
+#define REGISTER(REGISTER) NAMED_REGISTER(REGISTER, REGISTER)

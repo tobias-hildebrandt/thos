@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "paging.h"
@@ -35,8 +36,17 @@ struct Process {
 };
 typedef struct Process Process;
 
+struct ProcessArguments {
+    uint64_t entry_address;
+    bool is_user_program;
+    uint64_t user_program_end;
+};
+typedef struct ProcessArguments ProcessArguments;
+
 void yield(void);
-Process* allocate_process(uint64_t entry_address);
+Process* allocate_process(ProcessArguments args);
 uint8_t my_pid(void);
 PageTable my_page_table(void);
 void print_Process(Process* process);
+void print_user_progs(void);
+bool is_kernel_process(Process* process);

@@ -52,112 +52,117 @@ void handle_trap(TrapFrame* frame) {
     };
 }
 
-// macros for asm string creation
-
-#define T_OFFSET 3
-#define A_OFFSET (T_OFFSET + 7)
-#define S_OFFSET (A_OFFSET + 8)
-
+// 12.1.2. Supervisor Trap Vector Base Address (stvec) Register
+// "the address must be 4-byte aligned"
+// TODO: __attribute__(interrupt)?
+// https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
 __attribute__((naked)) __attribute__((aligned(4))) void trap_vector(void) {
-    __asm__ __volatile__(
+    // TODO: need to swap to kernel page table NOW, before storing on stack
+
+    ASM(
         // store current stack pointer in scratch
         "csrw sscratch, sp\n"
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
+        // make sure we align to 16
+        ::[frame_size] "i"(align_up(sizeof(TrapFrame), 16)));
 
-        // store registers
-        // clang-format off
-        // starting registers
-        REGISTER_MEM(sd, sp, ra, 0)
-        REGISTER_MEM(sd, sp, gp, 1)
-        REGISTER_MEM(sd, sp, tp, 2)
-        // t registers
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 0)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 1)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 2)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 3)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 4)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 5)
-        REGISTER_MEM_PREFIX(sd, sp, T_OFFSET, t, 6) //9
-        // a registers
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 0)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 1)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 2)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 3)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 4)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 5)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 6)
-        REGISTER_MEM_PREFIX(sd, sp, A_OFFSET, a, 7) //17
-        // s registers
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 0)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 1)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 2)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 3)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 4)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 5)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 6)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 7)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 8)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 9)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 10)
-        REGISTER_MEM_PREFIX(sd, sp, S_OFFSET, s, 11) //29
-        // read old stack pointer
-        "csrr a0, sscratch\n"
-        // push it onto stack
-        REGISTER_MEM(sd, sp, a0, 30)
-        // clang-format on
-        // a0 (first function argument) points to TrapFrame on stack
+    // store registers
+    // starting registers
+    REGISTER_MEM(sd, sp, ra, TrapFrame);
+    REGISTER_MEM(sd, sp, gp, TrapFrame);
+    REGISTER_MEM(sd, sp, tp, TrapFrame);
+    // t registers
+    REGISTER_MEM(sd, sp, t0, TrapFrame);
+    REGISTER_MEM(sd, sp, t1, TrapFrame);
+    REGISTER_MEM(sd, sp, t2, TrapFrame);
+    REGISTER_MEM(sd, sp, t3, TrapFrame);
+    REGISTER_MEM(sd, sp, t4, TrapFrame);
+    REGISTER_MEM(sd, sp, t5, TrapFrame);
+    REGISTER_MEM(sd, sp, t6, TrapFrame);
+    // a registers
+    REGISTER_MEM(sd, sp, a0, TrapFrame);
+    REGISTER_MEM(sd, sp, a1, TrapFrame);
+    REGISTER_MEM(sd, sp, a2, TrapFrame);
+    REGISTER_MEM(sd, sp, a3, TrapFrame);
+    REGISTER_MEM(sd, sp, a4, TrapFrame);
+    REGISTER_MEM(sd, sp, a5, TrapFrame);
+    REGISTER_MEM(sd, sp, a6, TrapFrame);
+    REGISTER_MEM(sd, sp, a7, TrapFrame);
+    // s registers
+    REGISTER_MEM(sd, sp, s0, TrapFrame);
+    REGISTER_MEM(sd, sp, s1, TrapFrame);
+    REGISTER_MEM(sd, sp, s2, TrapFrame);
+    REGISTER_MEM(sd, sp, s3, TrapFrame);
+    REGISTER_MEM(sd, sp, s3, TrapFrame);
+    REGISTER_MEM(sd, sp, s4, TrapFrame);
+    REGISTER_MEM(sd, sp, s5, TrapFrame);
+    REGISTER_MEM(sd, sp, s6, TrapFrame);
+    REGISTER_MEM(sd, sp, s7, TrapFrame);
+    REGISTER_MEM(sd, sp, s8, TrapFrame);
+    REGISTER_MEM(sd, sp, s9, TrapFrame);
+    REGISTER_MEM(sd, sp, s10, TrapFrame);
+    REGISTER_MEM(sd, sp, s11, TrapFrame);
+
+    ASM(
+        // read back old stack pointer from scratch
+        "csrr t0, sscratch\n"
+        // store in stack's trapframe
+        "sd t0, %[offset](sp)\n"
+        //
+        ::[offset] "i"(offsetof(TrapFrame, sp)));
+
+    ASM(
+        // point a0 (first function argument) to TrapFrame on stack
         "mv a0, sp\n"
-        "call " STRINGIFY(handle_trap) "\n"
+        // call handle_trap
+        "call " STRINGIFY(handle_trap) "\n");
 
-        // after call, load back registers
+    // after call, load back registers
+    // starting registers
+    REGISTER_MEM(ld, sp, ra, TrapFrame);
+    REGISTER_MEM(ld, sp, gp, TrapFrame);
+    REGISTER_MEM(ld, sp, tp, TrapFrame);
+    // t registers
+    REGISTER_MEM(ld, sp, t0, TrapFrame);
+    REGISTER_MEM(ld, sp, t1, TrapFrame);
+    REGISTER_MEM(ld, sp, t2, TrapFrame);
+    REGISTER_MEM(ld, sp, t3, TrapFrame);
+    REGISTER_MEM(ld, sp, t4, TrapFrame);
+    REGISTER_MEM(ld, sp, t5, TrapFrame);
+    REGISTER_MEM(ld, sp, t6, TrapFrame);
+    // a registers
+    REGISTER_MEM(ld, sp, a0, TrapFrame);
+    REGISTER_MEM(ld, sp, a1, TrapFrame);
+    REGISTER_MEM(ld, sp, a2, TrapFrame);
+    REGISTER_MEM(ld, sp, a3, TrapFrame);
+    REGISTER_MEM(ld, sp, a4, TrapFrame);
+    REGISTER_MEM(ld, sp, a5, TrapFrame);
+    REGISTER_MEM(ld, sp, a6, TrapFrame);
+    REGISTER_MEM(ld, sp, a7, TrapFrame);
+    // s registers
+    REGISTER_MEM(ld, sp, s0, TrapFrame);
+    REGISTER_MEM(ld, sp, s1, TrapFrame);
+    REGISTER_MEM(ld, sp, s2, TrapFrame);
+    REGISTER_MEM(ld, sp, s3, TrapFrame);
+    REGISTER_MEM(ld, sp, s3, TrapFrame);
+    REGISTER_MEM(ld, sp, s4, TrapFrame);
+    REGISTER_MEM(ld, sp, s5, TrapFrame);
+    REGISTER_MEM(ld, sp, s6, TrapFrame);
+    REGISTER_MEM(ld, sp, s7, TrapFrame);
+    REGISTER_MEM(ld, sp, s8, TrapFrame);
+    REGISTER_MEM(ld, sp, s9, TrapFrame);
+    REGISTER_MEM(ld, sp, s10, TrapFrame);
+    REGISTER_MEM(ld, sp, s11, TrapFrame);
+    // restore old stack pointer
+    REGISTER_MEM(ld, sp, sp, TrapFrame);
+    // (technically could just subtract, would avoid a load op)
+    /* ASM("addi sp, sp, %[frame_size]\n"
+        ::[frame_size] "i"(align_up(sizeof(TrapFrame), 16)));
+    */
 
-        // clang-format off
-        // starting registers
-        REGISTER_MEM(ld, sp, ra, 0)
-        REGISTER_MEM(ld, sp, gp, 1)
-        REGISTER_MEM(ld, sp, tp, 2)
-        // t registers
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 0)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 1)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 2)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 3)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 4)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 5)
-        REGISTER_MEM_PREFIX(ld, sp, T_OFFSET, t, 6) //9
-        // a registers
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 0)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 1)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 2)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 3)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 4)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 5)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 6)
-        REGISTER_MEM_PREFIX(ld, sp, A_OFFSET, a, 7) //17
-        // s registers
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 0)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 1)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 2)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 3)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 4)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 5)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 6)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 7)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 8)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 9)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 10)
-        REGISTER_MEM_PREFIX(ld, sp, S_OFFSET, s, 11) //29
-        // restore old stack pointer
-        REGISTER_MEM(ld, sp, sp, 30)
-        // (technically could just subtract, would avoid a load op)
-        // "addi sp, sp, %[frame_size]\n"
-        // clang-format on
-
-        "sret\n"
-        :  // no output
-        : [frame_size] "i"(sizeof(TrapFrame))
-
-    );
+    // return to where we were before
+    ASM("sret\n");
 }
 
 // set up exception handler

@@ -60,6 +60,10 @@ typedef PageTableEntry* PageTable;
 
 void* alloc_page(void);
 
-void map_all_kernel_memory(PageTable table);
+extern PageTable kernel_page_table;
+void init_kernel_page_table(void);
+void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
+                                  uint64_t start_physical,
+                                  uint64_t end_physical);
 void activate_PageTable(PageTable table);
 uint64_t get_physical_address(PageTable table, VirtualAddress address);

@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "example_process.h"
 #include "flags.h"
+#include "paging.h"
 #include "panic.h"
 #include "process.h"
 #include "sections.h"
@@ -29,6 +30,8 @@ void kernel_main(void) {
         ""
         "----------\n"
         "Hello kernel_main\n");
+
+    init_kernel_page_table();
 
     print_all_sections();
 

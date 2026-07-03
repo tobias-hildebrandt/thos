@@ -121,10 +121,16 @@ void process_mem_ops(void) {
 }
 
 void start_example_processes(void) {
-    Process* p0 = allocate_process((uint64_t)process_load_s1);
+    Process* p0 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)process_load_s1,
+        .is_user_program = false,
+    });
     p0->context.s1 = 0x1111111111111111;
 
-    Process* p1 = allocate_process((uint64_t)process_load_from_stack);
+    Process* p1 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)process_load_from_stack,
+        .is_user_program = false,
+    });
     // allocate room on kernel stack so process doesn't clobber it
     // (though this data will never be popped)
     p1->context.sp -= sizeof(SomeData);
@@ -136,9 +142,15 @@ void start_example_processes(void) {
     // pass address to data as s1
     p1->context.s1 = (uint64_t)p1_data;
 
-    Process* p2 = allocate_process((uint64_t)process_that_returns);
+    Process* p2 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)process_that_returns,
+        .is_user_program = false,
+    });
     (void)p2;
 
-    Process* p3 = allocate_process((uint64_t)process_mem_ops);
+    Process* p3 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)process_mem_ops,
+        .is_user_program = false,
+    });
     (void)p3;
 }
