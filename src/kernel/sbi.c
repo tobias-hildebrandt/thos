@@ -16,15 +16,17 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
     REGISTER(a7) = eid;
 
     // environment call
-    __asm__ __volatile__("ecall"
-                         // outputs
-                         // TODO: maybe +r??
-                         : "=r"(a0), "=r"(a1)
-                         // inputs
-                         : "r"(a0), "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5),
-                           "r"(a6), "r"(a7)
-                         // clobbers
-                         : "memory");
+    ASM("ecall"
+        // outputs
+        // TODO: maybe +r??
+        : "=r"(a0),
+        "=r"(a1)
+        // inputs
+        : "r"(a0),
+        "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(a5), "r"(a6),
+        "r"(a7)
+        // clobbers
+        : "memory");
     return (SbiReturn){.error = a0, .value = a1};
 }
 

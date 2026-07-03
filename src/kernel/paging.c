@@ -7,12 +7,12 @@
 #include "flags.h"
 #include "io.h"
 #include "panic.h"
-#include "process.h"
 #include "sections.h"
 #include "util.h"
 
 static uint64_t next_page_address = 0;
-PageTable kernel_page_table;
+PageTable kernel_page_table = NULL;
+SatpRegister kernel_page_satp = {0};
 
 void* alloc_page(void) {
     if (next_page_address == 0) {
@@ -214,21 +214,12 @@ void print_PageTable(PageTable table, bool only_valid_entries,
     }
 }
 
-// TODO: rewrite in raw assembly avoiding all memory operations?
-void activate_PageTable(PageTable table) {
+SatpRegister satp_from_page_table(PageTable table) {
     SatpRegister satp_register = {0};
     satp_register.mode = RISCV_MODE_SV39;
     satp_register.physical_page_num = (uint64_t)table / PAGE_SIZE;
 
-    if (DEBUG_ACTIVATE_TABLE) {
-        printf("activating page table (pid %u)\n", my_pid());
-        print_PageTable(table, true, PRINT_PAGE_TABLE_RECURSE_FROM_TOP);
-    }
-
-    __asm__ __volatile__(
-        "sfence.vma\n"
-        "csrw satp, %[reg]\n"
-        "sfence.vma\n" ::[reg] "r"(satp_register));
+    return satp_register;
 }
 
 // map entire kernel address space
@@ -236,6 +227,9 @@ void init_kernel_page_table(void) {
     // TODO: mega/giga pages for different sections?
 
     kernel_page_table = alloc_page();
+
+    // prepare kernel_page_satp
+    kernel_page_satp = satp_from_page_table(kernel_page_table);
 
     for (uint64_t physical_address = MEMORY_START;
          physical_address < MEMORY_END; physical_address += PAGE_SIZE) {

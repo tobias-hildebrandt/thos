@@ -2,10 +2,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "asm.h"
 #include "flags.h"
-#include "io.h"  // IWYU pragma: keep
+#include "io.h"
 #include "paging.h"
 #include "process.h"
 
@@ -23,16 +25,16 @@ void print_SomeData(SomeData* data) {
 
 void spin(int loops) {
     for (int i = 0; i < loops; i++) {
-        __asm__ __volatile__("nop");
+        ASM("nop");
     }
 }
 
 // prints ID and some value (only if enabled)
 void loop_print(uint64_t val) {
-    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%lx ", my_pid(), val);
+    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%lx\n", my_pid(), val);
 }
 
-void print_process_start(char* name) {
+void print_process_start(const char* name) {
     printf("%s %u start\n", name, my_pid());
 }
 
@@ -49,9 +51,9 @@ void process_loop(uint64_t start) {
 // process that gets data from s1
 void process_load_s1(void) {
     uint64_t data;
-    __asm__ __volatile__("mv %0, s1" : "=r"(data));
+    ASM("mv %0, s1" : "=r"(data));
 
-    print_process_start((char*)__func__);
+    print_process_start(__func__);
     printf("s1 data: 0x%lx\n", data);
 
     yield();
@@ -63,8 +65,9 @@ void process_load_s1(void) {
 // TODO: add mechanism to set A registers in order to pass parameters
 void process_load_from_stack(void) {
     SomeData* data;
-    __asm__ __volatile__("mv %0, s1" : "=r"(data));
-    print_process_start((char*)__func__);
+    ASM("mv %0, s1" : "=r"(data));
+
+    print_process_start(__func__);
 
     printf("0x%lx = ", (uint64_t)data);
 
@@ -77,7 +80,7 @@ void process_load_from_stack(void) {
 
 // process that returns
 void process_that_returns(void) {
-    print_process_start((char*)__func__);
+    print_process_start(__func__);
     yield();
 
     for (int i = 0; i < 10; i++) {
@@ -89,7 +92,7 @@ void process_that_returns(void) {
 
 // process that allocates its own page and read or writes memory each loop
 void process_mem_ops(void) {
-    print_process_start((char*)__func__);
+    print_process_start(__func__);
 
     uint8_t* page = (uint8_t*)alloc_page();
 
@@ -142,11 +145,11 @@ void start_example_processes(void) {
     // pass address to data as s1
     p1->context.s1 = (uint64_t)p1_data;
 
-    Process* p2 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_that_returns,
-        .is_user_program = false,
-    });
-    (void)p2;
+    // Process* p2 = allocate_process((ProcessArguments){
+    //     .entry_address = (uint64_t)process_that_returns,
+    //     .is_user_program = false,
+    // });
+    // (void)p2;
 
     Process* p3 = allocate_process((ProcessArguments){
         .entry_address = (uint64_t)process_mem_ops,

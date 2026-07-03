@@ -22,14 +22,6 @@ void debug_page_alloc(void) {
     }
 }
 
-// trap test
-void debug_trap(void) {
-    // trigger trap
-    __asm__ __volatile__("unimp");
-
-    printf("this is a line after unimp\n");
-}
-
 // print testing
 void debug_printf(void) {
     printf("printf int hex 0          = 0x%x\n", 0x0);

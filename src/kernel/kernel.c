@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "asm.h"
 #include "debug.h"
 #include "example_process.h"
 #include "flags.h"
@@ -11,7 +12,7 @@
 #include "util.h"
 
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
-    __asm__ __volatile__(
+    ASM(
         // set stack pointer
         "mv sp, %0\n"
         // jump to kernel function
@@ -25,6 +26,7 @@ __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
 
 void kernel_main(void) {
     enable_trap_vector();
+    enable_kernel_traps();
 
     printf(
         ""
@@ -39,10 +41,6 @@ void kernel_main(void) {
         debug_printf();
     }
 
-    if (DEBUG_TRAP) {
-        debug_trap();
-    }
-
     if (DEBUG_PAGE_ALLOC) {
         debug_page_alloc();
     }
@@ -54,7 +52,7 @@ void kernel_main(void) {
     if (!EXAMPLE_PROCESSES_DISABLE) {
         start_example_processes();
 
-        yield();
+        begin_processes();
     }
 
     PANIC("end of kernel_main");

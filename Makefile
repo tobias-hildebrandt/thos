@@ -16,6 +16,7 @@ WARNINGS ?= -Wall -Wextra -Wpedantic -Wformat=2 \
 CC := clang
 LD := riscv64-unknown-elf-ld
 OBJCOPY := llvm-objcopy
+OBJDUMP := llvm-objdump
 
 COMMON_CFLAGS := -std=c11  \
 	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
@@ -43,6 +44,7 @@ KERNEL_C_SOURCES := $(shell find ${SRC}/kernel/ -name '*.c')
 KERNEL_HEADERS := $(shell find ${SRC}/kernel/ -name '*.h')
 KERNEL_OBJS := $(call obj_fn, ${KERNEL_C_SOURCES})
 KERNEL_ELF := ${BUILD}/kernel.elf
+KERNEL_OBJDUMP := ${BUILD}/kernel.objdump
 
 LIBC_C_SOURCES := $(shell find ${SRC}/libc/ -name '*.c')
 LIBC_HEADERS := $(shell find ${SRC}/libc/ -name '*.h')
@@ -90,7 +92,7 @@ vars:
 	@echo "USER_PROGS:  ${USER_PROGS}"
 
 .PHONY: kernel
-kernel: ${KERNEL_ELF} ${COMP_DB}
+kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP}
 
 .PHONY: run
 run: qemu
@@ -139,6 +141,10 @@ ${COMP_DB}: ${KERNEL_ELF}  | ${BUILD}
 	@cat ${COMP_DB_ALL_PARTS} >> ${COMP_DB}
 	@truncate -s-2 ${COMP_DB}
 	@printf "\n]" >> ${COMP_DB}
+
+# kernel disassembly
+${KERNEL_OBJDUMP}: ${KERNEL_ELF} | ${BUILD}
+	${OBJDUMP} -D $< > $@
 
 # kernel ELF binary
 ${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} | ${BUILD}

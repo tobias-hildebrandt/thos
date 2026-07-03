@@ -4,16 +4,30 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "asm.h"
+#include "flags.h"
+#include "io.h"
 #include "paging.h"
 #include "panic.h"
-#include "util.h"
+#include "trap.h"
+
+// values for sstatus register, which controls sret behavior
+//
+// SPIE bit 5, supervisor traps enabled (1) or disabled (0)
+// SPP  bit 8, kernel mode (1) or user mode (0)
+#define SSTATUS_SUPERVISOR_TRAPS (1 << 5)
+#define SSTATUS_USER_MODE (0)
+#define SSTATUS_KERNEL_MODE (1 << 8)
+
+// entry user-memory address
+// must match what's defined in user program ld script
+#define USER_PROGRAM_BASE 0x1000000
 
 #define NUM_PROCESSES 16
 
 static Process processes[NUM_PROCESSES] = {0};
+Process* current_process;
 
 bool is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
@@ -66,29 +80,6 @@ void print_Process(Process* process) {
     printf("}\n");
 }
 
-// value for sstatus register, which controls sret behavior
-//
-// SPIE = 1 => supervisor traps enabled
-// SPP  = 0 => switches processor to user mode
-#define ENTER_USER_MODE_SSTATUS (1 << 5)
-
-// entry user-memory address, must match what's defined in user program ld
-// script
-#define USER_PROGRAM_BASE 0x1000000
-
-__attribute__((naked)) void enter_user_mode(uint64_t entry_point,
-                                            uint64_t sstatus) {
-    __asm__ __volatile__(
-        // make sure sret jumps to entry_point
-        "csrw sepc, a0\n"
-        // set sret behavior
-        "csrw sstatus, %[sstatus]\n"
-        // "return" to sepc
-        "sret\n"
-        :
-        : [sstatus] "r"((ENTER_USER_MODE_SSTATUS)));
-}
-
 Process* allocate_process(ProcessArguments args) {
     Process* process = NULL;
     for (int i = 0; i < NUM_PROCESSES; i++) {
@@ -129,108 +120,6 @@ Process* allocate_process(ProcessArguments args) {
     return process;
 }
 
-#define RESTORE_LABEL STRINGIFY(switch_context) "_restore"
-#define REPLACE_RA_LABEL STRINGIFY(switch_context) "_replace_ra"
-#define RETURN_LABEL STRINGIFY(switch_context) "_return"
-
-// switch from old context to new context
-// needs the state of the new process as an argument
-__attribute__((naked)) __attribute__((aligned(4))) void switch_context(
-    ProcessContext* old, ProcessContext* new, ProcessState* new_state) {
-    // skip past storing if old context is null (0)
-    ASM("beq a0, zero, " REPLACE_RA_LABEL "\n");
-
-    // store registers in old ProcessContext*
-    REGISTER_MEM(sd, a0, ra, ProcessContext);
-    REGISTER_MEM(sd, a0, sp, ProcessContext);
-    REGISTER_MEM(sd, a0, s0, ProcessContext);
-    REGISTER_MEM(sd, a0, s1, ProcessContext);
-    REGISTER_MEM(sd, a0, s2, ProcessContext);
-    REGISTER_MEM(sd, a0, s3, ProcessContext);
-    REGISTER_MEM(sd, a0, s4, ProcessContext);
-    REGISTER_MEM(sd, a0, s5, ProcessContext);
-    REGISTER_MEM(sd, a0, s6, ProcessContext);
-    REGISTER_MEM(sd, a0, s7, ProcessContext);
-    REGISTER_MEM(sd, a0, s8, ProcessContext);
-    REGISTER_MEM(sd, a0, s9, ProcessContext);
-    REGISTER_MEM(sd, a0, s10, ProcessContext);
-    REGISTER_MEM(sd, a0, s11, ProcessContext);
-
-    // TODO: figure out NAMED_REGISTER variables without clang uninit warning
-    ASM(
-        ASM_SET_LABEL(REPLACE_RA_LABEL)
-        // if new state is READY, replace RA with clean_process()
-        // load old_state
-        "lw t0, %[ra_offset](a2)\n"
-        // load process ready state into t1
-        "li t1, %[ready]\n"
-        // skip down if state is not READY
-        "bne t0, t1, " RESTORE_LABEL "\n"
-        // load old ra (the entry point) to jump to later
-        "ld t4, %[ra_offset](a1)\n"
-        // load clean_process into t2
-        "la t2, " STRINGIFY(clean_process) "\n"
-        // overwrite stack's ra
-        "sd t2, %[ra_offset](a1)\n"
-        ::
-        [ra_offset] "i"(offsetof(ProcessContext, ra)),
-        [ready] "i"(PROCESS_READY)
-        : "memory"
-    );
-
-    ASM(ASM_SET_LABEL(RESTORE_LABEL)
-        // overwrite state with running
-        "li t3, %[running]\n"
-        // write directly to new_state arg pointer
-        // no offset since it's just an enum*, which is an int*
-        "sw t3, 0(a2)\n"
-        //
-        ::[running] "i"(PROCESS_RUNNING));
-
-    // load registers from new ProcessContext*
-    REGISTER_MEM(ld, a1, ra, ProcessContext);
-    REGISTER_MEM(ld, a1, sp, ProcessContext);
-    REGISTER_MEM(ld, a1, s0, ProcessContext);
-    REGISTER_MEM(ld, a1, s1, ProcessContext);
-    REGISTER_MEM(ld, a1, s2, ProcessContext);
-    REGISTER_MEM(ld, a1, s3, ProcessContext);
-    REGISTER_MEM(ld, a1, s4, ProcessContext);
-    REGISTER_MEM(ld, a1, s5, ProcessContext);
-    REGISTER_MEM(ld, a1, s6, ProcessContext);
-    REGISTER_MEM(ld, a1, s7, ProcessContext);
-    REGISTER_MEM(ld, a1, s8, ProcessContext);
-    REGISTER_MEM(ld, a1, s9, ProcessContext);
-    REGISTER_MEM(ld, a1, s10, ProcessContext);
-    REGISTER_MEM(ld, a1, s11, ProcessContext);
-
-    // TODO: handle 4 cases
-    // new kernel process
-    // - dont set page table
-    // - set sepc and sret
-    // old kernel process
-    // - dont set page table
-    // - sret
-    // new user process
-    // - set page table
-    // - set sepc and sret
-    // old user process
-    // - set page table
-    // - sret
-
-    ASM(/**/
-        // if former state was not READY, go to return instruction
-        "bne t0, t1, " RETURN_LABEL
-        "\n"
-        // else, jump to the entry point
-        "jalr zero, t4, 0\n"
-
-        RETURN_LABEL
-        ":\n"
-        "ret\n");
-}
-
-static Process* current_process;
-
 uint8_t my_pid(void) {
     if (current_process == NULL) {
         PANIC("my_pid called while no current process");
@@ -245,6 +134,46 @@ PageTable my_page_table(void) {
     return current_process->page_table;
 }
 
+#define COPY_MEMBER(DEST, SOURCE, MEMBER) DEST->MEMBER = SOURCE->MEMBER
+
+void copy_context_from_trap_frame(ProcessContext* context, TrapFrame* frame) {
+    COPY_MEMBER(context, frame, ra);
+    COPY_MEMBER(context, frame, sp);
+    COPY_MEMBER(context, frame, s0);
+    COPY_MEMBER(context, frame, s1);
+    COPY_MEMBER(context, frame, s2);
+    COPY_MEMBER(context, frame, s3);
+    COPY_MEMBER(context, frame, s4);
+    COPY_MEMBER(context, frame, s5);
+    COPY_MEMBER(context, frame, s6);
+    COPY_MEMBER(context, frame, s7);
+    COPY_MEMBER(context, frame, s8);
+    COPY_MEMBER(context, frame, s9);
+    COPY_MEMBER(context, frame, s10);
+    COPY_MEMBER(context, frame, s11);
+}
+
+// calling this causes the kernel to start its processes
+void begin_processes(void) {
+    kernel_switch(NULL);
+}
+
+void clean_process(void) {
+    // TODO: fix
+
+    // printf("clean_process(pid:%u) ", my_pid());
+    // if (current_process == NULL) {
+    //     PANIC("clean_process called but no current_process");
+    // }
+    // // wipe process
+    // memset(current_process, 0, sizeof(Process));
+    // current_process = NULL;
+
+    // // TODO: make sure this works
+    // // switch to some other process
+    // begin_processes();
+}
+
 uint8_t increment_loop_id(uint8_t id) {
     id += 1;
     if (id >= NUM_PROCESSES) {
@@ -253,19 +182,14 @@ uint8_t increment_loop_id(uint8_t id) {
     return id;
 }
 
-// TODO: make sure only way in is from a trap? then we are allowed to sret
-void yield(void) {
-    // place current process as runnable
-    uint8_t next_id;
-    Process* next_process;
-    if (current_process == NULL) {
-        next_id = 0;
-    } else {
-        current_process->state = PROCESS_RUNNABLE;
+Process* find_next_process(void) {
+    uint8_t next_id = 0;
+    if (current_process != NULL) {
         next_id = increment_loop_id(current_process->id);
     }
     const uint8_t STOP_ID = next_id;
 
+    Process* next_process;
     while (1) {
         next_process = &processes[next_id];
         if (next_process->state == PROCESS_RUNNABLE ||
@@ -280,30 +204,90 @@ void yield(void) {
         }
     }
 
-    ProcessContext* previous_context = NULL;
-    if (current_process != NULL) {
-        previous_context = &(current_process->context);
+    return next_process;
+}
+
+// switch to a different process
+// called from inside a trap OR kernel_main OR clean_process
+void kernel_switch(TrapFrame* frame) {
+    Process* next_process = find_next_process();
+
+    if (next_process == NULL) {
+        PANIC("next_process NULL");
+    }
+
+    if ((current_process == NULL && frame != NULL) ||
+        (current_process != NULL && frame == NULL)) {
+        PANIC(
+            "kernel_switch: frame and current_process are not both NULL or "
+            "non-NULL!");
+    }
+
+    // back up previous process (can only happen if we started in trap_vector)
+    if (current_process != NULL && frame != NULL) {
+        ProcessContext* context = &(current_process->context);
+        // copy frame into old context
+        copy_context_from_trap_frame(context, frame);
+
+        // store sepc in context
+        // do NOT add 4, it already points to the instruction after yield()
+        uint64_t sepc;
+        ASM("csrr %0, sepc\n" : "=r"(sepc));
+        context->program_counter = sepc;
+        current_process->state = PROCESS_RUNNABLE;
+        PRINTF_IF(DEBUG_SWITCH, "kernel_switch: switch off pid %2d, pc   %p\n",
+                  current_process->id, context->program_counter);
     }
 
     current_process = next_process;
-    // state is set in switch_context
 
-    activate_PageTable(current_process->page_table);
+    if (current_process->state == PROCESS_READY) {
+        // first time this process is going to run
 
-    // will return INTO the process
-    switch_context(previous_context, &(current_process->context),
-                   &(current_process->state));
-}
+        // set sepc to return address (which is actually the entry point)
+        ASM("csrw sepc, %0\n" ::"r"(current_process->context.ra));
 
-void clean_process(void) {
-    printf("clean_process(pid:%u) ", my_pid());
-    if (current_process == NULL) {
-        PANIC("clean_process called but not current_process");
+        // TODO: fix process cleanup
+        current_process->context.ra = (uint64_t)0;
+
+    } else {
+        // go back to restored counter
+        ASM("csrw sepc, %0\n" ::"r"(current_process->context.program_counter));
     }
-    // wipe process
-    memset(current_process, 0, sizeof(Process));
-    current_process = NULL;
 
-    // switch to some other process
-    yield();
+    // process now running
+    current_process->state = PROCESS_RUNNING;
+
+    if (DEBUG_SWITCH) {
+        uint64_t sepc;
+        ASM("csrr %0, sepc\n" : "=r"(sepc));
+        printf("kernel_switch: switch on  pid %2d, sepc %p\n",
+               current_process->id, sepc);
+    }
+
+    // check stack pointer
+    if (current_process->context.sp < (uint64_t)current_process->kernel_stack ||
+        current_process->context.sp >
+            (uint64_t)&(current_process->kernel_stack[KERNEL_STACK_SIZE])) {
+        PANIC(
+            "process %d sp outside of kernel stack!\nsp:%p\nkernel stack: %p\n",
+            current_process->context.sp, current_process->kernel_stack);
+    }
+
+    // set sret to go to kernel mode or user mode
+    uint64_t sstatus;
+    if (is_kernel_process(current_process)) {
+        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE;
+        ASM("csrw sstatus, %0\n" ::"r"(sstatus));
+    } else {
+        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_USER_MODE;
+        ASM("csrw sstatus, %0\n" ::"r"(sstatus));
+    }
+
+    // also make sure kernel traps are active
+    enable_kernel_traps();
+
+    SatpRegister new_satp = satp_from_page_table(current_process->page_table);
+
+    restore_after_trap(&current_process->context, new_satp);
 }

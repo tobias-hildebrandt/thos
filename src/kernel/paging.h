@@ -4,7 +4,7 @@
 
 #define PAGE_SIZE 4096
 
-#define RISCV_MODE_SV39 8
+#define RISCV_MODE_SV39 8L
 
 union VirtualAddress {
     struct {
@@ -61,9 +61,10 @@ typedef PageTableEntry* PageTable;
 void* alloc_page(void);
 
 extern PageTable kernel_page_table;
+extern SatpRegister kernel_page_satp;
+SatpRegister satp_from_page_table(PageTable table);
 void init_kernel_page_table(void);
 void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
                                   uint64_t start_physical,
                                   uint64_t end_physical);
-void activate_PageTable(PageTable table);
 uint64_t get_physical_address(PageTable table, VirtualAddress address);

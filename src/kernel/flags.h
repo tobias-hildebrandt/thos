@@ -8,6 +8,8 @@
 #define DEBUG_TRAP 1
 #define DEBUG_ACTIVATE_TABLE 1
 #define DEBUG_ATOI 1
+#define DEBUG_SOFTWARE_INTERRUPTS 1
+#define DEBUG_SWITCH 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -26,16 +28,20 @@
 #define DEBUG_PRINTF 0
 #endif
 
-#ifndef DEBUG_TRAP
-#define DEBUG_TRAP 0
-#endif
-
 #ifndef DEBUG_ACTIVATE_TABLE
 #define DEBUG_ACTIVATE_TABLE 0
 #endif
 
 #ifndef DEBUG_ATOI
 #define DEBUG_ATOI 0
+#endif
+
+#ifndef DEBUG_SOFTWARE_INTERRUPTS
+#define DEBUG_SOFTWARE_INTERRUPTS 0
+#endif
+
+#ifndef DEBUG_SWITCH
+#define DEBUG_SWITCH 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS
