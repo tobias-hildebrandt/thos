@@ -49,11 +49,8 @@ void process_loop(uint64_t start) {
     }
 }
 
-// process that gets data from s1
-void process_load_s1(void) {
-    uint64_t data;
-    ASM("mv %0, s1" : "=r"(data));
-
+// process that gets data from a0
+void process_load_a0(uint64_t data) {
     print_process_start(__func__);
     printf("s1 data: 0x%lx\n", data);
 
@@ -62,12 +59,8 @@ void process_load_s1(void) {
     process_loop(data);
 }
 
-// process that gets data from its kernel stack, using s1 as the data pointer
-// TODO: add mechanism to set A registers in order to pass parameters
-void process_load_from_stack(void) {
-    SomeData* data;
-    ASM("mv %0, s1" : "=r"(data));
-
+// process that gets data from its stack, using a0 as the data pointer
+void process_load_from_stack(SomeData* data) {
     print_process_start(__func__);
 
     printf("0x%lx = ", (uint64_t)data);
@@ -126,10 +119,10 @@ void process_mem_ops(void) {
 
 void start_example_processes(void) {
     Process* p0 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_load_s1,
+        .entry_address = (uint64_t)process_load_a0,
         .is_user_program = false,
     });
-    p0->context.s1 = 0x1111111111111111;
+    p0->context.a0 = 0x1111111111111111;
 
     Process* p1 = allocate_process((ProcessArguments){
         .entry_address = (uint64_t)process_load_from_stack,
@@ -143,8 +136,8 @@ void start_example_processes(void) {
     p1_data->d = 0xdeaddeaddeadbeef;
     p1_data->w = 0xfeedcafe;
     memcpy(p1_data->b, "abcdefghijklmno", 16);
-    // pass address to data as s1
-    p1->context.s1 = (uint64_t)p1_data;
+    // pass address to data as a0
+    p1->context.a0 = (uint64_t)p1_data;
 
     // Process* p2 = allocate_process((ProcessArguments){
     //     .entry_address = (uint64_t)process_that_returns,
