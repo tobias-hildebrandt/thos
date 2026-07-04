@@ -30,11 +30,10 @@ KERNEL_CFLAGS := ${COMMON_CFLAGS} \
 	-I ${SRC}/kernel/ \
 	${KERNEL_CFLAGS_EXTRA}
 
-# TODO: user-facing libc as -isystem
 USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/
 
 # function that takes a list of C sources and returns list of object files
-obj_fn = $(patsubst %.c, %.o, $(patsubst ${SRC}%, ${BUILD}%, $(1)))
+obj_fn = $(patsubst %.c,%.o,$(patsubst ${SRC}%, ${BUILD}%, $(1)))
 
 # function that takes a path of a build object and returns its comp db part path
 compdb_path_fn = ${BUILD}/${COMP_DB_PART_DIR}/$(shell echo $(1) | tr '/' '_').compdbpart
@@ -70,6 +69,11 @@ GDB_PORT ?= 7777
 
 GDB_INIT_FILE := ${BUILD}/gdbinit
 
+# default to -j$(nproc)
+ifeq (,$(findstring j, $(MAKEFLAGS)))
+	MAKEFLAGS += -j$(shell nproc)
+endif
+
 # keep all intermediate targets
 .SECONDARY:
 
@@ -88,12 +92,13 @@ help:
 
 .PHONY: vars
 vars:
-	@echo "KERNEL_ELF:   ${KERNEL_ELF}"
-	@echo "KERNEL_OBJS:  ${KERNEL_OBJS}"
-	@echo "LIBC_OBJS:    ${LIBC_OBJS}"
-	@echo "USER_OBJS:    ${USER_OBJS}"
-	@echo "USER_BLOBS:   ${USER_BLOBS}"
-	@echo "USERLIB_OBJS: ${USERLIB_OBJS}"
+	@echo "MAKEFLAGS:       ${MAKEFLAGS}"
+	@echo "KERNEL_ELF:      ${KERNEL_ELF}"
+	@echo "KERNEL_OBJS:     ${KERNEL_OBJS}"
+	@echo "LIBC_OBJS:       ${LIBC_OBJS}"
+	@echo "USER_OBJS:       ${USER_OBJS}"
+	@echo "USER_BLOBS:      ${USER_BLOBS}"
+	@echo "USERLIB_OBJS:    ${USERLIB_OBJS}"
 
 .PHONY: kernel
 kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS}

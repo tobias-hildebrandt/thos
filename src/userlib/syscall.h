@@ -31,6 +31,4 @@ long syscall(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5,
          syscall(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 // clang-format on
 
-// do_putchar implemented in user libc implementation
-
 void yield(void);
