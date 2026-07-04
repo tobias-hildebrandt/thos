@@ -46,7 +46,7 @@ const char* decode_scause(uint64_t scause) {
         SCAUSE_CASE(0, 15, "Store/AMO page fault");
         SCAUSE_CASE(0, 18, "Software check");
         SCAUSE_CASE(0, 19, "Hardware error");
-        // clang-format on
+            // clang-format on
         default:
             return "(unknown)";
     }
@@ -173,28 +173,16 @@ trap_vector(void) {
         "csrw sscratch, sp\n"
 
         // change stack pointer to process's kernel stack
-        // load address of process struct
-        // (dereference symbol => get value of pointer)
-        "ld sp, " STRINGIFY(current_process) "\n"
-        // navigate to start of kernel_stack array
-        "addi sp, sp, %[stack_offset]\n"
-        // go to top of array (STACK GROWS DOWN)
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
-        "addi sp, sp, %[stack_size_eighth]\n"
+        // sp = (long) current_process_stack_top;
+        "ld sp, " STRINGIFY(current_process_stack_top) "\n"
 
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
-        // make sure we align to 16
-        ::[frame_size] "i"(align_up(sizeof(TrapFrame), 16)),
-        [stack_offset]"i"(offsetof(Process, kernel_stack)),
-        [stack_size_eighth]"i"(KERNEL_STACK_SIZE / 8)
-    );
+
+        ::[frame_size]"i"(
+            // make sure we keep stack aligned to 16
+            align_up(sizeof(TrapFrame), 16)
+        ));
 
     // store registers in stack's trap frame
     // starting registers

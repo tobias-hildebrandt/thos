@@ -30,6 +30,11 @@
 static Process processes[NUM_PROCESSES] = {0};
 Process* current_process;
 
+// pointer to top of current_process's kernel stack
+// kept up to date on switch
+// makes trap_vector simpler
+void* current_process_stack_top;
+
 bool is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
 }
@@ -250,6 +255,8 @@ void kernel_switch(TrapFrame* frame) {
     }
 
     current_process = next_process;
+    current_process_stack_top =
+        &current_process->kernel_stack[KERNEL_STACK_SIZE];
 
     if (current_process->state == PROCESS_READY) {
         // first time this process is going to run

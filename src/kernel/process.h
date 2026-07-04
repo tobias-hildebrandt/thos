@@ -37,7 +37,7 @@ struct ProcessArguments {
 };
 typedef struct ProcessArguments ProcessArguments;
 
-extern Process* current_process;
+extern void* current_process_stack_top;
 
 void begin_processes(void);
 void kernel_switch(TrapFrame* frame);
