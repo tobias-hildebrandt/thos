@@ -135,7 +135,7 @@ void start_example_processes(void) {
         .entry_address = (uint64_t)process_load_from_stack,
         .is_user_program = false,
     });
-    // allocate room on kernel stack so process doesn't clobber it
+    // allocate room on process's stack so process doesn't clobber it
     // (though this data will never be popped)
     p1->context.sp -= sizeof(SomeData);
     // put data on stack

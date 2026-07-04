@@ -27,8 +27,8 @@
 
 #define NUM_PROCESSES 16
 
-static Process processes[NUM_PROCESSES] = {0};
-Process* current_process;
+static Process processes[NUM_PROCESSES];
+Process* current_process = NULL;
 
 // pointer to top of current_process's kernel stack
 // kept up to date on switch
@@ -43,6 +43,7 @@ bool is_kernel_process(Process* process) {
     printf("\t" #r ": 0x%016lx,\n", context.r);
 
 void print_ProcessState(ProcessState state) {
+    printf("%d(", state);
     switch (state) {
         case PROCESS_UNUSED:
             printf("UNUSED");
@@ -59,34 +60,29 @@ void print_ProcessState(ProcessState state) {
         default:
             PANIC("tried to print invalid ProcessState");
     }
+    printf(")");
 }
 
 void print_Process(Process* process) {
     printf("Process {\n");
     printf("\tpid: 0x%u,\n", process->id);
     printf("\tpage_table: (%s) %p\n",
-           is_kernel_process(process) ? "KERNEL" : "USER", process->page_table);
+           process->page_table == 0     ? "NULL"
+           : is_kernel_process(process) ? "KERNEL"
+                                        : "USER",
+           process->page_table);
     printf("\tstate: ");
     print_ProcessState(process->state);
     printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);
-    printf(
-        "\tra vaddr = paddr %p,\n",
-        get_physical_address(process->page_table,
-                             (VirtualAddress){.value = process->context.ra}));
+    if (process->page_table != NULL) {
+        printf("\tra vaddr = paddr %p,\n",
+               get_physical_address(
+                   process->page_table,
+                   (VirtualAddress){.value = process->context.ra}));
+    }
     PRINT_CONTEXT_REG(process->context, sp);
-    // PRINT_CONTEXT_REG(process->context, s0);
-    // PRINT_CONTEXT_REG(process->context, s1);
-    // PRINT_CONTEXT_REG(process->context, s2);
-    // PRINT_CONTEXT_REG(process->context, s3);
-    // PRINT_CONTEXT_REG(process->context, s4);
-    // PRINT_CONTEXT_REG(process->context, s5);
-    // PRINT_CONTEXT_REG(process->context, s6);
-    // PRINT_CONTEXT_REG(process->context, s7);
-    // PRINT_CONTEXT_REG(process->context, s8);
-    // PRINT_CONTEXT_REG(process->context, s9);
-    // PRINT_CONTEXT_REG(process->context, s10);
-    // PRINT_CONTEXT_REG(process->context, s11);
+    PRINT_CONTEXT_REG(process->context, pc);
     printf("}\n");
 }
 
@@ -182,48 +178,44 @@ void clean_process(void) {
     // begin_processes();
 }
 
-uint8_t increment_loop_id(uint8_t id) {
-    id += 1;
-    if (id >= NUM_PROCESSES) {
-        id = 0;
-    }
-    return id;
+uint8_t next_id(uint8_t id) {
+    return (id + 1) % NUM_PROCESSES;
 }
 
 Process* find_next_process(void) {
-    uint8_t next_id = 0;
+    // start at current id or 0
+    uint8_t id = 0;
     if (current_process != NULL) {
-        next_id = increment_loop_id(current_process->id);
+        id = next_id(current_process->id);
     }
-    const uint8_t STOP_ID = next_id;
 
-    Process* next_process;
+    int num_checked = 0;
+    Process* process;
     while (1) {
-        next_process = &processes[next_id];
-        if (next_process->state == PROCESS_RUNNABLE ||
-            next_process->state == PROCESS_READY) {
+        process = &processes[id];
+
+        if (process->state == PROCESS_RUNNABLE ||
+            process->state == PROCESS_READY) {
             // found a runnable process
-            break;
+            return process;
         }
-        next_id = increment_loop_id(next_id);
-        // don't loop around
-        if (next_id == STOP_ID) {
-            PANIC("no runnable processes");
+
+        id = next_id(id);
+        num_checked += 1;
+
+        // only loop around once
+        if (num_checked >= NUM_PROCESSES) {
+            PANIC("no runnable or ready processes found after %d checks!",
+                  num_checked);
         }
     }
 
-    return next_process;
+    return process;
 }
 
 // switch to a different process
 // called from inside a trap OR kernel_main OR clean_process
 void kernel_switch(TrapFrame* frame) {
-    Process* next_process = find_next_process();
-
-    if (next_process == NULL) {
-        PANIC("next_process NULL");
-    }
-
     if ((current_process == NULL && frame != NULL) ||
         (current_process != NULL && frame == NULL)) {
         PANIC(
@@ -252,6 +244,12 @@ void kernel_switch(TrapFrame* frame) {
             printf("kernel_switch: old context:\n");
             print_TrapFrame(context);
         }
+    }
+
+    Process* next_process = find_next_process();
+
+    if (next_process == NULL) {
+        PANIC("next_process NULL");
     }
 
     current_process = next_process;
