@@ -150,7 +150,7 @@ void handle_trap(TrapFrame* frame) {
             printf("killing pid %d: %s\n", pid, decode_scause(scause));
         }
 
-        clean_current_process();
+        clean_process();
         kernel_switch(NULL);
     } else {
         printf("fatal trap\n");

@@ -91,7 +91,7 @@ void print_Process(Process* process) {
 
 // user exit function
 // located in user special function
-// automatically set as return address when user process allocated
+// automatically set as return address when user process first switched on
 IN_USER_SPECIAL __attribute__((naked)) void user_exit(void) {
     ASM(
         // just do SYSCALL_EXIT and let kernel handle it
@@ -99,6 +99,21 @@ IN_USER_SPECIAL __attribute__((naked)) void user_exit(void) {
         "ecall\n"
         // fall through to fault if kernel doesn't clean
         "unimp\n" ::"i"(SYSCALL_EXIT));
+}
+
+// kernel process exit
+// automatically set as return address when kernel process first switched on
+void kernel_exit(void) {
+    // switch to process's kernel stack
+    // "poor man's trap_vector"
+    // but already in kernel page table and no need to save trapframe
+    ASM("ld sp, " STRINGIFY(current_process_stack_top) "\n");
+
+    // wipe current process (except kernel stack)
+    clean_process();
+
+    // switch into a new process
+    begin_processes();
 }
 
 Process* allocate_process(ProcessArguments args) {
@@ -178,25 +193,24 @@ PageTable my_page_table(void) {
 
 #define COPY_MEMBER(DEST, SOURCE, MEMBER) DEST->MEMBER = SOURCE->MEMBER
 
-// calling this causes the kernel to start its processes
 void begin_processes(void) {
     kernel_switch(NULL);
 }
 
 // wipes the current process
 // TODO: de-alloc user page table once alloc/de-alloc is implemented
-void clean_current_process(void) {
-    printf("clean_process: pid %d\n", my_pid());
+void clean_process(void) {
+    PRINTF_IF(DEBUG_CLEAN_PROCESS, "clean_process: pid %d\n", my_pid());
     if (current_process == NULL) {
         PANIC("clean_process called but no current_process");
     }
 
     // set process to unused
-    // do wipe the kernel stack, we are currently on it!
-    current_process->id = 0;
+    // do NOT wipe the kernel stack, we are currently on it!
+    current_process->id = -1;
     current_process->state = PROCESS_UNUSED;
 
-    printf("clean_process: wiped\n");
+    PRINTF_IF(DEBUG_CLEAN_PROCESS, "clean_process: wiped\n");
 
     current_process = NULL;
 }
@@ -283,8 +297,7 @@ void kernel_switch(TrapFrame* frame) {
 
         // set up new return address
         if (is_kernel_process(current_process)) {
-            // TODO: implement
-            current_process->context.ra = (uint64_t)0;
+            current_process->context.ra = (uint64_t)kernel_exit;
         } else {
             current_process->context.ra = (uint64_t)user_exit;
         }

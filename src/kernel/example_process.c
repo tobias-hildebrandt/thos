@@ -139,11 +139,11 @@ void start_example_processes(void) {
     // pass address to data as a0
     p1->context.a0 = (uint64_t)p1_data;
 
-    // Process* p2 = allocate_process((ProcessArguments){
-    //     .entry_address = (uint64_t)process_that_returns,
-    //     .is_user_program = false,
-    // });
-    // (void)p2;
+    Process* p2 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)process_that_returns,
+        .is_user_program = false,
+    });
+    (void)p2;
 
     Process* p3 = allocate_process((ProcessArguments){
         .entry_address = (uint64_t)process_mem_ops,

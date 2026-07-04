@@ -23,7 +23,7 @@ void handle_syscall(TrapFrame* frame) {
         }
         case SYSCALL_EXIT: {
             PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: exit\n");
-            clean_current_process();
+            clean_process();
             break;
         }
         default: {

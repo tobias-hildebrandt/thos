@@ -49,4 +49,4 @@ PageTable my_page_table(void);
 void print_Process(Process* process);
 void print_user_progs(void);
 bool is_kernel_process(Process* process);
-void clean_current_process(void);
+void clean_process(void);
