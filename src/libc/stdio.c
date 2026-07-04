@@ -240,6 +240,7 @@ int printf(const char* format_str, ...) {
                 case '\0': {
                     // undefined behavior
                     PANIC("end of format string inside of conversion spec");
+                    break;
                 }
                 // modifiers
                 case '#': {

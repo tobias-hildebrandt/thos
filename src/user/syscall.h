@@ -1,6 +1,7 @@
 #pragma once
 
 #include "asm.h"
+#include "syscalls.h"
 
 __attribute__((naked)) long syscall(long arg0, long arg1, long arg2, long arg3,
                                     long arg4, long arg5, long arg6,
@@ -20,7 +21,7 @@ __attribute__((naked)) long syscall(long arg0, long arg1, long arg2, long arg3,
 #define SYSCALL(...)                                                   \
     __SYSCALL_EXPAND(__SYSCALL_GET_MACRO(                              \
         __VA_ARGS__, SYSCALL8, SYSCALL7, SYSCALL6, SYSCALL5, SYSCALL4, \
-        SYSCALL3, SYSCALL2, SYSCALL1)(__VA_ARGS__))
+        SYSCALL3, SYSCALL2, SYSCALL1, __FILLER)(__VA_ARGS__))
 
 // clang-format off
 #define SYSCALL1(arg0) \
@@ -40,6 +41,11 @@ __attribute__((naked)) long syscall(long arg0, long arg1, long arg2, long arg3,
 #define SYSCALL8(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) \
          syscall(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 // clang-format on
-long putchar(int ch) {
-    return SYSCALL(0x1, ch, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77);
+
+int putchar(int ch) {
+    return SYSCALL(SYSCALL_PUTCHAR, ch);
+}
+
+void yield(void) {
+    SYSCALL(SYSCALL_YIELD);
 }

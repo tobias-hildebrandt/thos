@@ -11,7 +11,7 @@ COMP_DB_ALL_PARTS = $(shell find ${BUILD}/${COMP_DB_PART_DIR}/ -type f)
 OPTIMIZE ?= -O2
 DEBUG ?= -g3
 WARNINGS ?= -Wall -Wextra -Wpedantic -Wformat=2 \
-	-Wno-gnu-zero-variadic-macro-arguments
+	-Wno-gnu-zero-variadic-macro-arguments -Wimplicit-fallthrough
 
 CC := clang
 LD := ld.ldd

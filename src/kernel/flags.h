@@ -44,6 +44,10 @@
 #define DEBUG_SWITCH 0
 #endif
 
+#ifndef DEBUG_SYSCALL
+#define DEBUG_SYSCALL 0
+#endif
+
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS
 #define PAGE_TABLE_PRINT_ALL_FLAGS 0
 #endif
