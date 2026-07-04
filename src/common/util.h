@@ -11,5 +11,4 @@
 // integer division but rounds up
 #define INT_DIV_CEIL(num, denom) ((num + (denom - 1)) / denom)
 
-#define LOGICAL_XOR(cond1, cond2) \
-    (((cond1) && (!cond2)) || ((cond2) && (!cond1)))
+#define LOGICAL_XOR(cond1, cond2) (!(cond1) != !(cond2))
