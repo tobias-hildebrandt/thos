@@ -30,4 +30,7 @@ SECTION_DECLARE(USER_user2);
 // global special page physical address
 extern const uint64_t GLOBAL_SPECIAL_PAGE;
 
+#define IN_USER_SPECIAL __attribute__((section(".user_special")))
+extern const uint64_t USER_SPECIAL_PAGE;
+
 void print_all_sections(void);

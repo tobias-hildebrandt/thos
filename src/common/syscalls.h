@@ -1,4 +1,5 @@
 #pragma once
 
-#define SYSCALL_YIELD 0L
-#define SYSCALL_PUTCHAR 1L
+#define SYSCALL_EXIT 0x0FL
+#define SYSCALL_YIELD 0x10L
+#define SYSCALL_PUTCHAR 0xAAL

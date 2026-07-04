@@ -106,15 +106,17 @@ void handle_trap(TrapFrame* frame) {
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
 
-    // TODO: actually handle traps
-    if (!(software_interrupt || ecall) || DEBUG_SOFTWARE_INTERRUPTS) {
+    int pid = current_process == NULL ? -1 : my_pid();
+
+    if (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
+        (was_in_kernel_mode && !software_interrupt)) {
         printf(
-            "\n***\nkernel trap: %s\n"
+            "\n***\ntrap: %s\n"
             "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
             "sstatus: 0x%016lx\n"
             "pid: %d\n"
             "(was in %s mode)\n",
-            decode_scause(scause), scause, stval, sepc, sstatus, my_pid(),
+            decode_scause(scause), scause, stval, sepc, sstatus, pid,
             was_in_kernel_mode ? "kernel" : "user");
 
         if (DEBUG_SOFTWARE_INTERRUPTS == 2) {
@@ -135,6 +137,21 @@ void handle_trap(TrapFrame* frame) {
 
         // run switch
         kernel_switch(frame);
+    } else if (!was_in_kernel_mode) {
+        // handle fatal user traps
+        if (DEBUG_USER_TRAPS) {
+            printf(
+                "\n***\nfatal user trap: %s\n"
+                "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
+                "sstatus: 0x%016lx\n"
+                "pid: %d\n***\n",
+                decode_scause(scause), scause, stval, sepc, sstatus, pid);
+        } else {
+            printf("killing pid %d: %s\n", pid, decode_scause(scause));
+        }
+
+        clean_current_process();
+        kernel_switch(NULL);
     } else {
         printf("fatal trap\n");
         print_TrapFrame(frame);

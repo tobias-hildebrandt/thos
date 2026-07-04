@@ -2,8 +2,9 @@
 
 #include <stdio.h>
 
-#include "flags.h"
+#include "flags.h"  // IWYU pragma: keep
 #include "io.h"
+#include "process.h"
 #include "syscalls.h"
 #include "trap.h"
 
@@ -20,7 +21,13 @@ void handle_syscall(TrapFrame* frame) {
             frame->a0 = result;
             break;
         }
+        case SYSCALL_EXIT: {
+            PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: exit\n");
+            clean_current_process();
+            break;
+        }
         default: {
+            // TODO: return error in trapframe
             printf("handle_syscall: ignoring unknown syscall #%p\n", frame->a0);
             if (DEBUG_SYSCALL) {
                 print_TrapFrame(frame);

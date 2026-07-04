@@ -28,6 +28,8 @@ SECTION_IMPL(USER_user2);
 
 extern const char __GLOBAL_SPECIAL_PAGE[];
 const uint64_t GLOBAL_SPECIAL_PAGE = (uint64_t)__GLOBAL_SPECIAL_PAGE;
+extern const char __USER_SPECIAL_PAGE[];
+const uint64_t USER_SPECIAL_PAGE = (uint64_t)__USER_SPECIAL_PAGE;
 
 #define PRINT_SECTION(section)                                              \
     print_section(#section, CONCAT_(section, START), CONCAT_(section, END), \

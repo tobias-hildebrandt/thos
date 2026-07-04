@@ -44,9 +44,16 @@ SECTIONS {
     /* global special page */
     .global_special : ALIGN(4096) {
         __GLOBAL_SPECIAL_PAGE = .;
-        *(.global_special)''
+        *(.global_special);
+        . += 4096;
     } = 0x0
-    . += 4096;
+
+    /* user special page */
+    .user_special : ALIGN(4096) {
+        __USER_SPECIAL_PAGE = .;
+        *(.user_special);
+        . += 4096;
+    }
 
     /* stack (grows down) */
     . = ALIGN(16);

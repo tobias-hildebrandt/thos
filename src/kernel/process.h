@@ -38,6 +38,7 @@ struct ProcessArguments {
 typedef struct ProcessArguments ProcessArguments;
 
 extern void* current_process_stack_top;
+extern Process* current_process;
 
 void begin_processes(void);
 void kernel_switch(TrapFrame* frame);
@@ -48,3 +49,4 @@ PageTable my_page_table(void);
 void print_Process(Process* process);
 void print_user_progs(void);
 bool is_kernel_process(Process* process);
+void clean_current_process(void);

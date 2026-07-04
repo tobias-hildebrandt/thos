@@ -157,4 +157,11 @@ void start_example_processes(void) {
         .user_program_end = (uint64_t)USER_user_END,
     });
     (void)p4;
+
+    Process* p5 = allocate_process((ProcessArguments){
+        .entry_address = (uint64_t)USER_user2_START,
+        .is_user_program = true,
+        .user_program_end = (uint64_t)USER_user2_END,
+    });
+    (void)p5;
 }

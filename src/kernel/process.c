@@ -11,6 +11,8 @@
 #include "io.h"
 #include "paging.h"
 #include "panic.h"
+#include "sections.h"
+#include "syscalls.h"
 #include "trap.h"
 
 // values for sstatus register, which controls sret behavior
@@ -20,6 +22,7 @@
 #define SSTATUS_SUPERVISOR_TRAPS (1 << 5)
 #define SSTATUS_USER_MODE (0)
 #define SSTATUS_KERNEL_MODE (1 << 8)
+#define SSTATUS_SUM (1 << 18)
 
 // entry user-memory address
 // must match what's defined in user program ld script
@@ -86,15 +89,33 @@ void print_Process(Process* process) {
     printf("}\n");
 }
 
+// user exit function
+// located in user special function
+// automatically set as return address when user process allocated
+IN_USER_SPECIAL __attribute__((naked)) void user_exit(void) {
+    ASM(
+        // just do SYSCALL_EXIT and let kernel handle it
+        "li a0, %0\n"
+        "ecall\n"
+        // fall through to fault if kernel doesn't clean
+        "unimp\n" ::"i"(SYSCALL_EXIT));
+}
+
 Process* allocate_process(ProcessArguments args) {
     Process* process = NULL;
-    for (int i = 0; i < NUM_PROCESSES; i++) {
+    int i = 0;
+    for (; i < NUM_PROCESSES; i++) {
         if (processes[i].state == PROCESS_UNUSED) {
             process = &processes[i];
-            process->id = i;
             break;
         }
     }
+
+    // make sure we zero out everything including kernel stack
+    memset(process, 0, sizeof(Process));
+
+    // set ID
+    process->id = i;
 
     if (process == NULL) {
         PANIC("no more available processes");
@@ -162,20 +183,22 @@ void begin_processes(void) {
     kernel_switch(NULL);
 }
 
-void clean_process(void) {
-    // TODO: fix
+// wipes the current process
+// TODO: de-alloc user page table once alloc/de-alloc is implemented
+void clean_current_process(void) {
+    printf("clean_process: pid %d\n", my_pid());
+    if (current_process == NULL) {
+        PANIC("clean_process called but no current_process");
+    }
 
-    // printf("clean_process(pid:%u) ", my_pid());
-    // if (current_process == NULL) {
-    //     PANIC("clean_process called but no current_process");
-    // }
-    // // wipe process
-    // memset(current_process, 0, sizeof(Process));
-    // current_process = NULL;
+    // set process to unused
+    // do wipe the kernel stack, we are currently on it!
+    current_process->id = 0;
+    current_process->state = PROCESS_UNUSED;
 
-    // // TODO: make sure this works
-    // // switch to some other process
-    // begin_processes();
+    printf("clean_process: wiped\n");
+
+    current_process = NULL;
 }
 
 uint8_t next_id(uint8_t id) {
@@ -216,14 +239,10 @@ Process* find_next_process(void) {
 // switch to a different process
 // called from inside a trap OR kernel_main OR clean_process
 void kernel_switch(TrapFrame* frame) {
-    if ((current_process == NULL && frame != NULL) ||
-        (current_process != NULL && frame == NULL)) {
-        PANIC(
-            "kernel_switch: frame and current_process are not both NULL or "
-            "non-NULL!");
-    }
+    PRINTF_IF(DEBUG_SWITCH, "kernel_switch: framepointer %p\n", frame);
 
-    // back up previous process (can only happen if we started in trap_vector)
+    // back up previous process
+    // can only happen if we started in trap_vector and didn't clean_up_process
     if (current_process != NULL && frame != NULL) {
         TrapFrame* context = &(current_process->context);
         // copy frame into old context
@@ -262,8 +281,13 @@ void kernel_switch(TrapFrame* frame) {
         // set sepc to return address (which is actually the entry point)
         ASM("csrw sepc, %0\n" ::"r"(current_process->context.ra));
 
-        // TODO: fix process cleanup
-        current_process->context.ra = (uint64_t)0;
+        // set up new return address
+        if (is_kernel_process(current_process)) {
+            // TODO: implement
+            current_process->context.ra = (uint64_t)0;
+        } else {
+            current_process->context.ra = (uint64_t)user_exit;
+        }
 
     } else {
         // go back to restored counter
@@ -286,10 +310,10 @@ void kernel_switch(TrapFrame* frame) {
     // set sret to go to kernel mode or user mode
     uint64_t sstatus;
     if (is_kernel_process(current_process)) {
-        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE;
+        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE | SSTATUS_SUM;
         ASM("csrw sstatus, %0\n" ::"r"(sstatus));
     } else {
-        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_USER_MODE;
+        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_USER_MODE | SSTATUS_SUM;
         ASM("csrw sstatus, %0\n" ::"r"(sstatus));
     }
 

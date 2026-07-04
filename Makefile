@@ -30,7 +30,7 @@ KERNEL_CFLAGS := ${COMMON_CFLAGS} \
 	-I ${SRC}/kernel/ \
 	${KERNEL_CFLAGS_EXTRA}
 
-USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/
+USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/ -Wno-empty-translation-unit
 
 # function that takes a list of C sources and returns list of object files
 obj_fn = $(patsubst %.c,%.o,$(patsubst ${SRC}%, ${BUILD}%, $(1)))

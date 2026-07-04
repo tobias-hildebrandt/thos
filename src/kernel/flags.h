@@ -10,6 +10,7 @@
 #define DEBUG_ATOI 1
 #define DEBUG_SOFTWARE_INTERRUPTS 1
 #define DEBUG_SWITCH 1
+#define DEBUG_USER_TRAPS 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -46,6 +47,10 @@
 
 #ifndef DEBUG_SYSCALL
 #define DEBUG_SYSCALL 0
+#endif
+
+#ifndef DEBUG_USER_TRAPS
+#define DEBUG_USER_TRAPS 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS

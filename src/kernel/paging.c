@@ -283,6 +283,15 @@ void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
 
     map_global_special_page(
         page_table, (PageTableEntryFlags){.read = true, .execute = true});
+
+    // map user_special page
+    map_address(page_table, (VirtualAddress){.value = USER_SPECIAL_PAGE},
+                USER_SPECIAL_PAGE,
+                (PageTableEntryFlags){
+                    .read = true,
+                    .execute = true,
+                    .user = true,
+                });
 }
 
 uint64_t get_physical_address(PageTable table, VirtualAddress virtual_address) {
