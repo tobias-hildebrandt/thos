@@ -147,7 +147,7 @@ void handle_trap(TrapFrame* frame) {
 // "the address must be 4-byte aligned"
 // TODO: __attribute__(interrupt)?
 // https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
-IN_USER_SPECIAL __attribute__((naked)) __attribute__((aligned(4))) void
+IN_GLOBAL_SPECIAL __attribute__((naked)) __attribute__((aligned(4))) void
 trap_vector(void) {
     ASM(
         // need to swap to kernel page table NOW, before touching stack
@@ -156,7 +156,7 @@ trap_vector(void) {
         "csrw sscratch, t0\n"
 
         // load kernel page satp into t0
-        // located in user special page
+        // located in global special page
         // which is mapped for both kernel and user processes
         "la t0, " STRINGIFY(kernel_page_satp) "\n"
         "ld t0, (t0)\n"
@@ -246,7 +246,7 @@ trap_vector(void) {
 // restores current_process context
 // sepc should be set before jumping here!
 // stack should be clean!
-IN_USER_SPECIAL __attribute__((naked)) void restore_after_trap(
+IN_GLOBAL_SPECIAL __attribute__((naked)) void restore_after_trap(
     TrapFrame* context) {
     // start still in kernel page table
 
@@ -313,7 +313,7 @@ IN_USER_SPECIAL __attribute__((naked)) void restore_after_trap(
 
 // set up exception handler
 void enable_trap_vector(void) {
-    // located in user special page
+    // located in global special page
     // which is mapped for both kernel and user processes
     ASM("csrw stvec, %0" ::"r"((uint64_t)trap_vector));
 }

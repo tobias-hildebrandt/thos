@@ -41,10 +41,10 @@ SECTIONS {
     } = 0x0
     __BSS_END = .;
 
-    /* user special page */
-    .user_special : ALIGN(4096) {
-        __USER_SPECIAL_PAGE = .;
-        *(.user_special)''
+    /* global special page */
+    .global_special : ALIGN(4096) {
+        __GLOBAL_SPECIAL_PAGE = .;
+        *(.global_special)''
     } = 0x0
     . += 4096;
 
