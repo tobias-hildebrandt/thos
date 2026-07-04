@@ -1,6 +1,8 @@
 #pragma once
 
 int printf(const char* format_str, ...);
-int putchar(int ch);
+
+// kernel and userlib MUST define this
+extern int putchar(int ch);
 
 #define EOF (-1)

@@ -23,15 +23,15 @@ COMMON_CFLAGS := -std=c11 \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	${OPTIMIZE} ${DEBUG} \
 	${WARNINGS} \
-	-I${SRC}/common/
+	-I ${SRC}/common/ \
+	-isystem ${SRC}/libc/
 
 KERNEL_CFLAGS := ${COMMON_CFLAGS} \
-	-I${SRC}/kernel/ \
-	-isystem${SRC}/libc/ \
+	-I ${SRC}/kernel/ \
 	${KERNEL_CFLAGS_EXTRA}
 
 # TODO: user-facing libc as -isystem
-USER_CFLAGS := ${COMMON_CFLAGS} -I${SRC}/user/
+USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/
 
 # function that takes a list of C sources and returns list of object files
 obj_fn = $(patsubst %.c, %.o, $(patsubst ${SRC}%, ${BUILD}%, $(1)))
@@ -50,9 +50,12 @@ LIBC_C_SOURCES := $(shell find ${SRC}/libc/ -name '*.c')
 LIBC_HEADERS := $(shell find ${SRC}/libc/ -name '*.h')
 LIBC_OBJS := $(call obj_fn, ${LIBC_C_SOURCES})
 
+USERLIB_C_SOURCES := $(shell find ${SRC}/userlib/ -name '*.c')
+USERLIB_HEADERS := $(shell find ${SRC}/userlib/ -name '*.h')
+USERLIB_OBJS := $(call obj_fn, ${USERLIB_C_SOURCES})
+
 USER_LINKER_SCRIPT := ${SRC}/user/user.lds
 USER_C_SOURCES := $(shell find ${SRC}/user/ -name '*.c')
-USER_HEADERS := $(shell find ${SRC}/user/ -name '*.h')
 USER_OBJS := $(call obj_fn, ${USER_C_SOURCES})
 USER_BLOBS := $(USER_OBJS:.o=.blob)
 USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
@@ -85,12 +88,12 @@ help:
 
 .PHONY: vars
 vars:
-	@echo "KERNEL_OBJS: ${KERNEL_OBJS}"
-	@echo "LIBC_OBJS:   ${LIBC_OBJS}"
-	@echo "USER_OBJS:   ${USER_OBJS}"
-	@echo "KERNEL_ELF:  ${KERNEL_ELF}"
-	@echo "USER_BLOBS:  ${USER_BLOBS}"
-	@echo "USER_PROGS:  ${USER_PROGS}"
+	@echo "KERNEL_ELF:   ${KERNEL_ELF}"
+	@echo "KERNEL_OBJS:  ${KERNEL_OBJS}"
+	@echo "LIBC_OBJS:    ${LIBC_OBJS}"
+	@echo "USER_OBJS:    ${USER_OBJS}"
+	@echo "USER_BLOBS:   ${USER_BLOBS}"
+	@echo "USERLIB_OBJS: ${USERLIB_OBJS}"
 
 .PHONY: kernel
 kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS}
@@ -134,6 +137,7 @@ ${BUILD}:
 	@mkdir -p ${BUILD}/kernel
 	@mkdir -p ${BUILD}/libc
 	@mkdir -p ${BUILD}/user
+	@mkdir -p ${BUILD}/userlib
 	@mkdir -p ${BUILD}/${COMP_DB_PART_DIR}
 
 # compilation commands database for clangd
@@ -166,17 +170,21 @@ ${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} | ${BUILD}
 # can't use objcopy for bin->blob since ABI gets lost in translation
 # https://github.com/llvm/llvm-project/issues/68915
 
+# userlib
+${BUILD}/userlib/%.o: ${SRC}/userlib/%.c ${USERLIB_HEADERS} | ${BUILD}
+	${CC} ${USER_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
+
 # step 1
 # user object
-${BUILD}/user/%.o: ${SRC}/user/%.c ${USER_HEADERS} | ${BUILD}
+${BUILD}/user/%.o: ${SRC}/user/%.c ${USERLIB_HEADERS} | ${BUILD}
 	${CC} ${USER_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
 
 # step 2
 # user ELF binary
-${BUILD}/user/%.elf: ${BUILD}/user/%.o | ${BUILD}
+${BUILD}/user/%.elf: ${BUILD}/user/%.o ${LIBC_OBJS} ${USERLIB_OBJS} | ${BUILD}
 	${CC} ${USER_CFLAGS} \
 		-Wl,-T${USER_LINKER_SCRIPT} -Wl,-Map=${BUILD}/user/$(shell basename $@ .elf).map -fuse-ld=lld \
-		-o $@ $<
+		-o $@ ${LIBC_OBJS} ${USERLIB_OBJS} $<
 
 # step 3
 # user BIN (fully-expanded memory image)

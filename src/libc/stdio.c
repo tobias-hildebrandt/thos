@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "panic.h"
-
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 
@@ -239,7 +237,7 @@ int printf(const char* format_str, ...) {
             switch (*format_str) {
                 case '\0': {
                     // undefined behavior
-                    PANIC("end of format string inside of conversion spec");
+                    // PANIC("end of format string inside of conversion spec");
                     break;
                 }
                 // modifiers
@@ -256,11 +254,11 @@ int printf(const char* format_str, ...) {
                 // conversion specifiers
                 case '%': {
                     // %%
-                    if (!PrintState_is_clean(&state)) {
-                        PANIC(
-                            "printf conversion specifier was %%, but had "
-                            "modifiers");
-                    }
+                    // if (!PrintState_is_clean(&state)) {
+                    //     PANIC(
+                    //         "printf conversion specifier was %%, but had "
+                    //         "modifiers");
+                    // }
                     putchar('%');
                     printed += 1;
                     PrintState_reset(&state);
@@ -334,8 +332,8 @@ int printf(const char* format_str, ...) {
                     break;
                 }
                 default: {
-                    PANIC("unknown conversion specification character: %c",
-                          *format_str);
+                    // PANIC("unknown conversion specification character: %c",
+                    //       *format_str);
                 }
             }
         }

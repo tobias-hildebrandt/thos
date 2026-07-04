@@ -1,8 +1,10 @@
-#include "syscall.h"  // IWYU pragma: keep
+#include <stdio.h>
+
+#include "syscall.h"
 
 const char text[] =
-    "hello from user program !@#$%^&*()_+ "
-    "0123456789abcdefghijklmnopqrstuvwxyz\n";
+    "0123456789abcdefghijklmnopqrstuvwxyz"
+    "!@#$%^&*()_+";
 
 const char lotta_space[4196];
 
@@ -13,8 +15,9 @@ int main(void) {
         if (text[index] == '\0') {
             index = 0;
         }
-        int res = putchar(text[index]);
-        (void)res;
+
+        printf("hello %c\n", text[index]);
+
         index += 1;
     }
 

@@ -1,18 +1,7 @@
 #pragma once
 
-#include "asm.h"
-#include "syscalls.h"
-
-__attribute__((naked)) long syscall(long arg0, long arg1, long arg2, long arg3,
-                                    long arg4, long arg5, long arg6,
-                                    long arg7) {
-    // environment call
-    ASM("ecall\n"
-        "ret\n"
-        // clobbers
-        :: : "a0",
-        "a1", "a2", "a3", "a4", "a5", "a6", "a7", "memory");
-}
+long syscall(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5,
+             long arg6, long arg7);
 
 #define __SYSCALL_EXPAND(x) x
 #define __SYSCALL_GET_MACRO(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, \
@@ -42,10 +31,6 @@ __attribute__((naked)) long syscall(long arg0, long arg1, long arg2, long arg3,
          syscall(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 // clang-format on
 
-int putchar(int ch) {
-    return SYSCALL(SYSCALL_PUTCHAR, ch);
-}
+// do_putchar implemented in user libc implementation
 
-void yield(void) {
-    SYSCALL(SYSCALL_YIELD);
-}
+void yield(void);
