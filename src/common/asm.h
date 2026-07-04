@@ -12,6 +12,16 @@
     ASM(#instr " " #reg ", %[offset](" #base \
                ")\n" : : [offset] "i"(offsetof(type, reg)))
 
+// TODO: determine if register macros are even useful
+
 // declare a register variable
 #define NAMED_REGISTER(NAME, REGISTER) register long NAME __asm__(#REGISTER)
 #define REGISTER(REGISTER) NAMED_REGISTER(REGISTER, REGISTER)
+#define REGISTER_INIT(REGISTER, init)   \
+    NAMED_REGISTER(REGISTER, REGISTER); \
+    REGISTER = init;
+
+#define REGS_START                   \
+    _Pragma("clang diagnostic push") \
+        _Pragma("clang diagnostic ignored \"-Wuninitialized\"")
+#define REGS_END _Pragma("clang diagnostic pop")

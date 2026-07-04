@@ -4,21 +4,21 @@ SECTIONS {
     . = 0x1000000;
 
     .text :{
-        KEEP(*(.text.start));
+        *(.text.start);
         *(.text .text.*);
     }
 
-    .rodata : ALIGN(4) {
+    .rodata : ALIGN(16) {
         *(.rodata .rodata.*);
     }
 
-    .data : ALIGN(4) {
+    .data : ALIGN(16) {
         *(.data .data.*);
     }
 
-    .bss : ALIGN(4) {
+    .bss : ALIGN(16) {
         *(.bss .bss.* .sbss .sbss.*);
-    }
+    } = 0x0
 
     .stack : ALIGN(16) {
         . += 64 * 1024;

@@ -5,13 +5,15 @@
 #include <stdio.h>
 
 #include "asm.h"
-#include "paging.h"
+#include "flags.h"
+#include "paging.h"  // IWYU pragma: keep
 #include "panic.h"
 #include "process.h"
 #include "sections.h"
+#include "syscall.h"
 #include "util.h"
 
-#define PRINT_MEM(PTR, MEM) printf(#MEM ":\t%p\n", PTR->MEM)
+#define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, PTR->MEM)
 
 // 12.1.1.8. Supervisor Cause (scause) Register
 #define SCAUSE(INTERRUPT, EXCEPTION) (INTERRUPT##UL << 63 | EXCEPTION##UL)
@@ -51,41 +53,42 @@ const char* decode_scause(uint64_t scause) {
 }
 
 void print_TrapFrame(TrapFrame* frame) {
-    PRINT_MEM(frame, ra);
-    // PRINT_MEM(frame, gp);
-    // PRINT_MEM(frame, tp);
-    PRINT_MEM(frame, sp);
+    PRINT_MEMBER(frame, ra);
+    PRINT_MEMBER(frame, sp);
+    PRINT_MEMBER(frame, pc);
 
-    // printf("\n");
-    // PRINT_MEM(frame, t0);
-    // PRINT_MEM(frame, t1);
-    // PRINT_MEM(frame, t2);
-    // PRINT_MEM(frame, t3);
-    // PRINT_MEM(frame, t4);
-    // PRINT_MEM(frame, t5);
-    // PRINT_MEM(frame, t6);
+    PRINT_MEMBER(frame, gp);
+    PRINT_MEMBER(frame, tp);
 
-    // PRINT_MEM(frame, a0);
-    // PRINT_MEM(frame, a1);
-    // PRINT_MEM(frame, a2);
-    // PRINT_MEM(frame, a3);
-    // PRINT_MEM(frame, a4);
-    // PRINT_MEM(frame, a5);
-    // PRINT_MEM(frame, a6);
-    // PRINT_MEM(frame, a7);
+    PRINT_MEMBER(frame, t0);
+    PRINT_MEMBER(frame, t1);
+    PRINT_MEMBER(frame, t2);
+    PRINT_MEMBER(frame, t3);
+    PRINT_MEMBER(frame, t4);
+    PRINT_MEMBER(frame, t5);
+    PRINT_MEMBER(frame, t6);
 
-    // PRINT_MEM(frame, s0);
-    // PRINT_MEM(frame, s1);
-    // PRINT_MEM(frame, s2);
-    // PRINT_MEM(frame, s3);
-    // PRINT_MEM(frame, s4);
-    // PRINT_MEM(frame, s5);
-    // PRINT_MEM(frame, s6);
-    // PRINT_MEM(frame, s7);
-    // PRINT_MEM(frame, s8);
-    // PRINT_MEM(frame, s9);
-    // PRINT_MEM(frame, s10);
-    // PRINT_MEM(frame, s11);
+    PRINT_MEMBER(frame, a0);
+    PRINT_MEMBER(frame, a1);
+    PRINT_MEMBER(frame, a2);
+    PRINT_MEMBER(frame, a3);
+    PRINT_MEMBER(frame, a4);
+    PRINT_MEMBER(frame, a5);
+    PRINT_MEMBER(frame, a6);
+    PRINT_MEMBER(frame, a7);
+
+    PRINT_MEMBER(frame, s0);
+    PRINT_MEMBER(frame, s1);
+    PRINT_MEMBER(frame, s2);
+    PRINT_MEMBER(frame, s3);
+    PRINT_MEMBER(frame, s4);
+    PRINT_MEMBER(frame, s5);
+    PRINT_MEMBER(frame, s6);
+    PRINT_MEMBER(frame, s7);
+    PRINT_MEMBER(frame, s8);
+    PRINT_MEMBER(frame, s9);
+    PRINT_MEMBER(frame, s10);
+    PRINT_MEMBER(frame, s11);
 }
 
 void handle_trap(TrapFrame* frame) {
@@ -109,16 +112,26 @@ void handle_trap(TrapFrame* frame) {
             "\n***\nkernel trap: %s\n"
             "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
             "sstatus: 0x%016lx\n"
+            "pid: %d\n"
             "(was in %s mode)\n",
-            decode_scause(scause), scause, stval, sepc, sstatus,
+            decode_scause(scause), scause, stval, sepc, sstatus, my_pid(),
             was_in_kernel_mode ? "kernel" : "user");
-    }
 
+        if (DEBUG_SOFTWARE_INTERRUPTS == 2) {
+            print_TrapFrame(frame);
+        }
+
+        printf("***\n");
+    }
     // TODO: determine which other exceptions are recoverable?
 
     if (software_interrupt || ecall) {
         // clear interrupt
         ASM("csrw sip, %[val]\n" ::[val] "r"(0x0));
+
+        if (ecall) {
+            handle_syscall(frame);
+        }
 
         // run switch
         kernel_switch(frame);
@@ -161,6 +174,7 @@ trap_vector(void) {
 
         // change stack pointer to process's kernel stack
         // load address of process struct
+        // (dereference symbol => get value of pointer)
         "ld sp, " STRINGIFY(current_process) "\n"
         // navigate to start of kernel_stack array
         "addi sp, sp, %[stack_offset]\n"
@@ -218,6 +232,7 @@ trap_vector(void) {
     REGISTER_MEM(sd, sp, s9, TrapFrame);
     REGISTER_MEM(sd, sp, s10, TrapFrame);
     REGISTER_MEM(sd, sp, s11, TrapFrame);
+    // pc, sp treated differently
 
     ASM(
         // read back old stack pointer from scratch
@@ -226,6 +241,12 @@ trap_vector(void) {
         "sd t0, %[offset](sp)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, sp)));
+
+    // store sepc in stack's trapframe
+    ASM("csrr t0, sepc\n"
+        "sd t0, %[offset](sp)\n"
+        //
+        ::[offset] "i"(offsetof(TrapFrame, pc)));
 
     ASM(
         // point a0 (first function argument) to TrapFrame on stack
@@ -238,31 +259,65 @@ trap_vector(void) {
 // sepc should be set before jumping here!
 // stack should be clean!
 IN_USER_SPECIAL __attribute__((naked)) void restore_after_trap(
-    ProcessContext* context, SatpRegister satp) {
+    TrapFrame* context) {
     // start still in kernel page table
 
     // load context
-    REGISTER_MEM(ld, a0, ra, ProcessContext);
-    REGISTER_MEM(ld, a0, sp, ProcessContext);
-    REGISTER_MEM(ld, a0, s0, ProcessContext);
-    REGISTER_MEM(ld, a0, s1, ProcessContext);
-    REGISTER_MEM(ld, a0, s2, ProcessContext);
-    REGISTER_MEM(ld, a0, s3, ProcessContext);
-    REGISTER_MEM(ld, a0, s4, ProcessContext);
-    REGISTER_MEM(ld, a0, s5, ProcessContext);
-    REGISTER_MEM(ld, a0, s6, ProcessContext);
-    REGISTER_MEM(ld, a0, s7, ProcessContext);
-    REGISTER_MEM(ld, a0, s8, ProcessContext);
-    REGISTER_MEM(ld, a0, s9, ProcessContext);
-    REGISTER_MEM(ld, a0, s10, ProcessContext);
-    REGISTER_MEM(ld, a0, s11, ProcessContext);
+    // starting registers
+    REGISTER_MEM(ld, a0, ra, TrapFrame);
+    REGISTER_MEM(ld, a0, gp, TrapFrame);
+    REGISTER_MEM(ld, a0, tp, TrapFrame);
+    REGISTER_MEM(ld, a0, sp, TrapFrame);
+    // t registers
+    REGISTER_MEM(ld, a0, t0, TrapFrame);
+    REGISTER_MEM(ld, a0, t1, TrapFrame);
+    REGISTER_MEM(ld, a0, t2, TrapFrame);
+    REGISTER_MEM(ld, a0, t3, TrapFrame);
+    REGISTER_MEM(ld, a0, t4, TrapFrame);
+    REGISTER_MEM(ld, a0, t5, TrapFrame);
+    REGISTER_MEM(ld, a0, t6, TrapFrame);
+    // a registers
+    // restore a0 later!
+    REGISTER_MEM(ld, a0, a1, TrapFrame);
+    REGISTER_MEM(ld, a0, a2, TrapFrame);
+    REGISTER_MEM(ld, a0, a3, TrapFrame);
+    REGISTER_MEM(ld, a0, a4, TrapFrame);
+    REGISTER_MEM(ld, a0, a5, TrapFrame);
+    REGISTER_MEM(ld, a0, a6, TrapFrame);
+    REGISTER_MEM(ld, a0, a7, TrapFrame);
+    // s registers
+    REGISTER_MEM(ld, a0, s0, TrapFrame);
+    REGISTER_MEM(ld, a0, s1, TrapFrame);
+    REGISTER_MEM(ld, a0, s2, TrapFrame);
+    REGISTER_MEM(ld, a0, s3, TrapFrame);
+    REGISTER_MEM(ld, a0, s3, TrapFrame);
+    REGISTER_MEM(ld, a0, s4, TrapFrame);
+    REGISTER_MEM(ld, a0, s5, TrapFrame);
+    REGISTER_MEM(ld, a0, s6, TrapFrame);
+    REGISTER_MEM(ld, a0, s7, TrapFrame);
+    REGISTER_MEM(ld, a0, s8, TrapFrame);
+    REGISTER_MEM(ld, a0, s9, TrapFrame);
+    REGISTER_MEM(ld, a0, s10, TrapFrame);
+    REGISTER_MEM(ld, a0, s11, TrapFrame);
+    // sepc NOT restored here, it is handled beforehand
+
+    ASM(
+        // store real t0 in scratch
+        "csrw sscratch, t0\n"
+        // load satp into t0
+        "ld t0, %[offset](a0)\n"
+        //
+        ::[offset] "i"(offsetof(TrapFrame, satp)));
+
+    REGISTER_MEM(ld, a0, a0, TrapFrame);
 
     // restore given page table
     ASM("sfence.vma\n"
-        "csrw satp, a1\n"
+        "csrw satp, t0\n"
         "sfence.vma\n");
 
-    ASM("nop\n");
+    // restore real t0
+    ASM("csrr t0, sscratch\n");
 
     // return to whatever is in sepc
     ASM("sret\n");

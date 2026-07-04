@@ -13,14 +13,17 @@ struct TrapFrame {
     uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
     // stack pointer
     uint64_t sp;
+    // program counter, stored from sepc
+    uint64_t pc;
+    // used to transfer satp from switch_process to restore_after_trap
+    uint64_t satp;
 } __attribute__((packed));
 typedef struct TrapFrame TrapFrame;
 
-#include "process.h"
-
 void enable_trap_vector(void);
 void enable_kernel_traps(void);
-void restore_after_trap(ProcessContext* context, SatpRegister satp);
+void restore_after_trap(TrapFrame* context);
+void print_TrapFrame(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // write SSIP to 0x2 for supervisor software interrupt

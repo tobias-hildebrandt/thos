@@ -4,8 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "asm.h"
+#include "flags.h"
 #include "io.h"
 #include "paging.h"
 #include "panic.h"
@@ -154,23 +156,6 @@ PageTable my_page_table(void) {
 
 #define COPY_MEMBER(DEST, SOURCE, MEMBER) DEST->MEMBER = SOURCE->MEMBER
 
-void copy_context_from_trap_frame(ProcessContext* context, TrapFrame* frame) {
-    COPY_MEMBER(context, frame, ra);
-    COPY_MEMBER(context, frame, sp);
-    COPY_MEMBER(context, frame, s0);
-    COPY_MEMBER(context, frame, s1);
-    COPY_MEMBER(context, frame, s2);
-    COPY_MEMBER(context, frame, s3);
-    COPY_MEMBER(context, frame, s4);
-    COPY_MEMBER(context, frame, s5);
-    COPY_MEMBER(context, frame, s6);
-    COPY_MEMBER(context, frame, s7);
-    COPY_MEMBER(context, frame, s8);
-    COPY_MEMBER(context, frame, s9);
-    COPY_MEMBER(context, frame, s10);
-    COPY_MEMBER(context, frame, s11);
-}
-
 // calling this causes the kernel to start its processes
 void begin_processes(void) {
     kernel_switch(NULL);
@@ -243,21 +228,25 @@ void kernel_switch(TrapFrame* frame) {
 
     // back up previous process (can only happen if we started in trap_vector)
     if (current_process != NULL && frame != NULL) {
-        ProcessContext* context = &(current_process->context);
+        TrapFrame* context = &(current_process->context);
         // copy frame into old context
-        copy_context_from_trap_frame(context, frame);
+        memcpy(context, frame, sizeof(TrapFrame));
 
-        // store sepc in context
-        // do NOT add 4, it already points to the instruction after yield()
-        uint64_t sepc;
-        ASM("csrr %0, sepc\n" : "=r"(sepc));
-        context->program_counter = sepc;
         current_process->state = PROCESS_RUNNABLE;
+
+        // if user process, we have to add 4 to PC
+        if (!is_kernel_process(current_process)) {
+            current_process->context.pc += 4;
+        }
         PRINTF_IF(DEBUG_SWITCH,
                   "kernel_switch: switch off pid %2d, %s, c.pc %p\n",
                   current_process->id,
                   is_kernel_process(current_process) ? "kernel" : "user  ",
-                  context->program_counter);
+                  context->pc);
+        if (DEBUG_SWITCH == 2) {
+            printf("kernel_switch: old context:\n");
+            print_TrapFrame(context);
+        }
     }
 
     current_process = next_process;
@@ -273,7 +262,7 @@ void kernel_switch(TrapFrame* frame) {
 
     } else {
         // go back to restored counter
-        ASM("csrw sepc, %0\n" ::"r"(current_process->context.program_counter));
+        ASM("csrw sepc, %0\n" ::"r"(current_process->context.pc));
     }
 
     // process now running
@@ -308,6 +297,15 @@ void kernel_switch(TrapFrame* frame) {
         printf("kernel_switch: new page table %p, new satp: %p\n",
                current_process->page_table, new_satp.value);
     }
+    if (DEBUG_SWITCH == 2) {
+        printf("kernel_switch: new context:\n");
+        print_TrapFrame(&current_process->context);
+    }
+    if (DEBUG_SWITCH) {
+        printf("kernel_switch: switching now!\n");
+    }
 
-    restore_after_trap(&current_process->context, new_satp);
+    current_process->context.satp = new_satp.value;
+
+    restore_after_trap(&current_process->context);
 }

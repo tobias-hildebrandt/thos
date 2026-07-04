@@ -1,16 +1,23 @@
-const char text[] = "this is some example text\n";
+#include "syscalls.h"  // IWYU pragma: keep
+
+const char text[] =
+    "hello from user program !@#$%^&*()_+ "
+    "0123456789abcdefghijklmnopqrstuvwxyz\n";
 
 const char lotta_space[4196];
 
 int main(void) {
-    volatile int sum = 0;
+    int index = 0;
     while (1) {
-        sum += 1;  // text[i];
-        if (sum % 10 == 0) {
-            __asm__ __volatile__("ecall\n");
+        if (text[index] == '\0') {
+            index = 0;
         }
+        int res = putchar(text[index]);
+        (void)res;
+        index += 1;
     }
-    return sum;
+
+    return 0;
 }
 
 extern char __stack_top[];

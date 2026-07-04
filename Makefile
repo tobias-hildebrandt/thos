@@ -18,11 +18,12 @@ LD := ld.ldd
 OBJCOPY := llvm-objcopy
 OBJDUMP := llvm-objdump
 
-COMMON_CFLAGS := -std=c11  \
+COMMON_CFLAGS := -std=c11 \
 	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	${OPTIMIZE} ${DEBUG} \
-	${WARNINGS}
+	${WARNINGS} \
+	-I${SRC}/common/
 
 KERNEL_CFLAGS := ${COMMON_CFLAGS} \
 	-I${SRC}/kernel/ \
@@ -30,8 +31,7 @@ KERNEL_CFLAGS := ${COMMON_CFLAGS} \
 	${KERNEL_CFLAGS_EXTRA}
 
 # TODO: user-facing libc as -isystem
-USER_CFLAGS := ${COMMON_CFLAGS} -I${SRC}/user/ \
-	-Wno-empty-translation-unit -static -O0
+USER_CFLAGS := ${COMMON_CFLAGS} -I${SRC}/user/
 
 # function that takes a list of C sources and returns list of object files
 obj_fn = $(patsubst %.c, %.o, $(patsubst ${SRC}%, ${BUILD}%, $(1)))
@@ -55,6 +55,7 @@ USER_C_SOURCES := $(shell find ${SRC}/user/ -name '*.c')
 USER_HEADERS := $(shell find ${SRC}/user/ -name '*.h')
 USER_OBJS := $(call obj_fn, ${USER_C_SOURCES})
 USER_BLOBS := $(USER_OBJS:.o=.blob)
+USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
 # TODO: pass into C somehow? and do same with sections through nm/objdump?
 #USER_PROGS := $(shell basename -a $(USER_OBJS:.o=))
 
@@ -92,7 +93,7 @@ vars:
 	@echo "USER_PROGS:  ${USER_PROGS}"
 
 .PHONY: kernel
-kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP}
+kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS}
 
 .PHONY: run
 run: qemu
@@ -174,7 +175,7 @@ ${BUILD}/user/%.o: ${SRC}/user/%.c ${USER_HEADERS} | ${BUILD}
 # user ELF binary
 ${BUILD}/user/%.elf: ${BUILD}/user/%.o | ${BUILD}
 	${CC} ${USER_CFLAGS} \
-		-Wl,-T${USER_LINKER_SCRIPT} -Wl,-Map=${BUILD}/$(shell basename $@ .elf).map -fuse-ld=lld \
+		-Wl,-T${USER_LINKER_SCRIPT} -Wl,-Map=${BUILD}/user/$(shell basename $@ .elf).map -fuse-ld=lld \
 		-o $@ $<
 
 # step 3
@@ -198,3 +199,7 @@ ${BUILD}/user/%.S: ${BUILD}/user/%.bin | ${BUILD}
 # user BIN binary as linkable blob
 ${BUILD}/user/%.blob: ${BUILD}/user/%.S ${BUILD}/user/%.bin | ${BUILD}
 	${CC} ${USER_CFLAGS} -c $< -o $@
+
+# user disassembly
+${BUILD}/user/%.objdump: ${BUILD}/user/%.elf | ${BUILD}
+	${OBJDUMP} -D $< > $@

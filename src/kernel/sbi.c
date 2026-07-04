@@ -6,14 +6,15 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                      long arg5, long fid, long eid) {
     // load the data into registers,
     // even though they should already be in the right place
-    REGISTER(a0) = arg0;
-    REGISTER(a1) = arg1;
-    REGISTER(a2) = arg2;
-    REGISTER(a3) = arg3;
-    REGISTER(a4) = arg4;
-    REGISTER(a5) = arg5;
-    REGISTER(a6) = fid;
-    REGISTER(a7) = eid;
+    REGS_START
+    REGISTER_INIT(a0, arg0);
+    REGISTER_INIT(a1, arg1);
+    REGISTER_INIT(a2, arg2);
+    REGISTER_INIT(a3, arg3);
+    REGISTER_INIT(a4, arg4);
+    REGISTER_INIT(a5, arg5);
+    REGISTER_INIT(a6, fid);
+    REGISTER_INIT(a7, eid);
 
     // environment call
     ASM("ecall"
@@ -28,6 +29,7 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
         // clobbers
         : "memory");
     return (SbiReturn){.error = a0, .value = a1};
+    REGS_END
 }
 
 // TODO:
@@ -35,7 +37,7 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
 
 // console putchar (legacy)
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-legacy.adoc
-SbiReturn sbi_putchar(char ch) {
+SbiReturn sbi_putchar(int ch) {
     return SBI_CALL(0x1 /* Extension: Console Putchar */, 0x0 /* (ignored) */,
                     ch /* character */);
 }

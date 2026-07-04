@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "paging.h"
+#include "trap.h"
 
 enum ProcessState {
     // not actually a process
@@ -17,23 +18,14 @@ enum ProcessState {
 };
 typedef enum ProcessState ProcessState;
 
-struct ProcessContext {
-    // program counter, return address, stack pointer
-    uint64_t ra, sp;
-    // saved registers
-    uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
-    // program counter to return to
-    uint64_t program_counter;
-};
-typedef struct ProcessContext ProcessContext;
-
 #define KERNEL_STACK_SIZE 8192
 
 struct Process {
     uint8_t id;
     ProcessState state;
     uint8_t kernel_stack[KERNEL_STACK_SIZE];
-    ProcessContext context;
+    TrapFrame context;
+    uint64_t program_counter;
     PageTable page_table;
 };
 typedef struct Process Process;
@@ -46,8 +38,6 @@ struct ProcessArguments {
 typedef struct ProcessArguments ProcessArguments;
 
 extern Process* current_process;
-
-#include "trap.h"
 
 void begin_processes(void);
 void kernel_switch(TrapFrame* frame);
