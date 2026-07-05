@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "asm.h"
+#include "build_info.h"
 #include "debug.h"
 #include "example_process.h"
 #include "flags.h"
@@ -11,7 +12,7 @@
 #include "trap.h"
 #include "util.h"
 
-__attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
+__attribute__((section(".text.boot"))) NAKED void boot(void) {
     ASM(
         // set stack pointer
         "mv sp, %0\n"
@@ -33,9 +34,14 @@ void kernel_main(void) {
         "----------\n"
         "Hello kernel_main\n");
 
+    printf("(compiled with %s)\n", COMPILER_STRING);
+    printf("\n");
+
     init_kernel_page_table();
 
-    print_all_sections();
+    if (DEBUG_SECTIONS) {
+        print_all_sections();
+    }
 
     if (DEBUG_PRINTF) {
         debug_printf();
@@ -47,6 +53,10 @@ void kernel_main(void) {
 
     if (DEBUG_ATOI) {
         debug_atoi();
+    }
+
+    if (DEBUG_ALIGN) {
+        debug_align();
     }
 
     if (!EXAMPLE_PROCESSES_DISABLE) {

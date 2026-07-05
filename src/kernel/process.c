@@ -92,7 +92,7 @@ void print_Process(Process* process) {
 // user exit function
 // located in user special function
 // automatically set as return address when user process first switched on
-IN_USER_SPECIAL __attribute__((naked)) void user_exit(void) {
+IN_USER_SPECIAL NAKED void user_exit(void) {
     ASM(
         // just do SYSCALL_EXIT and let kernel handle it
         "li a0, %0\n"

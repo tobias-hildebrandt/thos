@@ -123,7 +123,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     PRINTF_IF(DEBUG_MAP_ADDRESS, "(arg)   ");
 
     // work down from highest level to lowest level
-    for (uint8_t level = 2; level >= 0; level--) {
+    for (uint8_t level = 2; /* breaks inside */; level--) {
         uint64_t entry_number = level_entry_number[level];
 
         if (current_table == NULL) {

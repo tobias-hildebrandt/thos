@@ -21,7 +21,12 @@
     NAMED_REGISTER(REGISTER, REGISTER); \
     REGISTER = init;
 
+#if COMPILER_IS_CLANG
 #define REGS_START                   \
     _Pragma("clang diagnostic push") \
         _Pragma("clang diagnostic ignored \"-Wuninitialized\"")
 #define REGS_END _Pragma("clang diagnostic pop")
+#else
+#define REGS_START
+#define REGS_END
+#endif

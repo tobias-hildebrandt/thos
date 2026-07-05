@@ -12,6 +12,8 @@
 #define DEBUG_SWITCH 1
 #define DEBUG_USER_TRAPS 1
 #define DEBUG_CLEAN_PROCESS 1
+#define DEBUG_SECTIONS 1
+#define DEBUG_ALIGN 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -56,6 +58,14 @@
 
 #ifndef DEBUG_CLEAN_PROCESS
 #define DEBUG_CLEAN_PROCESS 0
+#endif
+
+#ifndef DEBUG_SECTIONS
+#define DEBUG_SECTIONS 0
+#endif
+
+#ifndef DEBUG_ALIGN
+#define DEBUG_ALIGN 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS

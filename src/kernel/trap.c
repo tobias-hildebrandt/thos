@@ -164,8 +164,7 @@ void handle_trap(TrapFrame* frame) {
 // "the address must be 4-byte aligned"
 // TODO: __attribute__(interrupt)?
 // https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
-IN_GLOBAL_SPECIAL __attribute__((naked)) __attribute__((aligned(4))) void
-trap_vector(void) {
+IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
     ASM(
         // need to swap to kernel page table NOW, before touching stack
 
@@ -257,14 +256,14 @@ trap_vector(void) {
         // point a0 (first function argument) to TrapFrame on stack
         "mv a0, sp\n"
         // call handle_trap
-        "j " STRINGIFY(handle_trap) "\n");
+        "la t0, " STRINGIFY(handle_trap) "\n"
+        "jr t0 \n");
 }
 
 // restores current_process context
 // sepc should be set before jumping here!
 // stack should be clean!
-IN_GLOBAL_SPECIAL __attribute__((naked)) void restore_after_trap(
-    TrapFrame* context) {
+IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
     // start still in kernel page table
 
     // load context

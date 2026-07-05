@@ -7,19 +7,32 @@ COMP_DB_PART_DIR := compdb
 
 COMP_DB := ${BUILD}/${COMP_DB_FILENAME}
 COMP_DB_ALL_PARTS = $(shell find ${BUILD}/${COMP_DB_PART_DIR}/ -type f)
+compdbpart_fn = ${BUILD}/${COMP_DB_PART_DIR}/$(shell echo $(1) | tr '/' '_').compdbpart
 
 OPTIMIZE ?= -O2
 DEBUG ?= -g3
 WARNINGS ?= -Wall -Wextra -Wpedantic -Wformat=2 \
-	-Wno-gnu-zero-variadic-macro-arguments -Wimplicit-fallthrough
+	-Wimplicit-fallthrough
 
-CC := clang
-LD := ld.ldd
+ifndef USE_GCC
+	CC := clang
+	COMMON_CFLAGS := --target=riscv64-unknown-elf
+	compdb_cflag_fn = -MJ $(call compdbpart_fn, $(1))
+	compdb_cc_wrap_fn =
+	WARNINGS += -Wno-gnu-zero-variadic-macro-arguments
+else
+	CC := riscv64-unknown-elf-gcc
+	COMMON_CFLAGS :=
+	compdb_cflag_fn =
+	compdb_cc_wrap_fn = bear --output $(call compdbpart_fn, $(1)) --
+endif
+
+# gnu binutil's objcopy and objdump don't work!
 OBJCOPY := llvm-objcopy
 OBJDUMP := llvm-objdump
 
-COMMON_CFLAGS := -std=c11 \
-	--target=riscv64-unknown-elf -mcmodel=medany -march=rv64g \
+COMMON_CFLAGS += -std=gnu17 \
+	-mcmodel=medany -march=rv64g \
 	-fno-stack-protector -ffreestanding -nostdlib \
 	${OPTIMIZE} ${DEBUG} \
 	${WARNINGS} \
@@ -34,9 +47,6 @@ USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/ -Wno-empty-translation-unit
 
 # function that takes a list of C sources and returns list of object files
 obj_fn = $(patsubst %.c,%.o,$(patsubst ${SRC}%, ${BUILD}%, $(1)))
-
-# function that takes a path of a build object and returns its comp db part path
-compdb_path_fn = ${BUILD}/${COMP_DB_PART_DIR}/$(shell echo $(1) | tr '/' '_').compdbpart
 
 KERNEL_LINKER_SCRIPT := ${SRC}/kernel/kernel.lds
 KERNEL_C_SOURCES := $(shell find ${SRC}/kernel/ -name '*.c')
@@ -63,6 +73,8 @@ USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
 
 QEMU := qemu-system-riscv64
 QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio --no-reboot -kernel ${KERNEL_ELF}
+
+OUTFILE := ${BUILD}/out
 
 GDB_INIT_TEMPLATE := ${MISC}/gdbinit-template
 GDB_PORT ?= 7777
@@ -108,8 +120,8 @@ run: qemu
 
 # run kernel via qemu
 .PHONY: qemu
-qemu: kernel
-	${QEMU} ${QEMU_FLAGS}
+qemu: kernel ${OUTFILE}
+	${QEMU} ${QEMU_FLAGS} | tee ${OUTFILE}
 
 # generate the gdb init file
 ${GDB_INIT_FILE}:
@@ -119,7 +131,7 @@ ${GDB_INIT_FILE}:
 .PHONY: qemu-dbg
 qemu-dbg: qemu-gdb
 .PHONY: qemu-gdb
-qemu-gdb: kernel ${GDB_INIT_FILE}
+qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
 	@echo "-----"
 	@echo "gdb port is: ${GDB_PORT}"
 	@echo "launch gdb with: gdb-multiarch -ix ${GDB_INIT_FILE} ${KERNEL_ELF}"
@@ -128,7 +140,10 @@ qemu-gdb: kernel ${GDB_INIT_FILE}
 	@echo "(CTRL+A X to exit)"
 	@echo "-----"
 	@echo
-	${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
+	${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT} | tee ${OUTFILE}
+
+${OUTFILE}: | ${BUILD}
+	touch $@
 
 # clean build dir
 .PHONY: clean
@@ -147,6 +162,13 @@ ${BUILD}:
 
 # compilation commands database for clangd
 ${COMP_DB}: ${KERNEL_ELF}  | ${BUILD}
+ifdef USE_GCC
+# horrible bear kludge
+	@for file in ${COMP_DB_ALL_PARTS}; do \
+		sed -i '1d;$$d' $$file; \
+		echo "," >> $$file; \
+	done
+endif
 	@printf "[\n" > ${COMP_DB}
 	@cat ${COMP_DB_ALL_PARTS} >> ${COMP_DB}
 	@truncate -s-2 ${COMP_DB}
@@ -164,11 +186,11 @@ ${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT}
 
 # kernel object
 ${BUILD}/kernel/%.o: ${SRC}/kernel/%.c ${KERNEL_HEADERS} ${LIBC_HEADERS} | ${BUILD}
-	${CC} ${KERNEL_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
+	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # libc object
 ${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} | ${BUILD}
-	${CC} ${KERNEL_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
+	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 ## user programs
 
@@ -177,12 +199,12 @@ ${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} | ${BUILD}
 
 # userlib
 ${BUILD}/userlib/%.o: ${SRC}/userlib/%.c ${USERLIB_HEADERS} | ${BUILD}
-	${CC} ${USER_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
+	$(call compdb_cc_wrap_fn, $@) ${CC} ${USER_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # step 1
 # user object
 ${BUILD}/user/%.o: ${SRC}/user/%.c ${USERLIB_HEADERS} | ${BUILD}
-	${CC} ${USER_CFLAGS} -c $< -o $@ -MJ $(call compdb_path_fn, $@)
+	$(call compdb_cc_wrap_fn, $@) ${CC} ${USER_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # step 2
 # user ELF binary

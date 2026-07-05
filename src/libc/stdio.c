@@ -52,8 +52,8 @@ int print_string(char* str, PrintState* state) {
 int print_hex(va_list* args, PrintState* state) {
     int printed = 0;
     int shift;
-    uint32_t int_value;
-    uint64_t long_value;
+    uint32_t int_value = 0;
+    uint64_t long_value = 0;
     if (state->long_modifier) {
         long_value = va_arg(*args, int64_t);
         shift = 16 - 1;

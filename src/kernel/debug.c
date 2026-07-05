@@ -1,11 +1,13 @@
 #include "debug.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "paging.h"
+#include "util.h"
 
 // page alloc testing
 void debug_page_alloc(void) {
@@ -127,4 +129,26 @@ void debug_atoi(void) {
     PRINT_ATOX(atoi, "%d", "+aaaaa", 0);
     PRINT_ATOX(atoi, "%d", "++++111", 0);
     PRINT_ATOX(atoi, "%d", "    \t\n\t\n       ", 0);
+}
+
+#define PRINT_IS_ALIGNED(val, align, expected)                        \
+    printf("is_aligned(%d, %d) = %s, should be %s, %s\n", val, align, \
+           is_aligned(val, align) ? "true" : "false",                 \
+           expected ? "true" : "false",                               \
+           is_aligned(val, align) == expected ? "OK" : "FAIL")
+#define PRINT_ALIGN_UP(val, align, expected)                        \
+    printf("align_up(%d, %d) = %d, should be %d, %s\n", val, align, \
+           align_up(val, align), expected,                          \
+           align_up(val, align) == expected ? "OK" : "FAIL")
+
+// alignment testing
+void debug_align(void) {
+    PRINT_IS_ALIGNED(8, 4, true);
+    PRINT_IS_ALIGNED(9, 4, false);
+    PRINT_IS_ALIGNED(4096, 16, true);
+
+    PRINT_ALIGN_UP(5, 8, 8);
+    PRINT_ALIGN_UP(8, 8, 8);
+    PRINT_ALIGN_UP(13, 8, 16);
+    PRINT_ALIGN_UP(13, 2, 14);
 }
