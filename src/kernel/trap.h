@@ -1,22 +1,24 @@
 #pragma once
 
+#include <stdint.h>
+
 #include "asm.h"
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
-    uint64_t ra, gp, tp;
+    uintptr_t ra, gp, tp;
     // temporaries
-    uint64_t t0, t1, t2, t3, t4, t5, t6;
+    uintptr_t t0, t1, t2, t3, t4, t5, t6;
     // arguments
-    uint64_t a0, a1, a2, a3, a4, a5, a6, a7;
+    uintptr_t a0, a1, a2, a3, a4, a5, a6, a7;
     // saved
-    uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
+    uintptr_t s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
     // stack pointer
-    uint64_t sp;
+    uintptr_t sp;
     // program counter, stored from sepc
-    uint64_t pc;
+    uintptr_t pc;
     // used to transfer satp from switch_process to restore_after_trap
-    uint64_t satp;
+    uintptr_t satp;
 } __attribute__((packed));
 typedef struct TrapFrame TrapFrame;
 
@@ -28,7 +30,4 @@ void print_TrapFrame(TrapFrame* frame);
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // write SSIP to 0x2 for supervisor software interrupt
 // clobbers a register!
-#define KERNEL_SOFTWARE_INTERRUPT() \
-    ASM("csrw sip, %[val]\n"        \
-                                    \
-        ::[val] "r"(0x2))
+#define KERNEL_SOFTWARE_INTERRUPT() ASM("csrw sip, %[val]\n" ::[val] "r"(0x2))

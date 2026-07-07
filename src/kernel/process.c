@@ -42,8 +42,7 @@ bool is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
 }
 
-#define PRINT_CONTEXT_REG(context, r) \
-    printf("\t" #r ": 0x%016lx,\n", context.r);
+#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%p,\n", context.r);
 
 void print_ProcessState(ProcessState state) {
     printf("%d(", state);
@@ -107,7 +106,7 @@ void kernel_exit(void) {
     // switch to process's kernel stack
     // "poor man's trap_vector"
     // but already in kernel page table and no need to save trapframe
-    ASM("ld sp, " STRINGIFY(current_process_stack_top) "\n");
+    ASM(ASM_LOAD "sp, " STRINGIFY(current_process_stack_top) "\n");
 
     // wipe current process (except kernel stack)
     clean_process();
@@ -160,7 +159,7 @@ Process* allocate_process(ProcessArguments args) {
         process->page_table = kernel_page_table;
 
         // needs room for stack
-        uint64_t stack_page = (uint64_t)alloc_page();
+        uintptr_t stack_page = (uintptr_t)alloc_page();
         // points at top(!) of page
         process->context.sp = stack_page + PAGE_SIZE;
 
@@ -297,9 +296,9 @@ void kernel_switch(TrapFrame* frame) {
 
         // set up new return address
         if (is_kernel_process(current_process)) {
-            current_process->context.ra = (uint64_t)kernel_exit;
+            current_process->context.ra = (uintptr_t)kernel_exit;
         } else {
-            current_process->context.ra = (uint64_t)user_exit;
+            current_process->context.ra = (uintptr_t)user_exit;
         }
 
     } else {
@@ -311,7 +310,7 @@ void kernel_switch(TrapFrame* frame) {
     current_process->state = PROCESS_RUNNING;
 
     if (DEBUG_SWITCH) {
-        uint64_t sepc;
+        uintptr_t sepc;
         ASM("csrr %0, sepc\n" : "=r"(sepc));
         printf("kernel_switch: switch on  pid %2d, %s, sepc %p\n",
                current_process->id,
@@ -321,7 +320,7 @@ void kernel_switch(TrapFrame* frame) {
     // TODO: memset 0 process's kernel stack?
 
     // set sret to go to kernel mode or user mode
-    uint64_t sstatus;
+    uintptr_t sstatus;
     if (is_kernel_process(current_process)) {
         sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE | SSTATUS_SUM;
         ASM("csrw sstatus, %0\n" ::"r"(sstatus));

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "asm.h"
+#include "build_info.h"
 #include "flags.h"
 #include "io.h"
 #include "paging.h"
@@ -20,7 +21,7 @@ struct SomeData {
 typedef struct SomeData SomeData;
 
 void print_SomeData(SomeData* data) {
-    printf("SomeData { d: 0x%lx, w: 0x%x, b: %s }\n", data->d, data->w,
+    printf("SomeData { d: 0x%llx, w: 0x%x, b: %s }\n", data->d, data->w,
            data->b);
 }
 
@@ -32,7 +33,7 @@ void spin(int loops) {
 
 // prints ID and some value (only if enabled)
 void loop_print(uint64_t val) {
-    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%lx\n", my_pid(), val);
+    PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%llx\n", my_pid(), val);
 }
 
 void print_process_start(const char* name) {
@@ -52,7 +53,7 @@ void process_loop(uint64_t start) {
 // process that gets data from a0
 void process_load_a0(uint64_t data) {
     print_process_start(__func__);
-    printf("s1 data: 0x%lx\n", data);
+    printf("s1 data: 0x%llx\n", data);
 
     yield();
 
@@ -63,7 +64,7 @@ void process_load_a0(uint64_t data) {
 void process_load_from_stack(SomeData* data) {
     print_process_start(__func__);
 
-    printf("0x%lx = ", (uint64_t)data);
+    printf("%p = ", (uintptr_t)data);
 
     print_SomeData(data);
 
@@ -93,7 +94,7 @@ void process_mem_ops(void) {
     printf("alloc'd page vaddr: %p\n", page);
     printf("alloc'd page paddr: %p\n",
            get_physical_address(my_page_table(),
-                                (VirtualAddress){.value = (uint64_t)page}));
+                                (VirtualAddress){.value = (uintptr_t)page}));
 
     yield();
 
@@ -119,13 +120,14 @@ void process_mem_ops(void) {
 
 void start_example_processes(void) {
     Process* p0 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_load_a0,
+        .entry_address = (uintptr_t)process_load_a0,
         .is_user_program = false,
     });
-    p0->context.a0 = 0x1111111111111111;
+    ONLY64(p0->context.a0 = 0x1111111111111111LL);
+    ONLY32(p0->context.a0 = 0x11111111);
 
     Process* p1 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_load_from_stack,
+        .entry_address = (uintptr_t)process_load_from_stack,
         .is_user_program = false,
     });
     // allocate room on process's stack so process doesn't clobber it
@@ -137,31 +139,31 @@ void start_example_processes(void) {
     p1_data->w = 0xfeedcafe;
     memcpy(p1_data->b, "abcdefghijklmno", 16);
     // pass address to data as a0
-    p1->context.a0 = (uint64_t)p1_data;
+    p1->context.a0 = (uintptr_t)p1_data;
 
     Process* p2 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_that_returns,
+        .entry_address = (uintptr_t)process_that_returns,
         .is_user_program = false,
     });
     (void)p2;
 
     Process* p3 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)process_mem_ops,
+        .entry_address = (uintptr_t)process_mem_ops,
         .is_user_program = false,
     });
     (void)p3;
 
     Process* p4 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)USER_user_START,
+        .entry_address = (uintptr_t)USER_user_START,
         .is_user_program = true,
-        .user_program_end = (uint64_t)USER_user_END,
+        .user_program_end = (uintptr_t)USER_user_END,
     });
     (void)p4;
 
     Process* p5 = allocate_process((ProcessArguments){
-        .entry_address = (uint64_t)USER_user2_START,
+        .entry_address = (uintptr_t)USER_user2_START,
         .is_user_program = true,
-        .user_program_end = (uint64_t)USER_user2_END,
+        .user_program_end = (uintptr_t)USER_user2_END,
     });
     (void)p5;
 }

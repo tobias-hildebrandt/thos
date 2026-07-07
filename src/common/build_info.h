@@ -17,3 +17,15 @@
 #define COMPILER_VERSION "unknown"
 #define COMPILER_STRING "unknown"
 #endif
+
+#if defined(QEMU64)
+#define POINTER_BITS 64
+#define ONLY64(expr) expr
+#define ONLY32(expr)
+#elif defined(QEMU32)
+#define POINTER_BITS 32
+#define ONLY64(expr)
+#define ONLY32(expr) expr
+#else
+#error Unsupported platform
+#endif

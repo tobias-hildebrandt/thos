@@ -2,15 +2,26 @@
 
 #include <stddef.h>
 
+#include "build_info.h"
+
 // inline assembly
 #define ASM(...) __asm__ __volatile__(__VA_ARGS__)
 
 #define ASM_SET_LABEL(x) x ":\n"
 
+// define ASM string for register/address<->mem operations
+#if (POINTER_BITS == 64)
+#define ASM_LOAD "ld "
+#define ASM_STORE "sd "
+#else
+#define ASM_LOAD "lw "
+#define ASM_STORE "sw "
+#endif
+
 // asm string generation to load/store registers in memory
 #define REGISTER_MEM(instr, base, reg, type) \
-    ASM(#instr " " #reg ", %[offset](" #base \
-               ")\n" : : [offset] "i"(offsetof(type, reg)))
+    ASM(instr " " #reg ", %[offset](" #base  \
+              ")\n" : : [offset] "i"(offsetof(type, reg)))
 
 // TODO: determine if register macros are even useful
 

@@ -1,7 +1,10 @@
 #pragma once
 
-// RISC-V ABIs Specification Chapter 4, LP64
+#include "build_info.h"
 
+// RISC-V ABIs Specification 4.1. C/C++ type details
+#if (POINTER_BITS == 64)
+// RV64
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
@@ -14,6 +17,21 @@ typedef long int64_t;
 
 typedef uint64_t uintptr_t;
 typedef int64_t intptr_t;
+#else
+// RV32
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+
+typedef char int8_t;
+typedef short int16_t;
+typedef int int32_t;
+typedef long long int64_t;
+
+typedef uint32_t uintptr_t;
+typedef int32_t intptr_t;
+#endif
 
 #define INT8_MIN -128
 #define INT8_MAX 127

@@ -6,10 +6,10 @@
 #include "paging.h"  // IWYU pragma: keep
 #include "util.h"    // IWYU pragma: keep
 
-// declares <section>_START and <section>_END as extern uint64_t's
-#define SECTION_DECLARE(section)                   \
-    extern const uint64_t CONCAT_(section, START); \
-    extern const uint64_t CONCAT_(section, END)
+// declares <section>_START and <section>_END as extern uintptr_t's
+#define SECTION_DECLARE(section)                    \
+    extern const uintptr_t CONCAT_(section, START); \
+    extern const uintptr_t CONCAT_(section, END)
 
 // returns size of section
 #define SECTION_SIZE(section) (CONCAT_(section, END) - CONCAT_(section, START))
@@ -28,9 +28,9 @@ SECTION_DECLARE(USER_user2);
 // places symbol in the global special page
 #define IN_GLOBAL_SPECIAL __attribute__((section(".global_special")))
 // global special page physical address
-extern const uint64_t GLOBAL_SPECIAL_PAGE;
+extern const uintptr_t GLOBAL_SPECIAL_PAGE;
 
 #define IN_USER_SPECIAL __attribute__((section(".user_special")))
-extern const uint64_t USER_SPECIAL_PAGE;
+extern const uintptr_t USER_SPECIAL_PAGE;
 
 void print_all_sections(void);

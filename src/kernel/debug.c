@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "build_info.h"
 #include "paging.h"
 #include "util.h"
 
@@ -20,7 +21,7 @@ void debug_page_alloc(void) {
             page[index] = page_num;
         }
 
-        printf("page alloc at 0x%lx\n", (uint64_t)page);
+        printf("page alloc at %p\n", page);
     }
 }
 
@@ -31,25 +32,27 @@ void debug_printf(void) {
     printf("printf int hex 0x01234567 = 0x%x\n", 0x01234567);
     printf("printf int hex 0x89abcdef = 0x%x\n", 0x89abcdef);
 
-    printf("printf long hex 0                  = 0x%lx\n", 0x0);
-    printf("printf long hex 0xffffffffffffffff = 0x%lx\n", 0xffffffffffffffff);
-    printf("printf long hex 0x0123456789abcdef = 0x%lx\n", 0x0123456789abcdef);
+    printf("printf longlong hex 0                  = 0x%llx\n", 0x0LL);
+    printf("printf longlong hex 0xffffffffffffffff = 0x%llx\n",
+           0xffffffffffffffffLL);
+    printf("printf longlong hex 0x0123456789abcdef = 0x%llx\n",
+           0x0123456789abcdefLL);
 
-    printf("printf %%x but pass long: 0x0123456789abcdef = 0x%x\n",
-           0x0123456789abcdef);
-    printf("printf %%lx but pass int: 0x01234567 = 0x%lx\n",
-           ((uint32_t)0x01234567));
+    printf("printf %%x but pass longlong: 0x0123456789abcdef = 0x%x\n",
+           0x0123456789abcdefLL);
+    printf("printf %%llx but pass int: 0x01234567 = 0x%llx\n",
+           ((int)0x01234567));
 
     printf("printf alt# int hex 0          = %#x\n", 0x0);
     printf("printf alt# int hex 0xffffffff = %#x\n", 0xffffffff);
     printf("printf alt# int hex 0x01234567 = %#x\n", 0x01234567);
     printf("printf alt# int hex 0x89abcdef = %#x\n", 0x89abcdef);
 
-    printf("printf alt# long hex 0                  = %#lx\n", 0x0);
-    printf("printf alt# long hex 0xffffffffffffffff = %#lx\n",
-           0xffffffffffffffff);
-    printf("printf alt# long hex 0x0123456789abcdef = %#lx\n",
-           0x0123456789abcdef);
+    printf("printf alt# longlong hex 0                  = %#llx\n", 0x0LL);
+    printf("printf alt# longlong hex 0xffffffffffffffff = %#llx\n",
+           0xffffffffffffffffLL);
+    printf("printf alt# longlong hex 0x0123456789abcdef = %#llx\n",
+           0x0123456789abcdefLL);
 
     for (int i = -10; i <= 10; i++) {
         printf("%d ", i);
@@ -60,9 +63,9 @@ void debug_printf(void) {
         printf("0x%x = %d\n", i, i);
     }
 
-    for (long shift = 0; shift < 64; shift += 4) {
-        long value = (1L) << shift;
-        printf("0x%lx = signed=%ld unsigned=%lu\n", value, value, value);
+    for (long shift = 0; shift < POINTER_BITS; shift += 4) {
+        uintptr_t value = (1L) << shift;
+        printf("0x%p = signed=%p unsigned=%p\n", value, value, value);
     }
 
     printf("zero int        0x%x = %d\n", 0, 0);
@@ -72,15 +75,16 @@ void debug_printf(void) {
     printf("zero uint       0x%x = %u\n", 0, 0);
     printf("max uint        0x%x = %u\n", UINT32_MAX, UINT32_MAX);
 
-    printf("zero long       0x%lx = %ld\n", 0, 0);
-    printf("max long        0x%lx = %ld\n", INT64_MAX, INT64_MAX);
-    printf("all 1s long     0x%lx = %ld\n", 0xffffffffffffffff,
+    printf("zero longlong   0x%lx = %lld\n", 0, 0);
+    printf("max longlong    0x%lx = %lld\n", INT64_MAX, INT64_MAX);
+    printf("all 1s longlong 0x%lx = %lld\n", 0xffffffffffffffff,
            0xffffffffffffffff);
-    printf("min long        0x%lx = %ld\n", INT64_MIN, INT64_MIN);
-    printf("zero ulong      0x%lx = %lu\n", 0, 0);
-    printf("max ulong       0x%lx = %lu\n", UINT64_MAX, UINT64_MAX);
+    printf("min longlong    0x%lx = %lld\n", INT64_MIN, INT64_MIN);
+    printf("zero ulonglong  0x%lx = %llu\n", 0, 0);
+    printf("max ulonglong   0x%lx = %llu\n", UINT64_MAX, UINT64_MAX);
 
     int printed = printf("0123456789");
+    printf("\n");
 
     printf("^printed %d characters (not including newline)\n", printed);
 
@@ -95,7 +99,7 @@ void debug_printf(void) {
 
     printf("pointer 0x0:                %p\n", 0);
     printf("pointer 0xffff:             %p\n", 0xffff);
-    printf("pointer 0x0123456789abcdef: %p\n", 0x0123456789abcdef);
+    ONLY64(printf("pointer 0x0123456789abcdef: %p\n", 0x0123456789abcdefLL));
 }
 
 // TODO: assert
@@ -120,9 +124,9 @@ void debug_atoi(void) {
     PRINT_ATOX(atoi, "%d", "-999999asdfeswesgrarewf", -999999);
     PRINT_ATOX(atoi, "%d", "0x123", 0);  // prank'd!
 
-    PRINT_ATOX(atol, "%ld", "0", 0);
-    PRINT_ATOX(atol, "%ld", "-1000000000000000", -1000000000000000);
-    PRINT_ATOX(atol, "%ld", "1000000000000000", 1000000000000000);
+    PRINT_ATOX(atoll, "%lld", "0", 0LL);
+    PRINT_ATOX(atoll, "%lld", "-1000000000000000", -1000000000000000LL);
+    PRINT_ATOX(atoll, "%lld", "1000000000000000", 1000000000000000LL);
 
     PRINT_ATOX(atoi, "%d", "", 0);
     PRINT_ATOX(atoi, "%d", "aaaaaaa", 0);

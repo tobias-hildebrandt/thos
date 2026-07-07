@@ -16,7 +16,8 @@
 #define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, PTR->MEM)
 
 // 12.1.1.8. Supervisor Cause (scause) Register
-#define SCAUSE(INTERRUPT, EXCEPTION) (INTERRUPT##UL << 63 | EXCEPTION##UL)
+#define SCAUSE(INTERRUPT, EXCEPTION) \
+    ((INTERRUPT##UL << (POINTER_BITS - 1)) | (EXCEPTION##UL))
 #define SCAUSE_CASE(INTERRUPT, EXCEPTION, STRING) \
     case SCAUSE(INTERRUPT, EXCEPTION):            \
         return STRING
@@ -92,10 +93,10 @@ void print_TrapFrame(TrapFrame* frame) {
 }
 
 void handle_trap(TrapFrame* frame) {
-    uint64_t scause;
-    uint64_t stval;
-    uint64_t sepc;
-    uint64_t sstatus;
+    uintptr_t scause;
+    uintptr_t stval;
+    uintptr_t sepc;
+    uintptr_t sstatus;
 
     ASM("csrr %0, scause" : "=r"(scause));
     ASM("csrr %0, stval" : "=r"(stval));
@@ -112,8 +113,8 @@ void handle_trap(TrapFrame* frame) {
         (was_in_kernel_mode && !software_interrupt)) {
         printf(
             "\n***\ntrap: %s\n"
-            "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
-            "sstatus: 0x%016lx\n"
+            "scause:  %p, stval: %p, sepc: %p\n"
+            "sstatus: %p\n"
             "pid: %d\n"
             "(was in %s mode)\n",
             decode_scause(scause), scause, stval, sepc, sstatus, pid,
@@ -142,8 +143,8 @@ void handle_trap(TrapFrame* frame) {
         if (DEBUG_USER_TRAPS) {
             printf(
                 "\n***\nfatal user trap: %s\n"
-                "scause:  0x%016lx, stval: 0x%016lx, sepc: 0x%016lx\n"
-                "sstatus: 0x%016lx\n"
+                "scause:  %p, stval: %p, sepc: %p\n"
+                "sstatus: %p\n"
                 "pid: %d\n***\n",
                 decode_scause(scause), scause, stval, sepc, sstatus, pid);
         } else {
@@ -175,7 +176,7 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         // located in global special page
         // which is mapped for both kernel and user processes
         "la t0, " STRINGIFY(kernel_page_satp) "\n"
-        "ld t0, (t0)\n"
+        ASM_LOAD "t0, (t0)\n"
 
         // swap page table to t0
         "sfence.vma\n"
@@ -189,8 +190,8 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         "csrw sscratch, sp\n"
 
         // change stack pointer to process's kernel stack
-        // sp = (long) current_process_stack_top;
-        "ld sp, " STRINGIFY(current_process_stack_top) "\n"
+        // sp = (uintptr_t) current_process_stack_top;
+        ASM_LOAD "sp, " STRINGIFY(current_process_stack_top) "\n"
 
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
@@ -202,53 +203,54 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
 
     // store registers in stack's trap frame
     // starting registers
-    REGISTER_MEM(sd, sp, ra, TrapFrame);
-    REGISTER_MEM(sd, sp, gp, TrapFrame);
-    REGISTER_MEM(sd, sp, tp, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, ra, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, gp, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, tp, TrapFrame);
     // t registers
-    REGISTER_MEM(sd, sp, t0, TrapFrame);
-    REGISTER_MEM(sd, sp, t1, TrapFrame);
-    REGISTER_MEM(sd, sp, t2, TrapFrame);
-    REGISTER_MEM(sd, sp, t3, TrapFrame);
-    REGISTER_MEM(sd, sp, t4, TrapFrame);
-    REGISTER_MEM(sd, sp, t5, TrapFrame);
-    REGISTER_MEM(sd, sp, t6, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t0, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t1, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t2, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t3, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t4, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t5, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, t6, TrapFrame);
     // a registers
-    REGISTER_MEM(sd, sp, a0, TrapFrame);
-    REGISTER_MEM(sd, sp, a1, TrapFrame);
-    REGISTER_MEM(sd, sp, a2, TrapFrame);
-    REGISTER_MEM(sd, sp, a3, TrapFrame);
-    REGISTER_MEM(sd, sp, a4, TrapFrame);
-    REGISTER_MEM(sd, sp, a5, TrapFrame);
-    REGISTER_MEM(sd, sp, a6, TrapFrame);
-    REGISTER_MEM(sd, sp, a7, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a0, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a1, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a2, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a3, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a4, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a5, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a6, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, a7, TrapFrame);
     // s registers
-    REGISTER_MEM(sd, sp, s0, TrapFrame);
-    REGISTER_MEM(sd, sp, s1, TrapFrame);
-    REGISTER_MEM(sd, sp, s2, TrapFrame);
-    REGISTER_MEM(sd, sp, s3, TrapFrame);
-    REGISTER_MEM(sd, sp, s3, TrapFrame);
-    REGISTER_MEM(sd, sp, s4, TrapFrame);
-    REGISTER_MEM(sd, sp, s5, TrapFrame);
-    REGISTER_MEM(sd, sp, s6, TrapFrame);
-    REGISTER_MEM(sd, sp, s7, TrapFrame);
-    REGISTER_MEM(sd, sp, s8, TrapFrame);
-    REGISTER_MEM(sd, sp, s9, TrapFrame);
-    REGISTER_MEM(sd, sp, s10, TrapFrame);
-    REGISTER_MEM(sd, sp, s11, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s0, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s1, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s2, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s3, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s3, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s4, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s5, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s6, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s7, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s8, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s9, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s10, TrapFrame);
+    REGISTER_MEM(ASM_STORE, sp, s11, TrapFrame);
     // pc, sp treated differently
 
     ASM(
         // read back old stack pointer from scratch
         "csrr t0, sscratch\n"
         // store in stack's trapframe
-        "sd t0, %[offset](sp)\n"
+        ASM_STORE "t0, %[offset](sp)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, sp)));
 
     // store sepc in stack's trapframe
     ASM("csrr t0, sepc\n"
-        "sd t0, %[offset](sp)\n"
+        //
+        ASM_STORE "t0, %[offset](sp)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, pc)));
 
@@ -268,52 +270,52 @@ IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
 
     // load context
     // starting registers
-    REGISTER_MEM(ld, a0, ra, TrapFrame);
-    REGISTER_MEM(ld, a0, gp, TrapFrame);
-    REGISTER_MEM(ld, a0, tp, TrapFrame);
-    REGISTER_MEM(ld, a0, sp, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, ra, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, gp, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, tp, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, sp, TrapFrame);
     // t registers
-    REGISTER_MEM(ld, a0, t0, TrapFrame);
-    REGISTER_MEM(ld, a0, t1, TrapFrame);
-    REGISTER_MEM(ld, a0, t2, TrapFrame);
-    REGISTER_MEM(ld, a0, t3, TrapFrame);
-    REGISTER_MEM(ld, a0, t4, TrapFrame);
-    REGISTER_MEM(ld, a0, t5, TrapFrame);
-    REGISTER_MEM(ld, a0, t6, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t0, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t1, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t2, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t3, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t4, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t5, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, t6, TrapFrame);
     // a registers
     // restore a0 later!
-    REGISTER_MEM(ld, a0, a1, TrapFrame);
-    REGISTER_MEM(ld, a0, a2, TrapFrame);
-    REGISTER_MEM(ld, a0, a3, TrapFrame);
-    REGISTER_MEM(ld, a0, a4, TrapFrame);
-    REGISTER_MEM(ld, a0, a5, TrapFrame);
-    REGISTER_MEM(ld, a0, a6, TrapFrame);
-    REGISTER_MEM(ld, a0, a7, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a1, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a2, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a3, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a4, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a5, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a6, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a7, TrapFrame);
     // s registers
-    REGISTER_MEM(ld, a0, s0, TrapFrame);
-    REGISTER_MEM(ld, a0, s1, TrapFrame);
-    REGISTER_MEM(ld, a0, s2, TrapFrame);
-    REGISTER_MEM(ld, a0, s3, TrapFrame);
-    REGISTER_MEM(ld, a0, s3, TrapFrame);
-    REGISTER_MEM(ld, a0, s4, TrapFrame);
-    REGISTER_MEM(ld, a0, s5, TrapFrame);
-    REGISTER_MEM(ld, a0, s6, TrapFrame);
-    REGISTER_MEM(ld, a0, s7, TrapFrame);
-    REGISTER_MEM(ld, a0, s8, TrapFrame);
-    REGISTER_MEM(ld, a0, s9, TrapFrame);
-    REGISTER_MEM(ld, a0, s10, TrapFrame);
-    REGISTER_MEM(ld, a0, s11, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s0, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s1, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s2, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s3, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s3, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s4, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s5, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s6, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s7, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s8, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s9, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s10, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, s11, TrapFrame);
     // sepc NOT restored here, it is handled beforehand
 
     ASM(
         // store real t0 in scratch
         "csrw sscratch, t0\n"
         // load satp into t0
-        "ld t0, %[offset](a0)\n"
+        ASM_LOAD "t0, %[offset](a0)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, satp)));
 
-    REGISTER_MEM(ld, a0, a0, TrapFrame);
+    REGISTER_MEM(ASM_LOAD, a0, a0, TrapFrame);
 
     // restore given page table
     ASM("sfence.vma\n"
@@ -331,13 +333,13 @@ IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
 void enable_trap_vector(void) {
     // located in global special page
     // which is mapped for both kernel and user processes
-    ASM("csrw stvec, %0" ::"r"((uint64_t)trap_vector));
+    ASM("csrw stvec, %0" ::"r"((uintptr_t)trap_vector));
 }
 
 // 12.1.1.3. Supervisor Interrupt (sip and sie) Registers
 void enable_kernel_traps(void) {
-    uint64_t sstatus;
-    uint64_t sie;
+    uintptr_t sstatus;
+    uintptr_t sie;
     // read
     ASM("csrr %[sstatus], sstatus\n"
         "csrr %[sie], sie\n"

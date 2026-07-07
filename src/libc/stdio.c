@@ -8,9 +8,13 @@
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 
+#define SHOULD_USE_32(STATE)                             \
+    (POINTER_BITS == 32 && STATE->long_modifiers < 2) || \
+        (POINTER_BITS == 64 && STATE->long_modifiers == 0)
+
 struct PrintState {
     bool in_conversion_spec;
-    bool long_modifier;
+    uint8_t long_modifiers;
     bool zero_pad;
     bool alternative;
     const char* min_width_chars;
@@ -23,7 +27,7 @@ void PrintState_reset(PrintState* state) {
 }
 
 bool PrintState_is_clean(PrintState* state) {
-    return state->long_modifier == 0 && state->long_modifier == 0 &&
+    return state->long_modifiers == 0 && state->zero_pad == 0 &&
            state->min_width == 0;
 }
 
@@ -52,14 +56,16 @@ int print_string(char* str, PrintState* state) {
 int print_hex(va_list* args, PrintState* state) {
     int printed = 0;
     int shift;
-    uint32_t int_value = 0;
-    uint64_t long_value = 0;
-    if (state->long_modifier) {
-        long_value = va_arg(*args, int64_t);
-        shift = 16 - 1;
-    } else {
-        int_value = va_arg(*args, int32_t);
+    uint32_t value32 = 0;
+    uint64_t value64 = 0;
+    // TODO: just use platform's int/long/longlong types?
+    bool use_32 = SHOULD_USE_32(state);
+    if (use_32) {
+        value32 = va_arg(*args, int32_t);
         shift = 8 - 1;
+    } else {
+        value64 = va_arg(*args, int64_t);
+        shift = 16 - 1;
     }
 
     if (state->alternative) {
@@ -71,9 +77,8 @@ int print_hex(va_list* args, PrintState* state) {
     bool started = false;
 
     for (; shift >= 0; shift--) {
-        unsigned int place_value =
-            ((state->long_modifier ? long_value : int_value) >> (shift * 4)) &
-            0xf;
+        uint64_t place_value =
+            ((use_32 ? value32 : value64) >> (shift * 4)) & 0xf;
 
         if (place_value == 0 && !started && shift != 0) {
             continue;
@@ -123,10 +128,10 @@ int print_hex(va_list* args, PrintState* state) {
     }
 
 DECLARE_PRINT_UNSIGNED_X(uint32_t, 1000000000U)
-DECLARE_PRINT_UNSIGNED_X(uint64_t, 10000000000000000000UL)
+DECLARE_PRINT_UNSIGNED_X(uint64_t, 10000000000000000000ULL)
 
 int print_unsigned(va_list* args, PrintState* state) {
-    if (state->long_modifier) {
+    if (!SHOULD_USE_32(state)) {
         uint64_t value = va_arg(*args, uint64_t);
         return print_unsigned_uint64_t(value, state);
     } else {
@@ -138,7 +143,7 @@ int print_unsigned(va_list* args, PrintState* state) {
 int print_signed(va_list* args, PrintState* state) {
     int printed = 0;
 
-    if (state->long_modifier) {
+    if (!SHOULD_USE_32(state)) {
         int64_t value = va_arg(*args, int64_t);
         if (value < 0) {
             maybe_putchar('-', state);
@@ -248,7 +253,7 @@ int printf(const char* format_str, ...) {
                 }
                 case 'l': {
                     // long
-                    state.long_modifier = true;
+                    state.long_modifiers += 1;
                     break;
                 }
                 // conversion specifiers
@@ -315,14 +320,22 @@ int printf(const char* format_str, ...) {
                     // pointer
                     // implementation specific, we can do whatever we want
 
-                    // essentially: "0x%016lx"
+                    if (POINTER_BITS == 64) {
+                        // "0x%016lx"
+                        state.long_modifiers = 1;
+                        state.min_width = 16;
+                    } else {
+                        // "0x%08x"
+                        state.long_modifiers = 0;
+                        state.min_width = 8;
+                    }
+
+                    state.zero_pad = true;
+
                     putchar('0');
                     putchar('x');
                     printed += 2;
 
-                    state.long_modifier = true;
-                    state.min_width = 16;
-                    state.zero_pad = true;
                     va_list args_copy;
                     va_copy(args_copy, args);
                     MIN_WIDTH_CALL(state, printed,

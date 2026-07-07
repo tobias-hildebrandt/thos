@@ -25,15 +25,15 @@ struct Process {
     ProcessState state;
     uint8_t kernel_stack[KERNEL_STACK_SIZE];
     TrapFrame context;
-    uint64_t program_counter;
+    uintptr_t program_counter;
     PageTable page_table;
 };
 typedef struct Process Process;
 
 struct ProcessArguments {
-    uint64_t entry_address;
+    uintptr_t entry_address;
     bool is_user_program;
-    uint64_t user_program_end;
+    uintptr_t user_program_end;
 };
 typedef struct ProcessArguments ProcessArguments;
 

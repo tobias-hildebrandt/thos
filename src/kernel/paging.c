@@ -10,21 +10,38 @@
 #include "sections.h"
 #include "util.h"
 
-static uint64_t next_page_address = 0;
+#if POINTER_BITS == 64
+#define PAGE_TABLE_TOP_LEVEL 2
+#define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
+    {                                                   \
+        ADDR.level0_entry_number,                       \
+        ADDR.level1_entry_number,                       \
+        ADDR.level2_entry_number,                       \
+    }
+#else
+#define PAGE_TABLE_TOP_LEVEL 1
+#define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
+    {                                                   \
+        ADDR.level0_entry_number,                       \
+        ADDR.level1_entry_number,                       \
+    }
+#endif
+
+static uintptr_t next_page_address = 0;
 
 IN_GLOBAL_SPECIAL PageTable kernel_page_table = NULL;
 IN_GLOBAL_SPECIAL SatpRegister kernel_page_satp = {0};
 
 void* alloc_page(void) {
     if (next_page_address == 0) {
-        next_page_address = (uint64_t)PAGES_START;
+        next_page_address = (uintptr_t)PAGES_START;
     }
 
-    if (next_page_address > (uint64_t)PAGES_END - PAGE_SIZE) {
+    if (next_page_address > (uintptr_t)PAGES_END - PAGE_SIZE) {
         PANIC("page allocation would overflow page memory!");
     }
 
-    uint64_t this_page = next_page_address;
+    uintptr_t this_page = next_page_address;
     next_page_address += PAGE_SIZE;
 
     // wipe page
@@ -41,15 +58,17 @@ PageTable get_linked_table(PageTableEntry entry) {
     if (false == entry.flags.valid) {
         PANIC("passed invalid entry to get_linked_table");
     }
-    uint64_t page_num = entry.physical_page_num;
-    uint64_t next_table_addr = page_num * PAGE_SIZE;
+    uintptr_t page_num = entry.physical_page_num;
+    uintptr_t next_table_addr = page_num * PAGE_SIZE;
 
     return (PageTable)next_table_addr;
 }
 
 void print_VirtualAddress(VirtualAddress virtual_address) {
     printf("VirtualAddress(%p){ ", virtual_address.value);
+#if POINTER_BITS == 64
     printf("L2: %u, ", virtual_address.level2_entry_number);
+#endif
     printf("L1: %u, ", virtual_address.level1_entry_number);
     printf("L0: %u, ", virtual_address.level0_entry_number);
     printf("offset: %u ", virtual_address.page_offset);
@@ -92,9 +111,9 @@ void print_PageTableEntryFlags(PageTableEntryFlags flags,
 // guarantees creation of all 3 levels of pages (no mega/giga pages)
 // TODO: investigate qemu `info mem` some pages not accessed
 void map_address(PageTable first_table, VirtualAddress virtual_address,
-                 uint64_t physical_address, PageTableEntryFlags flags) {
+                 uintptr_t physical_address, PageTableEntryFlags flags) {
     if (DEBUG_MAP_ADDRESS) {
-        printf("map_address(table @ %p, v:%p, p:%p, f:", (uint64_t)first_table,
+        printf("map_address(table @ %p, v:%p, p:%p, f:", (uintptr_t)first_table,
                virtual_address.value, physical_address, flags);
         print_PageTableEntryFlags(flags, false);
         printf(")\n");
@@ -112,27 +131,24 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
         print_VirtualAddress(virtual_address);
     }
 
-    uint16_t level_entry_number[] = {
-        virtual_address.level0_entry_number,
-        virtual_address.level1_entry_number,
-        virtual_address.level2_entry_number,
-    };
+    uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
+        VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(virtual_address);
+
     PageTable current_table = first_table;
     PageTableEntry* entry = NULL;
 
     PRINTF_IF(DEBUG_MAP_ADDRESS, "(arg)   ");
 
     // work down from highest level to lowest level
-    for (uint8_t level = 2; /* breaks inside */; level--) {
-        uint64_t entry_number = level_entry_number[level];
+    for (uint8_t level = PAGE_TABLE_TOP_LEVEL; /* breaks inside */; level--) {
+        uint16_t entry_number = level_entry_number[level];
 
         if (current_table == NULL) {
             PANIC("null PageTable at level %u", level);
         }
 
-        PRINTF_IF(DEBUG_MAP_ADDRESS,
-                  "level %i = table @ 0x%016lx. using entry %u\n", level,
-                  (uint64_t)current_table, entry_number);
+        PRINTF_IF(DEBUG_MAP_ADDRESS, "level %i = table @ %p. using entry %u\n",
+                  level, (uintptr_t)current_table, entry_number);
 
         entry = &current_table[entry_number];
 
@@ -144,8 +160,8 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
         if (false == entry->flags.valid) {
             // if next level table has not been created
             // create it
-            uint64_t new_page_addr = (uint64_t)alloc_page();
-            uint64_t new_page_number = new_page_addr / PAGE_SIZE;
+            uintptr_t new_page_addr = (uintptr_t)alloc_page();
+            uintptr_t new_page_number = new_page_addr / PAGE_SIZE;
 
             PRINTF_IF(DEBUG_MAP_ADDRESS, "(alloc) ");
 
@@ -177,7 +193,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
 void print_PageTableEntry(PageTableEntry entry) {
     printf("Entry { flags: ");
     print_PageTableEntryFlags(entry.flags, true);
-    printf(", physical_page_num: 0x%lx }\n", entry.physical_page_num);
+    printf(", physical_page_num: 0x%llx }\n", entry.physical_page_num);
 }
 
 struct PrintPageTableRecurse {
@@ -185,14 +201,10 @@ struct PrintPageTableRecurse {
     uint8_t level;
 };
 typedef struct PrintPageTableRecurse PrintPageTableRecurse;
-#define PRINT_PAGE_TABLE_RECURSE_FROM_TOP \
-    (PrintPageTableRecurse){.recurse = true, .level = 2}
-#define PRINT_PAGE_TABLE_NO_RECURSE \
-    (PrintPageTableRecurse){.recurse = false, .level = 0}
 
 void print_PageTable(PageTable table, bool only_valid_entries,
                      PrintPageTableRecurse recurse) {
-    for (size_t i = 0; i < (PAGE_SIZE / sizeof(uint64_t)); i++) {
+    for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
         PageTableEntry entry = table[i];
 
         if (only_valid_entries && !entry.flags.valid) {
@@ -217,8 +229,9 @@ void print_PageTable(PageTable table, bool only_valid_entries,
 
 SatpRegister satp_from_page_table(PageTable table) {
     SatpRegister satp_register = {0};
-    satp_register.mode = RISCV_MODE_SV39;
-    satp_register.physical_page_num = (uint64_t)table / PAGE_SIZE;
+
+    satp_register.mode = SATP_MODE;
+    satp_register.physical_page_num = (uintptr_t)table / PAGE_SIZE;
 
     return satp_register;
 }
@@ -239,7 +252,7 @@ void init_kernel_page_table(void) {
     // prepare kernel_page_satp
     kernel_page_satp = satp_from_page_table(kernel_page_table);
 
-    for (uint64_t physical_address = MEMORY_START;
+    for (uintptr_t physical_address = MEMORY_START;
          physical_address < MEMORY_END; physical_address += PAGE_SIZE) {
         // virtual address = physical address
         VirtualAddress virtual_address = {.value = physical_address};
@@ -261,13 +274,13 @@ void init_kernel_page_table(void) {
 
 // TODO: deduplicate with init_kernel_page_table
 // map program address space
-void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
-                                  uint64_t start_physical,
-                                  uint64_t end_physical) {
+void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
+                                  uintptr_t start_physical,
+                                  uintptr_t end_physical) {
     // virtual address starts at zero
     VirtualAddress virtual_address = {.value = start_virtual};
 
-    for (uint64_t physical_address = start_physical;
+    for (uintptr_t physical_address = start_physical;
          physical_address < end_physical; physical_address += PAGE_SIZE) {
         PageTableEntryFlags flags = {0};
         // TODO: different flags for different sections?
@@ -294,18 +307,18 @@ void init_user_program_page_table(PageTable page_table, uint64_t start_virtual,
                 });
 }
 
-uint64_t get_physical_address(PageTable table, VirtualAddress virtual_address) {
-    uint64_t level_entry_number[] = {
-        virtual_address.level0_entry_number,
-        virtual_address.level1_entry_number,
-        virtual_address.level2_entry_number,
-    };
+// walks page tables until leaf, then returns physical address at entry
+// TODO: refactor into macro/function? deduplicate from map_address
+uintptr_t get_physical_address(PageTable table,
+                               VirtualAddress virtual_address) {
+    uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
+        VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(virtual_address);
+
     PageTable current_table = table;
     PageTableEntry entry = {0};
 
-    // TODO: refactor into macro/function? deduplicate map_address
-    for (int level = 2; level >= 0; level--) {
-        uint64_t entry_number = level_entry_number[level];
+    for (uint8_t level = PAGE_TABLE_TOP_LEVEL; /* breaks inside */; level--) {
+        uintptr_t entry_number = level_entry_number[level];
 
         if (current_table == NULL) {
             PANIC("null PageTable at level %u", level);
