@@ -11,15 +11,18 @@ compdbpart_fn = ${BUILD}/${COMP_DB_PART_DIR}/$(shell echo $(1) | tr '/' '_').com
 
 PLATFORM ?= qemu64
 LIBGCC_PREFIX ?= /usr/lib/gcc/riscv64-unknown-elf/14.2.0
+GCC := riscv64-unknown-elf-gcc
+
+# gnu binutil's objcopy and objdump don't work!
+OBJCOPY := llvm-objcopy
+OBJDUMP := llvm-objdump
 
 ifeq (${PLATFORM}, qemu64)
 	CLANG_TARGET := riscv64-unknown-elf
-	GCC := riscv64-unknown-elf-gcc
 	PLATFORM_CFLAGS := -mcmodel=medany -march=rv64g -mabi=lp64d -DQEMU64=1
 	QEMU := qemu-system-riscv64
 else ifeq (${PLATFORM}, qemu32)
 	CLANG_TARGET := riscv32-unknown-elf
-	GCC := riscv64-unknown-elf-gcc
 	PLATFORM_CFLAGS := -mcmodel=medany -march=rv32g -mabi=ilp32d -DQEMU32=1
 	LINK_ARGS := -Wl,-L${LIBGCC_PREFIX}/rv32iafd/ilp32d -lgcc
 	QEMU := qemu-system-riscv32
@@ -45,10 +48,6 @@ else
 	compdb_cflag_fn =
 	compdb_cc_wrap_fn = bear --output $(call compdbpart_fn, $(1)) --
 endif
-
-# gnu binutil's objcopy and objdump don't work!
-OBJCOPY := llvm-objcopy
-OBJDUMP := llvm-objdump
 
 COMMON_CFLAGS += -std=gnu17 \
 	${PLATFORM_CFLAGS} \

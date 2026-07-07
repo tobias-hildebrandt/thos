@@ -3,7 +3,7 @@
 #include "build_info.h"
 
 // RISC-V ABIs Specification 4.1. C/C++ type details
-#if (POINTER_BITS == 64)
+#if POINTER_BITS == 64
 // RV64
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;

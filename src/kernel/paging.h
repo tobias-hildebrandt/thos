@@ -9,22 +9,25 @@
 
 #if POINTER_BITS == 64
 #define SATP_MODE RISCV_MODE_SV39
+#define LEVEL_ENTRY_NUMBER_BITWIDTH 9
+#define PHYSICAL_PAGE_NUMBER_BITWIDTH 44
+#define ADDRESS_SPACE_ID_BITWIDTH 16
+#define SATP_MODE_BITWIDTH 4
 #else
 #define SATP_MODE RISCV_MODE_SV32
+#define LEVEL_ENTRY_NUMBER_BITWIDTH 10
+#define PHYSICAL_PAGE_NUMBER_BITWIDTH 22
+#define ADDRESS_SPACE_ID_BITWIDTH 9
+#define SATP_MODE_BITWIDTH 1
 #endif
 
 union VirtualAddress {
     struct {
         uintptr_t page_offset : 12;
-#if (POINTER_BITS == 64)
-        uintptr_t level0_entry_number : 9;
-        uintptr_t level1_entry_number : 9;
-        uintptr_t level2_entry_number : 9;
-        uintptr_t unused : 25;
-#else
-        uintptr_t level0_entry_number : 10;
-        uintptr_t level1_entry_number : 10;
-#endif
+        uintptr_t level0_entry_number : LEVEL_ENTRY_NUMBER_BITWIDTH;
+        uintptr_t level1_entry_number : LEVEL_ENTRY_NUMBER_BITWIDTH;
+        ONLY64(uintptr_t level2_entry_number : LEVEL_ENTRY_NUMBER_BITWIDTH;)
+        ONLY64(uintptr_t unused : 25;)
     } __attribute__((packed));
     uintptr_t value;
 } __attribute__((packed));
@@ -49,12 +52,8 @@ union PageTableEntry {
     struct {
         PageTableEntryFlags flags;
         uintptr_t reserved_supervisor : 2;
-#if (POINTER_BITS == 64)
-        uintptr_t physical_page_num : 44;
-        uintptr_t _reserved : 10;
-#else
-        uintptr_t physical_page_num : 22;
-#endif
+        uintptr_t physical_page_num : PHYSICAL_PAGE_NUMBER_BITWIDTH;
+        ONLY64(uintptr_t _reserved : 10;)
     } __attribute__((packed));
     uintptr_t value;
 } __attribute__((packed));
@@ -63,15 +62,9 @@ typedef union PageTableEntry PageTableEntry;
 // Supervisor Address Translation & Protection
 union SatpRegister {
     struct {
-#if (POINTER_BITS == 64)
-        uintptr_t physical_page_num : 44;
-        uintptr_t address_space_id : 16;
-        uintptr_t mode : 4;
-#else
-        uintptr_t physical_page_num : 22;
-        uintptr_t address_space_id : 9;
-        uintptr_t mode : 1;
-#endif
+        uintptr_t physical_page_num : PHYSICAL_PAGE_NUMBER_BITWIDTH;
+        uintptr_t address_space_id : ADDRESS_SPACE_ID_BITWIDTH;
+        uintptr_t mode : SATP_MODE_BITWIDTH;
     } __attribute__((packed));
     uintptr_t value;
 } __attribute__((packed));
@@ -84,6 +77,7 @@ void* alloc_page(void);
 
 extern PageTable kernel_page_table;
 extern SatpRegister kernel_page_satp;
+
 SatpRegister satp_from_page_table(PageTable table);
 void init_kernel_page_table(void);
 void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
