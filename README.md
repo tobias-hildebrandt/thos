@@ -1,11 +1,12 @@
 # thos
-`thos` is a 64-bit RISC-V hobby OS targeting qemu, written in C and inline assembly.
+`thos` is a RISC-V hobby OS targeting qemu, written in C and inline assembly.
 
 
 ## Current Features
 - Single core
 - Kernel and user processes
-- Virtual memory (Sv39)
+- Supports 64-bit or 32-bit target
+- Virtual memory (Sv39 in 64-bit mode, Sv32 in 32-bit mode)
 - Context switching through software interrupts
 - Partial C standard library
 
@@ -19,7 +20,7 @@
 
 
 ## Target Details
-- `rv64g` architecture with `medany` code model
-- `qemu-system-riscv64` emulation
+- `rv64g`/`rv32g` architecture with `medany` code model
+- `qemu-system-riscv64`/`qemu-system-riscv32` emulation
   - `virt` machine
   - `default` bios (OpenSBI)
