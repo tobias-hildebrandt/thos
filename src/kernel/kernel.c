@@ -64,8 +64,6 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
         printf("bootargs = \"%s\"\n", (char*)boot_args->value);
     }
 
-    PANIC("done");
-
     if (DEBUG_SECTIONS) {
         print_all_sections();
     }
