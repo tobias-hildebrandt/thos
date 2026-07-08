@@ -14,3 +14,32 @@ void* memcpy(void* dst, const void* src, size_t n) {
 
     return dst;
 }
+
+int strcmp(const char* lhs, const char* rhs) {
+    if (lhs == NULL && rhs == NULL) {
+        return 0;
+    } else if (lhs == NULL && rhs != NULL) {
+        return 1;
+    } else if (lhs != NULL && rhs == NULL) {
+        return -1;
+    }
+    while (1) {
+        char left = *lhs;
+        char right = *rhs;
+
+        if (left == 0 && right != 0) {
+            return -1;
+        } else if (left != 0 && right == 0) {
+            return 1;
+        } else if (left == 0 && right == 0) {
+            return 0;
+        } else {
+            char diff = left - right;
+            if (diff != 0) {
+                return diff;
+            }
+            lhs += 1;
+            rhs += 1;
+        }
+    }
+}

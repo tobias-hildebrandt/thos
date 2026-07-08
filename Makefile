@@ -89,8 +89,9 @@ USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
 # TODO: pass into C somehow? and do same with sections through nm/objdump?
 #USER_PROGS := $(shell basename -a $(USER_OBJS:.o=))
 
+QEMU_BOOTARGS ?= "boot"
 QEMU_WRAP := misc/wrap_qemu.sh
-QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_ARGS}
+QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} -append ${QEMU_BOOTARGS}
 
 OUTFILE := ${BUILD}/out
 
@@ -135,7 +136,7 @@ cdefines:
 	@echo | ${CC} ${KERNEL_CFLAGS} -dM -E - | sed -r 's/^#define //'
 
 .PHONY: kernel
-kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS} ${BUILD}/device.dts
+kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS} # ${BUILD}/device.dts
 
 .PHONY: run
 run: qemu
@@ -165,12 +166,13 @@ qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
 	${QEMU_WRAP} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
 
 # dump qemu's device tree
-${BUILD}/device.dtb:
-	${QEMU} -M virt,dumpdtb=build/device.dtb -nographic
+# ${BUILD}/device.dtb: ${KERNEL_ELF}
+# 	touch ${BUILD}/device.dtb
+# 	${QEMU} ${QEMU_FLAGS} -M virt,dumpdtb=build/device.dtb
 
 # decode device tree
-${BUILD}/device.dts: ${BUILD}/device.dtb
-	dtc build/device.dtb > build/device.dts
+# ${BUILD}/device.dts: ${BUILD}/device.dtb
+# 	dtc build/device.dtb > build/device.dts
 
 ${OUTFILE}: | ${BUILD}
 	touch $@

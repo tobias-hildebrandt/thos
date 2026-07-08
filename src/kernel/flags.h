@@ -15,6 +15,8 @@
 #define DEBUG_SECTIONS 1
 #define DEBUG_ALIGN 1
 #define DEBUG_EXIT 1
+#define DEBUG_DEVICE_TREE 1
+#define DEBUG_DEVICE_TREE_SEARCH 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -71,6 +73,18 @@
 
 #ifndef DEBUG_EXIT
 #define DEBUG_EXIT 0
+#endif
+
+#ifndef DEBUG_DEVICE_TREE
+#define DEBUG_DEVICE_TREE 0
+#endif
+
+#ifndef DEBUG_DEVICE_TREE_SEARCH
+#define DEBUG_DEVICE_TREE_SEARCH 0
+#endif
+
+#ifndef DUMP_DEVICE_TREE
+#define DUMP_DEVICE_TREE 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS

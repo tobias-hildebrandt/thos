@@ -3,6 +3,7 @@
 #include "asm.h"
 #include "build_info.h"
 #include "debug.h"
+#include "device_tree.h"
 #include "example_process.h"
 #include "flags.h"
 #include "paging.h"
@@ -15,17 +16,22 @@
 __attribute__((section(".text.boot"))) NAKED void boot(void) {
     ASM(
         // set stack pointer
-        "mv sp, %0\n"
+        "mv sp, %[stack]\n"
+
+        // move device tree pointer from a1 to a0
+        "mv a0, a1\n"
+
+        // zero out a1 for good measure
+        "mv a1, x0\n"
+
         // jump to kernel function
         "j " STRINGIFY(kernel_main) "\n"
-        // no outputs
-        :
-        // input
-        // stack starts at top of stack section and grows down in address space
-        : "r"(STACK_END));
+
+        // load stack address from define
+        ::[stack] "r"(STACK_END));
 }
 
-void kernel_main(void) {
+void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
     enable_trap_vector();
     enable_kernel_traps();
 
@@ -38,6 +44,27 @@ void kernel_main(void) {
 
     printf("(compiled with %s)\n", COMPILER_STRING);
     printf("\n");
+
+    DeviceTree device_tree = parse_device_tree(device_tree_headers);
+
+    if (DUMP_DEVICE_TREE) {
+        printf("--- start hex dump ---\n");
+        DeviceTree_dump_raw(device_tree_headers);
+        printf("--- end hex dump ---\n");
+        DeviceTree_print(&device_tree);
+    }
+
+    const char* args_path[] = {DEVICE_TREE_ROOT_PATH, "chosen", NULL};
+    DeviceTreeNode* args =
+        DeviceTreeNode_find_child(device_tree.root, (char**)args_path, 0);
+
+    DeviceTreeProperty* boot_args =
+        DeviceTreeNode_find_property(args, "bootargs");
+    if (boot_args != NULL) {
+        printf("bootargs = \"%s\"\n", (char*)boot_args->value);
+    }
+
+    PANIC("done");
 
     if (DEBUG_SECTIONS) {
         print_all_sections();

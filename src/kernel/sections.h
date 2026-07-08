@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stddef.h>  // IWYU pragma: keep
 #include <stdint.h>
 
 #include "paging.h"  // IWYU pragma: keep
