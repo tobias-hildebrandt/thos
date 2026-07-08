@@ -29,6 +29,8 @@ void kernel_main(void) {
     enable_trap_vector();
     enable_kernel_traps();
 
+    init_kernel_page_table();
+
     printf(
         ""
         "----------\n"
@@ -36,8 +38,6 @@ void kernel_main(void) {
 
     printf("(compiled with %s)\n", COMPILER_STRING);
     printf("\n");
-
-    init_kernel_page_table();
 
     if (DEBUG_SECTIONS) {
         print_all_sections();

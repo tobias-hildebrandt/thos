@@ -24,3 +24,4 @@
 - https://lupyuen.org/articles/mmu
 - https://osdev.wiki/wiki/RISC-V_Paging
 - https://sourceware.org/binutils/docs/as/
+- https://github.com/riscv-software-src/opensbi/blob/master/docs/platform/qemu_virt.md

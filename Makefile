@@ -89,7 +89,8 @@ USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
 # TODO: pass into C somehow? and do same with sections through nm/objdump?
 #USER_PROGS := $(shell basename -a $(USER_OBJS:.o=))
 
-QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio --no-reboot -kernel ${KERNEL_ELF}
+QEMU_WRAP := misc/wrap_qemu.sh
+QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_ARGS}
 
 OUTFILE := ${BUILD}/out
 
@@ -134,7 +135,7 @@ cdefines:
 	@echo | ${CC} ${KERNEL_CFLAGS} -dM -E - | sed -r 's/^#define //'
 
 .PHONY: kernel
-kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS}
+kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS} ${BUILD}/device.dts
 
 .PHONY: run
 run: qemu
@@ -142,7 +143,7 @@ run: qemu
 # run kernel via qemu
 .PHONY: qemu
 qemu: kernel ${OUTFILE}
-	${QEMU} ${QEMU_FLAGS} | tee ${OUTFILE}
+	${QEMU_WRAP} ${QEMU} ${QEMU_FLAGS}
 
 # generate the gdb init file
 ${GDB_INIT_FILE}:
@@ -161,7 +162,15 @@ qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
 	@echo "(CTRL+A X to exit)"
 	@echo "-----"
 	@echo
-	${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT} | tee ${OUTFILE}
+	${QEMU_WRAP} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
+
+# dump qemu's device tree
+${BUILD}/device.dtb:
+	${QEMU} -M virt,dumpdtb=build/device.dtb -nographic
+
+# decode device tree
+${BUILD}/device.dts: ${BUILD}/device.dtb
+	dtc build/device.dtb > build/device.dts
 
 ${OUTFILE}: | ${BUILD}
 	touch $@

@@ -1,5 +1,6 @@
 #include "debug.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -87,6 +88,8 @@ void debug_printf(void) {
     printf("\n");
 
     printf("^printed %d characters (not including newline)\n", printed);
+
+    assert(10 == printed);
 
     printf("min width 10 \"abc\":               _%10s_\n", "abc");
     printf("min width 10 \"12345\":             _%10u_\n", 12345);

@@ -23,12 +23,14 @@ void handle_syscall(TrapFrame* frame) {
         }
         case SYSCALL_EXIT: {
             PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: exit\n");
+            // TODO: handle exit code in a1
             clean_process();
             break;
         }
         default: {
             // TODO: return error in trapframe
-            printf("handle_syscall: ignoring unknown syscall #%p\n", frame->a0);
+            printf("handle_syscall: ignoring unknown syscall #%lu(%p)\n",
+                   frame->a0, frame->a0);
             if (DEBUG_SYSCALL) {
                 print_TrapFrame(frame);
             }
