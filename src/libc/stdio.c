@@ -256,6 +256,12 @@ int printf(const char* format_str, ...) {
                     state.long_modifiers += 1;
                     break;
                 }
+                case '*': {
+                    // variable min width
+                    int i = va_arg(args, int);
+                    state.min_width = i;
+                    break;
+                }
                 // conversion specifiers
                 case '%': {
                     // %%

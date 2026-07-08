@@ -43,7 +43,7 @@ void add_linked_prop(DeviceTreeProperty** base, DeviceTreeProperty* next) {
     while (*insert_at != NULL) {
         insert_at = &(*insert_at)->next;
     }
-    PRINTF_IF(DEBUG_DEVICE_TREE, "assign prop\n");
+    PRINTF_IF(DEBUG_DEVICE_TREE, "set prop\n");
 
     *insert_at = next;
 }
@@ -53,7 +53,7 @@ void add_linked_node(DeviceTreeNode** base, DeviceTreeNode* next) {
     while (*insert_at != NULL) {
         insert_at = &(*insert_at)->next;
     }
-    PRINTF_IF(DEBUG_DEVICE_TREE, "assign node\n");
+    PRINTF_IF(DEBUG_DEVICE_TREE, "set node\n");
     *insert_at = next;
 }
 
@@ -91,12 +91,12 @@ char* parse_node_name(char** pointer) {
         node_name_end += 1;
     }
     node_name_end += 1;
-    PRINTF_IF(DEBUG_DEVICE_TREE, "NODE (strlen=%d): \"%s\"\n",
+    PRINTF_IF(DEBUG_DEVICE_TREE, "node (strlen=%d): \"%s\"\n",
               node_name_end - node_name, node_name);
 
     // move pointer up to end and align it
     *pointer = (void*)align_up((uintptr_t)node_name_end, 4);
-    PRINTF_IF(DEBUG_DEVICE_TREE, "after NODE %p\n", *pointer);
+    PRINTF_IF(DEBUG_DEVICE_TREE, "after node name: %p\n", *pointer);
 
     return node_name;
 }
@@ -108,8 +108,7 @@ DeviceTreeProperty* parse_prop(const DeviceTreeHeadersRaw* header,
     if (**pointer != STRUCTURE_PROP) {
         return NULL;
     }
-    PRINTF_IF(DEBUG_DEVICE_TREE, "STRUCTURE_PROP\n");
-    PRINTF_IF(DEBUG_DEVICE_TREE, "property @ %p, offset = %#x\n", *pointer,
+    PRINTF_IF(DEBUG_DEVICE_TREE, "PROP @ %p, offset = %#x\n", *pointer,
               (uintptr_t)*pointer - (uintptr_t)header);
 
     *pointer += 1;
@@ -200,6 +199,8 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
     if (**pointer != STRUCTURE_END_NODE) {
         PANIC("unclosed device tree node");
     }
+    PRINTF_IF(DEBUG_DEVICE_TREE, "END_NODE\n");
+
     *pointer += 1;
 
     return parsed;
@@ -237,12 +238,8 @@ DeviceTree parse_device_tree(const DeviceTreeHeadersRaw* header) {
     return tree;
 }
 
-void print_spaces(uint8_t depth) {
-    for (int i = 0; i < depth; i++) {
-        printf("    ");
-    }
-}
-#define D(x) print_spaces(x);
+// indent at depth
+#define D(x) printf("%*s", (x) * 4, "");
 
 DeviceTreeProperty* DeviceTreeNode_find_property(DeviceTreeNode* node,
                                                  char* property_name) {
@@ -263,36 +260,35 @@ DeviceTreeProperty* DeviceTreeNode_find_property(DeviceTreeNode* node,
 // find a device tree node based on path
 // path should start with DEVICE_TREE_ROOT_PATH if starting at root
 // path must end with a NULL
-// path_component should be 0 if starting at root
+// depth should be 0 if starting at root
 DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
-                                          uint8_t path_component) {
+                                          uint8_t depth) {
     DeviceTreeNode* check = NULL;
 
     if (DEBUG_DEVICE_TREE_SEARCH) {
-        D(path_component) printf("node \"%s\"\n", node->name);
+        D(depth) printf("node \"%s\"\n", node->name);
     }
 
     // if path matches
-    if (0 == strcmp(node->name, *(path + path_component))) {
+    if (0 == strcmp(node->name, *(path + depth))) {
         // don't search any more!
-        if (*(path + path_component + 1) == NULL) {
+        if (*(path + depth + 1) == NULL) {
             if (DEBUG_DEVICE_TREE_SEARCH) {
-                D(path_component) printf("match!\n");
+                D(depth) printf("match!\n");
             }
             return node;
         } else {
             if (DEBUG_DEVICE_TREE_SEARCH) {
-                D(path_component) printf("subpath match\n");
+                D(depth) printf("subpath match\n");
             }
         }
 
         // check child with next path
         if (node->child != NULL) {
             if (DEBUG_DEVICE_TREE_SEARCH) {
-                D(path_component) printf("checking child\n");
+                D(depth) printf("checking child\n");
             }
-            check = DeviceTreeNode_find_child(node->child, path,
-                                              path_component + 1);
+            check = DeviceTreeNode_find_child(node->child, path, depth + 1);
 
             if (check != NULL) {
                 return check;
@@ -302,7 +298,7 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
 
     // check sibling
     if (node->next != NULL) {
-        check = DeviceTreeNode_find_child(node->next, path, path_component);
+        check = DeviceTreeNode_find_child(node->next, path, depth);
 
         if (check != NULL) {
             return check;
@@ -347,6 +343,9 @@ void DeviceTree_print(DeviceTree* tree) {
 // dump entire blob
 // xxd -p -r $PLAINTEXT_FILE > $BINARY_FILE
 void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header) {
+    printf("raw header address: %p\n", header);
+    printf("--- start DeviceTree dump ---\n");
+
     for (uintptr_t i = 0; i < BIG_TO_LITTLE32(header->totalsize); i++) {
         char* this_ptr = (void*)((uintptr_t)header + i);
         if (i != 0 && i % 16 == 0) {
@@ -355,4 +354,5 @@ void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header) {
         printf("%02x ", (char)*this_ptr);
     }
     printf("\n");
+    printf("--- end DeviceTree dump ---\n");
 }

@@ -103,6 +103,10 @@ void debug_printf(void) {
     printf("pointer 0x0:                %p\n", 0);
     printf("pointer 0xffff:             %p\n", 0xffff);
     ONLY64(printf("pointer 0x0123456789abcdef: %p\n", 0x0123456789abcdefLL));
+
+    for (int i = 0; i < 10; i++) {
+        printf("minwidth variable %d 123 \"%*d\"\n", i, i, 123);
+    }
 }
 
 // TODO: assert

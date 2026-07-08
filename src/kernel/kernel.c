@@ -48,9 +48,7 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
     DeviceTree device_tree = parse_device_tree(device_tree_headers);
 
     if (DUMP_DEVICE_TREE) {
-        printf("--- start hex dump ---\n");
         DeviceTree_dump_raw(device_tree_headers);
-        printf("--- end hex dump ---\n");
         DeviceTree_print(&device_tree);
     }
 
