@@ -5,8 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "flags.h"
+#include "flags.h"  // IWYU pragma: keep
 #include "io.h"
+#include "list.h"
 #include "panic.h"
 #include "util.h"
 
@@ -27,55 +28,12 @@ struct DeviceTreeStructurePropertyRaw {
 };
 typedef struct DeviceTreeStructurePropertyRaw DeviceTreeStructurePropertyRaw;
 
-// TODO: macro these singly-linked lists, pre-alloc, limits, etc
-
 #define NUM_DEVICE_TREE_PROPERTIES 1024
 #define NUM_DEVICE_TREE_NODES 256
 
-static size_t next_node_index = 0;
-static size_t next_property_index = 0;
-
-static DeviceTreeNode nodes[NUM_DEVICE_TREE_NODES];
-static DeviceTreeProperty properties[NUM_DEVICE_TREE_PROPERTIES];
-
-void add_linked_prop(DeviceTreeProperty** base, DeviceTreeProperty* next) {
-    DeviceTreeProperty** insert_at = base;
-    while (*insert_at != NULL) {
-        insert_at = &(*insert_at)->next;
-    }
-    PRINTF_IF(DEBUG_DEVICE_TREE, "set prop\n");
-
-    *insert_at = next;
-}
-
-void add_linked_node(DeviceTreeNode** base, DeviceTreeNode* next) {
-    DeviceTreeNode** insert_at = base;
-    while (*insert_at != NULL) {
-        insert_at = &(*insert_at)->next;
-    }
-    PRINTF_IF(DEBUG_DEVICE_TREE, "set node\n");
-    *insert_at = next;
-}
-
-DeviceTreeNode* next_free_node(void) {
-    if (next_node_index >= NUM_DEVICE_TREE_NODES - 1) {
-        PANIC("ran out of free device tree nodes");
-    }
-
-    DeviceTreeNode* new = &nodes[next_node_index];
-    next_node_index += 1;
-    return new;
-}
-
-DeviceTreeProperty* next_free_property(void) {
-    if (next_property_index >= NUM_DEVICE_TREE_PROPERTIES - 1) {
-        PANIC("ran out of free device tree properties");
-    }
-
-    DeviceTreeProperty* new = &properties[next_property_index];
-    next_property_index += 1;
-    return new;
-}
+ALLOCATE_ARRAY_AND_COUNTER(nodes, DeviceTreeNode, NUM_DEVICE_TREE_NODES);
+ALLOCATE_ARRAY_AND_COUNTER(props, DeviceTreeProperty,
+                           NUM_DEVICE_TREE_PROPERTIES);
 
 void skip_nops(const uint32_t** pointer) {
     while (**pointer == STRUCTURE_NOP) {
@@ -113,7 +71,8 @@ DeviceTreeProperty* parse_prop(const DeviceTreeHeadersRaw* header,
 
     *pointer += 1;
 
-    DeviceTreeProperty* parsed = next_free_property();
+    DeviceTreeProperty* parsed =
+        NEXT_FREE(props, DeviceTreeProperty, NUM_DEVICE_TREE_NODES);
 
     DeviceTreeStructurePropertyRaw* property_raw =
         (DeviceTreeStructurePropertyRaw*)*pointer;
@@ -166,7 +125,8 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
     PRINTF_IF(DEBUG_DEVICE_TREE, "BEGIN_NODE\n");
     *pointer += 1;
 
-    DeviceTreeNode* parsed = next_free_node();
+    DeviceTreeNode* parsed =
+        NEXT_FREE(nodes, DeviceTreeNode, NUM_DEVICE_TREE_NODES);
 
     parsed->name = parse_node_name((char**)pointer);
 
@@ -177,7 +137,7 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
         if (prop == NULL) {
             break;
         }
-        add_linked_prop(&parsed->properties, prop);
+        ADD_LINKED(parsed->properties, prop, DeviceTreeProperty, next);
     }
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "done with props\n");
@@ -189,7 +149,7 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
         if (child == NULL) {
             break;
         }
-        add_linked_node(&parsed->child, child);
+        ADD_LINKED(parsed->child, child, DeviceTreeNode, next);
     }
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "done with children\n");
