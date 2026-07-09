@@ -89,11 +89,25 @@ USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
 # TODO: pass into C somehow? and do same with sections through nm/objdump?
 #USER_PROGS := $(shell basename -a $(USER_OBJS:.o=))
 
-QEMU_BOOTARGS ?= "boot"
+QEMU_BOOTARGS ?=
+
+TESTS ?=
+TEST_C_SOURCE := ${BUILD}/test_info.c
+TEST_MAKE_TEST_INFO := misc/make_test_info.sh
+TEST_FIND_TESTS := misc/find_tests.sh
+TEST_C_OBJ := ${BUILD}/kernel/test_info.o
+ifneq ($(strip ${TESTS}),)
+	KERNEL_CFLAGS += -DTESTS_ENABLED
+	TEST_TARGETS := $(foreach test,${TESTS},maketest-_test__${test})
+# clean make output
+	MAKEFLAGS += -O
+endif
+
 QEMU_WRAP := misc/wrap_qemu.sh
-QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} -append ${QEMU_BOOTARGS}
+QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
 
 OUTFILE := ${BUILD}/out
+TESTFILE := ${BUILD}/test
 
 GDB_INIT_TEMPLATE := ${MISC}/gdbinit-template
 GDB_PORT ?= 7777
@@ -130,6 +144,7 @@ vars:
 	@echo "USER_OBJS:       ${USER_OBJS}"
 	@echo "USER_BLOBS:      ${USER_BLOBS}"
 	@echo "USERLIB_OBJS:    ${USERLIB_OBJS}"
+	@echo "TESTS:           ${TESTS}"
 
 .PHONY: cdefines
 cdefines:
@@ -143,8 +158,25 @@ run: qemu
 
 # run kernel via qemu
 .PHONY: qemu
-qemu: kernel ${OUTFILE}
-	${QEMU_WRAP} ${QEMU} ${QEMU_FLAGS}
+qemu: kernel | ${OUTFILE}
+	${QEMU_WRAP} ${OUTFILE} ${QEMU} ${QEMU_FLAGS}
+
+.PHONY: test
+test: ${TEST_TARGETS}
+
+.PHONY: test-all
+test-all: KERNEL_CFLAGS += -DTESTS_ENABLED
+test-all: kernel maketest-all
+
+# build kernel, re-invoke make
+.PHONY: maketest-all
+maketest-all: kernel
+	$(MAKE) test TESTS="$$(${TEST_FIND_TESTS} ${KERNEL_OBJS} | sed 's/_test__//g')"
+
+.PHONY: maketest-%
+maketest-%: kernel
+	echo > ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@)
+	${QEMU_WRAP} ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@) ${QEMU} ${QEMU_FLAGS} -append $(patsubst maketest-%,%,$@)
 
 # generate the gdb init file
 ${GDB_INIT_FILE}:
@@ -154,7 +186,7 @@ ${GDB_INIT_FILE}:
 .PHONY: qemu-dbg
 qemu-dbg: qemu-gdb
 .PHONY: qemu-gdb
-qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
+qemu-gdb: kernel ${GDB_INIT_FILE} | ${OUTFILE}
 	@echo "-----"
 	@echo "gdb port is: ${GDB_PORT}"
 	@echo "launch gdb with: gdb-multiarch -ix ${GDB_INIT_FILE} ${KERNEL_ELF}"
@@ -163,7 +195,7 @@ qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
 	@echo "(CTRL+A X to exit)"
 	@echo "-----"
 	@echo
-	${QEMU_WRAP} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
+	${QEMU_WRAP} ${OUTFILE} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
 
 # dump qemu's device tree
 # ${BUILD}/device.dtb: ${KERNEL_ELF}
@@ -175,7 +207,7 @@ qemu-gdb: kernel ${GDB_INIT_FILE} ${OUTFILE}
 # 	dtc build/device.dtb > build/device.dts
 
 ${OUTFILE}: | ${BUILD}
-	touch $@
+	echo > $@
 
 # clean build dir
 .PHONY: clean
@@ -190,6 +222,7 @@ ${BUILD}:
 	@mkdir -p ${BUILD}/libc
 	@mkdir -p ${BUILD}/user
 	@mkdir -p ${BUILD}/userlib
+	@mkdir -p ${BUILD}/testout
 	@mkdir -p ${BUILD}/${COMP_DB_PART_DIR}
 
 # compilation commands database for clangd
@@ -211,11 +244,19 @@ ${KERNEL_OBJDUMP}: ${KERNEL_ELF} | ${BUILD}
 	${OBJDUMP} -D $< > $@
 
 # kernel ELF binary
-${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} | ${BUILD}
+${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} ${TEST_C_OBJ} | ${BUILD}
 	${CC} ${KERNEL_CFLAGS} \
 		-fuse-ld=lld \
 		-Wl,-T${KERNEL_LINKER_SCRIPT} -Wl,-Map=${BUILD}/kernel.map ${LINK_ARGS} \
-		-o $@ ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS}
+		-o $@ ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${TEST_C_OBJ}
+
+# test info source file
+${TEST_C_SOURCE}: ${KERNEL_OBJS} | ${BUILD}
+	${TEST_FIND_TESTS} ${KERNEL_OBJS} | ${TEST_MAKE_TEST_INFO} > $@
+
+# test info object
+${TEST_C_OBJ}: ${TEST_C_SOURCE} | ${BUILD}
+	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # kernel object
 ${BUILD}/kernel/%.o: ${SRC}/kernel/%.c ${KERNEL_HEADERS} ${LIBC_HEADERS} | ${BUILD}

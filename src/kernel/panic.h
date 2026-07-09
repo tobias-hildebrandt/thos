@@ -1,9 +1,9 @@
 #pragma once
 
-#include <stdio.h>  // IWYU pragma: keep, needed for printf
+#include <stdio.h>   // IWYU pragma: keep, needed for printf
+#include <stdlib.h>  // IWYU pragma: keep, needed for exit
 
 #include "flags.h"  // IWYU pragma: keep, needed for PANIC_LOOP
-#include "sbi.h"    // IWYU pragma: keep, needed for sbi_shutdown
 
 // TODO: extract to function, simplify macros?
 
@@ -16,7 +16,7 @@
             "%s:%u (%s)\n"                                \
             "Reason: " format_str "\n!!!\n",              \
             __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        sbi_shutdown();                                   \
+        exit(1);                                          \
     } while (0)
 #else
 #define PANIC(format_str, ...)                            \

@@ -10,6 +10,7 @@
 #include "panic.h"
 #include "process.h"
 #include "sections.h"
+#include "test.h"
 #include "trap.h"
 #include "util.h"
 
@@ -47,19 +48,13 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
 
     DeviceTree device_tree = DeviceTree_parse(device_tree_headers);
 
+    if (TESTS_ENABLED) {
+        run_test_from_bootargs(&device_tree);
+    }
+
     if (DUMP_DEVICE_TREE) {
         DeviceTree_dump_raw(device_tree_headers);
         DeviceTree_print(&device_tree);
-    }
-
-    const char* args_path[] = {DEVICE_TREE_ROOT_PATH, "chosen", NULL};
-    DeviceTreeNode* args =
-        DeviceTreeNode_find_child(device_tree.root, (char**)args_path, 0);
-
-    DeviceTreeProperty* boot_args =
-        DeviceTreeNode_find_property(args, "bootargs");
-    if (boot_args != NULL) {
-        printf("bootargs = \"%s\"\n", (char*)boot_args->value);
     }
 
     if (DEBUG_SECTIONS) {

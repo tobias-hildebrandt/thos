@@ -107,3 +107,7 @@
 #ifndef PANIC_LOOP
 #define PANIC_LOOP 0
 #endif
+
+#ifndef TESTS_ENABLED
+#define TESTS_ENABLED 0
+#endif
