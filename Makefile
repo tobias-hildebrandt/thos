@@ -17,15 +17,22 @@ GCC := riscv64-unknown-elf-gcc
 OBJCOPY := llvm-objcopy
 OBJDUMP := llvm-objdump
 
+opensbi_fw_fn = ${BUILD}/opensbi/opensbi-riscv$(1)-generic-fw_dynamic.bin
+OPENSBI_FIRMWARES := $(call opensbi_fw_fn,32) $(call opensbi_fw_fn,64)
+OPENSBI_DIR := subprojects/opensbi
+OPENSBI_FW_OPTIONS ?= 0x1
+
 ifeq (${PLATFORM}, qemu64)
 	CLANG_TARGET := riscv64-unknown-elf
 	PLATFORM_CFLAGS := -mcmodel=medany -march=rv64g -mabi=lp64d -DQEMU64=1
 	QEMU := qemu-system-riscv64
+	QEMU_FW := $(call opensbi_fw_fn,64)
 else ifeq (${PLATFORM}, qemu32)
 	CLANG_TARGET := riscv32-unknown-elf
 	PLATFORM_CFLAGS := -mcmodel=medany -march=rv32g -mabi=ilp32d -DQEMU32=1
 	LINK_ARGS := -Wl,-L${LIBGCC_PREFIX}/rv32iafd/ilp32d -lgcc
 	QEMU := qemu-system-riscv32
+	QEMU_FW := $(call opensbi_fw_fn,32)
 else
 # tab indentation not allowed
 $(error Unsupported platform: ${PLATFORM})
@@ -62,6 +69,8 @@ KERNEL_CFLAGS := ${COMMON_CFLAGS} \
 	${KERNEL_CFLAGS_EXTRA}
 
 USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/ -Wno-empty-translation-unit
+
+KERNEL_FLAGS_FILE := ${BUILD}/kernel-flags.txt
 
 # function that takes a list of C sources and returns list of object files
 obj_fn = $(patsubst %.c,%.o,$(patsubst ${SRC}%, ${BUILD}%, $(1)))
@@ -104,7 +113,7 @@ ifneq ($(strip ${TESTS}),)
 endif
 
 QEMU_WRAP := misc/wrap_qemu.sh
-QEMU_FLAGS := -machine virt -bios default -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
+QEMU_FLAGS := -machine virt -bios ${QEMU_FW} -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
 
 OUTFILE := ${BUILD}/out
 TESTFILE := ${BUILD}/test
@@ -123,7 +132,7 @@ endif
 .SECONDARY:
 
 .PHONY: default
-default: kernel
+default: kernel ${QEMU_FW}
 
 .PHONY: help
 help:
@@ -145,6 +154,7 @@ vars:
 	@echo "USER_BLOBS:      ${USER_BLOBS}"
 	@echo "USERLIB_OBJS:    ${USERLIB_OBJS}"
 	@echo "TESTS:           ${TESTS}"
+	@echo "QEMU_FW:         ${QEMU_FW}"
 
 .PHONY: cdefines
 cdefines:
@@ -158,7 +168,7 @@ run: qemu
 
 # run kernel via qemu
 .PHONY: qemu
-qemu: kernel | ${OUTFILE}
+qemu: kernel ${QEMU_FW} | ${OUTFILE}
 	${QEMU_WRAP} ${OUTFILE} ${QEMU} ${QEMU_FLAGS}
 
 .PHONY: test
@@ -174,7 +184,7 @@ maketest-all: kernel
 	$(MAKE) test TESTS="$$(${TEST_FIND_TESTS} ${KERNEL_OBJS} | sed 's/_test__//g')"
 
 .PHONY: maketest-%
-maketest-%: kernel
+maketest-%: kernel ${QEMU_FW}
 	echo > ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@)
 	${QEMU_WRAP} ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@) ${QEMU} ${QEMU_FLAGS} -append $(patsubst maketest-%,%,$@)
 
@@ -186,7 +196,7 @@ ${GDB_INIT_FILE}:
 .PHONY: qemu-dbg
 qemu-dbg: qemu-gdb
 .PHONY: qemu-gdb
-qemu-gdb: kernel ${GDB_INIT_FILE} | ${OUTFILE}
+qemu-gdb: kernel ${GDB_INIT_FILE} ${QEMU_FW} | ${OUTFILE}
 	@echo "-----"
 	@echo "gdb port is: ${GDB_PORT}"
 	@echo "launch gdb with: gdb-multiarch -ix ${GDB_INIT_FILE} ${KERNEL_ELF}"
@@ -206,16 +216,31 @@ qemu-gdb: kernel ${GDB_INIT_FILE} | ${OUTFILE}
 # ${BUILD}/device.dts: ${BUILD}/device.dtb
 # 	dtc build/device.dtb > build/device.dts
 
+.PHONY: ${OUTFILE}
 ${OUTFILE}: | ${BUILD}
-	echo > $@
+	printf "" > $@
 
 # clean build dir
 .PHONY: clean
 clean:
 	rm -rf ${BUILD}
 
+# clean submodule checkouts
+.PHONY: clean-checkouts
+clean-checkouts:
+	find subprojects/ -mindepth 2 -maxdepth 2 -exec rm -rf {} \;
+
+# clean submodules' builds
+.PHONY: clean-sub-builds
+clean-sub-builds: clean-opensbi
+
+# clean *everything*
+.PHONY: clean-all
+clean-all: clean clean-checkouts
+
 # create the build dir structure
 # should only be used as order-only prerequisite
+.PHONY: ${BUILD}
 ${BUILD}:
 	@mkdir -p ${BUILD}
 	@mkdir -p ${BUILD}/kernel
@@ -223,7 +248,9 @@ ${BUILD}:
 	@mkdir -p ${BUILD}/user
 	@mkdir -p ${BUILD}/userlib
 	@mkdir -p ${BUILD}/testout
+	@mkdir -p ${BUILD}/opensbi
 	@mkdir -p ${BUILD}/${COMP_DB_PART_DIR}
+	@git submodule update --init --recursive
 
 # compilation commands database for clangd
 ${COMP_DB}: ${KERNEL_ELF}  | ${BUILD}
@@ -243,27 +270,37 @@ endif
 ${KERNEL_OBJDUMP}: ${KERNEL_ELF} | ${BUILD}
 	${OBJDUMP} -D $< > $@
 
+.PHONY: phony-kernel-flags
+phony-kernel-flags:
+
+# writes KERNEL_CFLAGS to file
+# allows other targets to be re-run if flags change
+${KERNEL_FLAGS_FILE}: phony-kernel-flags
+	@TEMPFILE=$$(mktemp); \
+		echo '${KERNEL_CFLAGS}' >> $$TEMPFILE; \
+		cmp -s $$TEMPFILE $@ || mv -f $$TEMPFILE $@
+
 # kernel ELF binary
-${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} ${TEST_C_OBJ} | ${BUILD}
+${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} ${TEST_C_OBJ} ${KERNEL_FLAGS_FILE} | ${BUILD}
 	${CC} ${KERNEL_CFLAGS} \
 		-fuse-ld=lld \
 		-Wl,-T${KERNEL_LINKER_SCRIPT} -Wl,-Map=${BUILD}/kernel.map ${LINK_ARGS} \
 		-o $@ ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${TEST_C_OBJ}
 
 # test info source file
-${TEST_C_SOURCE}: ${KERNEL_OBJS} | ${BUILD}
+${TEST_C_SOURCE}: ${KERNEL_OBJS} ${KERNEL_FLAGS_FILE} | ${BUILD}
 	${TEST_FIND_TESTS} ${KERNEL_OBJS} | ${TEST_MAKE_TEST_INFO} > $@
 
 # test info object
-${TEST_C_OBJ}: ${TEST_C_SOURCE} | ${BUILD}
+${TEST_C_OBJ}: ${TEST_C_SOURCE} ${KERNEL_FLAGS_FILE} | ${BUILD}
 	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # kernel object
-${BUILD}/kernel/%.o: ${SRC}/kernel/%.c ${KERNEL_HEADERS} ${LIBC_HEADERS} | ${BUILD}
+${BUILD}/kernel/%.o: ${SRC}/kernel/%.c ${KERNEL_HEADERS} ${LIBC_HEADERS} ${KERNEL_FLAGS_FILE} | ${BUILD}
 	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 # libc object
-${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} | ${BUILD}
+${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} ${KERNEL_FLAGS_FILE} | ${BUILD}
 	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
 
 ## user programs
@@ -313,3 +350,20 @@ ${BUILD}/user/%.blob: ${BUILD}/user/%.S ${BUILD}/user/%.bin | ${BUILD}
 # user disassembly
 ${BUILD}/user/%.objdump: ${BUILD}/user/%.elf | ${BUILD}
 	${OBJDUMP} -D $< > $@
+
+## OpenSBI
+
+.PHONY: opensbi
+opensbi: ${OPENSBI_FIRMWARES}
+
+.PHONY: clean-opensbi
+clean-opensbi:
+	rm -rf ${OPENSBI_DIR}/build/
+
+${OPENSBI_FIRMWARES}: ${BUILD}/opensbi/opensbi-riscv%-generic-fw_dynamic.bin: ${OPENSBI_DIR} | ${BUILD}
+	mkdir -p ${OPENSBI_DIR}/build
+	$(MAKE) -C ${OPENSBI_DIR} \
+		CROSS_COMPILE=riscv$*-unknown- PLATFORM_RISCV_XLEN=$* \
+		PLATFORM=generic FW_OPTIONS=${OPENSBI_FW_OPTIONS} LLVM=1 O=build/$*/
+	ln -sf ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.bin \
+		${PWD}/$(call opensbi_fw_fn,$*)
