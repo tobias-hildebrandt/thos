@@ -38,13 +38,13 @@ Process* current_process = NULL;
 // makes trap_vector simpler
 void* current_process_stack_top;
 
-bool is_kernel_process(Process* process) {
+bool Process_is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
 }
 
 #define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%p,\n", context.r);
 
-void print_ProcessState(ProcessState state) {
+void ProcessState_print(ProcessState state) {
     printf("%d(", state);
     switch (state) {
         case PROCESS_UNUSED:
@@ -65,16 +65,16 @@ void print_ProcessState(ProcessState state) {
     printf(")");
 }
 
-void print_Process(Process* process) {
+void Process_print(Process* process) {
     printf("Process {\n");
     printf("\tpid: 0x%u,\n", process->id);
     printf("\tpage_table: (%s) %p\n",
-           process->page_table == 0     ? "NULL"
-           : is_kernel_process(process) ? "KERNEL"
-                                        : "USER",
+           process->page_table == 0             ? "NULL"
+           : Process_is_kernel_process(process) ? "KERNEL"
+                                                : "USER",
            process->page_table);
     printf("\tstate: ");
-    print_ProcessState(process->state);
+    ProcessState_print(process->state);
     printf(",\n");
     PRINT_CONTEXT_REG(process->context, ra);
     if (process->page_table != NULL) {
@@ -171,7 +171,7 @@ Process* allocate_process(ProcessArguments args) {
     // TODO: s0 might be the frame pointer, maybe do something with it?
 
     printf("allocated ");
-    print_Process(process);
+    Process_print(process);
 
     return process;
 }
@@ -264,17 +264,17 @@ void kernel_switch(TrapFrame* frame) {
         current_process->state = PROCESS_RUNNABLE;
 
         // if user process, we have to add 4 to PC
-        if (!is_kernel_process(current_process)) {
+        if (!Process_is_kernel_process(current_process)) {
             current_process->context.pc += 4;
         }
-        PRINTF_IF(DEBUG_SWITCH,
-                  "kernel_switch: switch off pid %2d, %s, c.pc %p\n",
-                  current_process->id,
-                  is_kernel_process(current_process) ? "kernel" : "user  ",
-                  context->pc);
+        PRINTF_IF(
+            DEBUG_SWITCH, "kernel_switch: switch off pid %2d, %s, c.pc %p\n",
+            current_process->id,
+            Process_is_kernel_process(current_process) ? "kernel" : "user  ",
+            context->pc);
         if (DEBUG_SWITCH == 2) {
             printf("kernel_switch: old context:\n");
-            print_TrapFrame(context);
+            TrapFrame_print(context);
         }
     }
 
@@ -295,7 +295,7 @@ void kernel_switch(TrapFrame* frame) {
         ASM("csrw sepc, %0\n" ::"r"(current_process->context.ra));
 
         // set up new return address
-        if (is_kernel_process(current_process)) {
+        if (Process_is_kernel_process(current_process)) {
             current_process->context.ra = (uintptr_t)kernel_exit;
         } else {
             current_process->context.ra = (uintptr_t)user_exit;
@@ -314,14 +314,15 @@ void kernel_switch(TrapFrame* frame) {
         ASM("csrr %0, sepc\n" : "=r"(sepc));
         printf("kernel_switch: switch on  pid %2d, %s, sepc %p\n",
                current_process->id,
-               is_kernel_process(current_process) ? "kernel" : "user  ", sepc);
+               Process_is_kernel_process(current_process) ? "kernel" : "user  ",
+               sepc);
     }
 
     // TODO: memset 0 process's kernel stack?
 
     // set sret to go to kernel mode or user mode
     uintptr_t sstatus;
-    if (is_kernel_process(current_process)) {
+    if (Process_is_kernel_process(current_process)) {
         sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE | SSTATUS_SUM;
         ASM("csrw sstatus, %0\n" ::"r"(sstatus));
     } else {
@@ -340,7 +341,7 @@ void kernel_switch(TrapFrame* frame) {
     }
     if (DEBUG_SWITCH == 2) {
         printf("kernel_switch: new context:\n");
-        print_TrapFrame(&current_process->context);
+        TrapFrame_print(&current_process->context);
     }
     if (DEBUG_SWITCH) {
         printf("kernel_switch: switching now!\n");

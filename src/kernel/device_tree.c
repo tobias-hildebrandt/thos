@@ -59,8 +59,8 @@ char* parse_node_name(char** pointer) {
     return node_name;
 }
 
-DeviceTreeProperty* parse_prop(const DeviceTreeHeadersRaw* header,
-                               const uint32_t** pointer) {
+DeviceTreeProperty* DeviceTreeProperty_parse(const DeviceTreeHeadersRaw* header,
+                                             const uint32_t** pointer) {
     skip_nops(pointer);
 
     if (**pointer != STRUCTURE_PROP) {
@@ -115,8 +115,8 @@ DeviceTreeProperty* parse_prop(const DeviceTreeHeadersRaw* header,
     return parsed;
 }
 
-DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
-                           const uint32_t** pointer) {
+DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
+                                     const uint32_t** pointer) {
     skip_nops(pointer);
 
     if (**pointer != STRUCTURE_BEGIN_NODE) {
@@ -133,7 +133,7 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
     DeviceTreeProperty* prop = NULL;
     while (1) {
         skip_nops(pointer);
-        prop = parse_prop(header, pointer);
+        prop = DeviceTreeProperty_parse(header, pointer);
         if (prop == NULL) {
             break;
         }
@@ -145,7 +145,7 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
     DeviceTreeNode* child = NULL;
     while (1) {
         skip_nops(pointer);
-        child = parse_node(header, pointer);
+        child = DeviceTreeNode_parse(header, pointer);
         if (child == NULL) {
             break;
         }
@@ -166,7 +166,7 @@ DeviceTreeNode* parse_node(const DeviceTreeHeadersRaw* header,
     return parsed;
 }
 
-DeviceTree parse_device_tree(const DeviceTreeHeadersRaw* header) {
+DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header) {
     if (header->magic != DEVICE_TREE_MAGIC) {
         PANIC("bad magic on device tree header: 0x%08x",
               BIG_TO_LITTLE32(header->magic));
@@ -180,7 +180,7 @@ DeviceTree parse_device_tree(const DeviceTreeHeadersRaw* header) {
     const uint32_t* pointer =
         (void*)((uintptr_t)header + BIG_TO_LITTLE32(header->off_dt_struct));
 
-    DeviceTreeNode* root = parse_node(header, &pointer);
+    DeviceTreeNode* root = DeviceTreeNode_parse(header, &pointer);
 
     if (*pointer != STRUCTURE_END) {
         PANIC("device tree structure not closed");

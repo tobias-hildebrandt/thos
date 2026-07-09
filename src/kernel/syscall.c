@@ -32,7 +32,7 @@ void handle_syscall(TrapFrame* frame) {
             printf("handle_syscall: ignoring unknown syscall #%lu(%p)\n",
                    frame->a0, frame->a0);
             if (DEBUG_SYSCALL) {
-                print_TrapFrame(frame);
+                TrapFrame_print(frame);
             }
         }
     }

@@ -45,7 +45,7 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
     printf("(compiled with %s)\n", COMPILER_STRING);
     printf("\n");
 
-    DeviceTree device_tree = parse_device_tree(device_tree_headers);
+    DeviceTree device_tree = DeviceTree_parse(device_tree_headers);
 
     if (DUMP_DEVICE_TREE) {
         DeviceTree_dump_raw(device_tree_headers);

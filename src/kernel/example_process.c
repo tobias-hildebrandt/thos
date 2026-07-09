@@ -20,7 +20,7 @@ struct SomeData {
 };
 typedef struct SomeData SomeData;
 
-void print_SomeData(SomeData* data) {
+void SomeData_print(SomeData* data) {
     printf("SomeData { d: 0x%llx, w: 0x%x, b: %s }\n", data->d, data->w,
            data->b);
 }
@@ -66,7 +66,7 @@ void process_load_from_stack(SomeData* data) {
 
     printf("%p = ", (uintptr_t)data);
 
-    print_SomeData(data);
+    SomeData_print(data);
 
     yield();
 

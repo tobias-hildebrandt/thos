@@ -53,7 +53,7 @@ const char* decode_scause(uint64_t scause) {
     }
 }
 
-void print_TrapFrame(TrapFrame* frame) {
+void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, ra);
     PRINT_MEMBER(frame, sp);
     PRINT_MEMBER(frame, pc);
@@ -121,7 +121,7 @@ void handle_trap(TrapFrame* frame) {
             was_in_kernel_mode ? "kernel" : "user");
 
         if (DEBUG_SOFTWARE_INTERRUPTS == 2) {
-            print_TrapFrame(frame);
+            TrapFrame_print(frame);
         }
 
         printf("***\n");
@@ -155,7 +155,7 @@ void handle_trap(TrapFrame* frame) {
         kernel_switch(NULL);
     } else {
         printf("fatal trap\n");
-        print_TrapFrame(frame);
+        TrapFrame_print(frame);
         printf("***\n");
         PANIC("fatal trap");
     };

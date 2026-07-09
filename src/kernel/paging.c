@@ -64,7 +64,7 @@ PageTable get_linked_table(PageTableEntry entry) {
     return (PageTable)next_table_addr;
 }
 
-void print_VirtualAddress(VirtualAddress virtual_address) {
+void VirtualAddress_print(VirtualAddress virtual_address) {
     printf("VirtualAddress(%p){ ", virtual_address.value);
 #if POINTER_BITS == 64
     printf("L2: %u, ", virtual_address.level2_entry_number);
@@ -75,7 +75,7 @@ void print_VirtualAddress(VirtualAddress virtual_address) {
     printf("}\n");
 }
 
-void print_PageTableEntryFlags(PageTableEntryFlags flags,
+void PageTableEntryFlags_print(PageTableEntryFlags flags,
                                bool print_leafiness) {
     if (PAGE_TABLE_PRINT_ALL_FLAGS) {
         printf("v%ur%uw%ux%uu%ug%ua%ud%u", flags.valid, flags.read, flags.write,
@@ -115,7 +115,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     if (DEBUG_MAP_ADDRESS) {
         printf("map_address(table @ %p, v:%p, p:%p, f:", (uintptr_t)first_table,
                virtual_address.value, physical_address, flags);
-        print_PageTableEntryFlags(flags, false);
+        PageTableEntryFlags_print(flags, false);
         printf(")\n");
     }
 
@@ -128,7 +128,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     }
 
     if (DEBUG_MAP_ADDRESS) {
-        print_VirtualAddress(virtual_address);
+        VirtualAddress_print(virtual_address);
     }
 
     uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
@@ -190,9 +190,9 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     entry->flags.read = true;  // all leaf pages are readable
 }
 
-void print_PageTableEntry(PageTableEntry entry) {
+void PageTableEntry_print(PageTableEntry entry) {
     printf("Entry { flags: ");
-    print_PageTableEntryFlags(entry.flags, true);
+    PageTableEntryFlags_print(entry.flags, true);
     printf(", physical_page_num: 0x%llx }\n", entry.physical_page_num);
 }
 
@@ -202,7 +202,7 @@ struct PrintPageTableRecurse {
 };
 typedef struct PrintPageTableRecurse PrintPageTableRecurse;
 
-void print_PageTable(PageTable table, bool only_valid_entries,
+void PageTable_print(PageTable table, bool only_valid_entries,
                      PrintPageTableRecurse recurse) {
     for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
         PageTableEntry entry = table[i];
@@ -216,12 +216,12 @@ void print_PageTable(PageTable table, bool only_valid_entries,
         }
 
         printf("PageTable %p entry[%u] = ", table, i);
-        print_PageTableEntry(entry);
+        PageTableEntry_print(entry);
 
         if (recurse.recurse && !is_leaf_node(entry.flags)) {
             PrintPageTableRecurse next_recurse = recurse;
             next_recurse.level -= 1;
-            print_PageTable(get_linked_table(entry), only_valid_entries,
+            PageTable_print(get_linked_table(entry), only_valid_entries,
                             next_recurse);
         }
     }

@@ -25,7 +25,7 @@ typedef struct TrapFrame TrapFrame;
 void enable_trap_vector(void);
 void enable_kernel_traps(void);
 void restore_after_trap(TrapFrame* context);
-void print_TrapFrame(TrapFrame* frame);
+void TrapFrame_print(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // write SSIP to 0x2 for supervisor software interrupt

@@ -52,7 +52,7 @@ struct DeviceTree {
 };
 typedef struct DeviceTree DeviceTree;
 
-DeviceTree parse_device_tree(const DeviceTreeHeadersRaw* header);
+DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header);
 void DeviceTree_print(DeviceTree* tree);
 DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char** path,
                                           uint8_t offset);
