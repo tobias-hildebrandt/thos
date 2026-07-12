@@ -18,16 +18,10 @@ TOOLCHAIN ?= llvm
 BUILD_BASE ?= build
 BUILD := ${BUILD_BASE}/${TARGET}-${TOOLCHAIN}
 
-# the resulting kernel file made by meson
+# kernel file made by meson
 KERNEL_ELF := ${BUILD}/kernel
-
-# meson args
-COMPILE_ARGS ?=
-SETUP_ARGS ?=
-DEFINES ?=
-ALL_SETUP_ARGS := ${SETUP_ARGS} -Ddefines='${DEFINES}'
-CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
-COMPILE_WRAPPER ?= misc/rewrite_paths.sh
+# kernel test file made by meson
+KERNEL_ELF_TEST := ${BUILD}/kernel-test
 
 # opensbi stuff
 opensbi_fw_fn = ${BUILD_BASE}/opensbi/opensbi-$(1)-generic-fw_dynamic.bin
@@ -40,10 +34,22 @@ QEMU ?= qemu-system-${TARGET}
 QEMU_WRAP ?= misc/wrap_qemu.sh
 QEMU_FW := $(call opensbi_fw_fn,${TARGET})
 QEMU_BOOTARGS ?=
-QEMU_FLAGS ?= -machine virt -bios ${QEMU_FW} \
-	-nographic -serial mon:stdio \
-	-kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
+QEMU_PARTIAL_FLAGS ?= -machine virt -bios $(shell realpath ${QEMU_FW}) \
+	-nographic -serial mon:stdio
+QEMU_FLAGS ?= ${QEMU_PARTIAL_FLAGS} -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
 QEMU_OUTFILE := ${BUILD_BASE}/out
+
+# meson args
+SETUP_ARGS ?=
+COMPILE_ARGS ?=
+TEST_ARGS ?=
+DEFINES ?=
+ALL_SETUP_ARGS := ${SETUP_ARGS} \
+	-D defines='${DEFINES}' \
+	-D qemu-partial='${QEMU} ${QEMU_PARTIAL_FLAGS}'
+
+CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
+COMPILE_WRAPPER ?= misc/rewrite_paths.sh
 
 # clangd IDE support
 COMP_DB_FILENAME := compile_commands.json
@@ -68,6 +74,7 @@ help:
 	@echo "opensbi (firmware)   build firmware"
 	@echo "qemu (run)           run kernel on qemu"
 	@echo "qemu-gdb (qemu-dbg)  same as qemu, but wait for gdb to attach"
+	@echo "test                 build test kernel, run tests on qemu"
 	@echo
 	@echo "make arguments:"
 	@echo "TARGET               target platform, riscv64 or riscv32"
@@ -75,7 +82,8 @@ help:
 	@echo "DEFINES              c defines, see src/kernel/flags.h"
 	@echo "SETUP_ARGS           meson setup args, e.g. --optimization=3"
 	@echo "COMPILE_ARGS         meson compile args, e.g. --verbose"
-	@echo "QEMU_BOOTARGS:       qemu args, e.g. -append somebootargs"
+	@echo "TEST_ARGS            meson test args, e.g. --list"
+	@echo "QEMU_BOOTARGS       qemu args, e.g. -append somebootargs"
 
 # just makes a symlink to last-setup-target's compile_commands.json
 .PHONY: link-compdb
@@ -99,6 +107,11 @@ setup: link-compdb
 compile: build
 build: setup
 	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} -j ${JOBS}
+
+# meson test
+.PHONY: test
+test: build
+	meson test -C ${BUILD} ${TEST_ARGS}
 
 ### clean
 

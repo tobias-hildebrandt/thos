@@ -18,6 +18,7 @@
 #define DEBUG_DEVICE_TREE 1
 #define DEBUG_DEVICE_TREE_SEARCH 1
 #define DEBUG_LIST 1
+#define DEBUG_TESTS 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -90,6 +91,10 @@
 
 #ifndef DUMP_DEVICE_TREE
 #define DUMP_DEVICE_TREE 0
+#endif
+
+#ifndef DEBUG_TESTS
+#define DEBUG_TESTS 0
 #endif
 
 #ifndef PAGE_TABLE_PRINT_ALL_FLAGS

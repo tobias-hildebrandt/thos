@@ -7,7 +7,10 @@ PIPE=$(mktemp -u -p build/).fifo
 
 mkfifo "$PIPE"
 
-tee -a "$OUTFILE" < "$PIPE" &
+{
+    # qemu outputs \r\n instead of \n
+    tr -d '\r' |tee -a "$OUTFILE"
+} < "$PIPE" &
 PIPEPID=$!
 
 $COMMAND > "$PIPE"

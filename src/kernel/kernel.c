@@ -38,6 +38,12 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
 
     init_kernel_page_table();
 
+    DeviceTree device_tree = DeviceTree_parse(device_tree_headers);
+
+    if (TESTS_ENABLED) {
+        run_test_from_bootargs(&device_tree);
+    }
+
     printf(
         ""
         "----------\n"
@@ -45,12 +51,6 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
 
     printf("(compiled with %s)\n", COMPILER_STRING);
     printf("\n");
-
-    DeviceTree device_tree = DeviceTree_parse(device_tree_headers);
-
-    if (TESTS_ENABLED) {
-        run_test_from_bootargs(&device_tree);
-    }
 
     if (DUMP_DEVICE_TREE) {
         DeviceTree_dump_raw(device_tree_headers);

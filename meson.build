@@ -17,6 +17,9 @@ script_list_sources = 'misc/list_sources.sh'
 script_user_bin = 'misc/user-bin.sh'
 script_user_asm = 'misc/user-asm.sh'
 script_find_libgcc = 'misc/find_libgcc.sh'
+script_find_tests = 'misc/find_tests.sh'
+script_make_testinfo = 'misc/make_test_info.sh'
+script_run_tests = 'misc/run_tests.sh'
 
 ### source directories
 dir_base = 'src'
@@ -46,10 +49,12 @@ foreach subdir : subdir_all
     dict_c_sources += {subdir: c_sources_subdir}
 endforeach
 
-### includes (meson has default implicit includes)
+### includes
 include_common = include_directories(dir_base / subdir_common)
+include_kernel = include_directories(dir_base / subdir_kernel)
 include_libc = include_directories(dir_base / subdir_libc, is_system: true)
 include_userlib = include_directories(dir_base / subdir_userlib)
+include_user = include_directories(dir_base / subdir_user)
 
 # must be manually included in build targets, no project_includes() in meson
 includes_proj = [include_common, include_libc]
@@ -71,6 +76,8 @@ c_args_proj = [
     '-fno-stack-protector',
     # warning args
     '-Wformat=2',
+    # fix path in __FILE__ macro
+    '-ffile-prefix-map=../../=',
 ]
 
 # clang c arguments
@@ -90,13 +97,21 @@ else
     error('unknown host_machine architecture')
 endif
 
-# command-line defines
+# command-line options
 option_defines_str = 'defines'
 option_defines = get_option(option_defines_str)
 if option_defines != ''
     foreach define : option_defines.split(' ')
         c_args_proj += '-D' + define
     endforeach
+endif
+# tests option
+option_tests_str = 'enable-tests'
+c_define_tests = 'TESTS_ENABLED'
+c_args_test = []
+option_tests = get_option(option_tests_str)
+if option_tests
+    c_args_test += '-D' + c_define_tests
 endif
 
 # TODO: build libgcc / llvm compiler-rt as subprojects?
@@ -132,7 +147,8 @@ add_project_dependencies(dep_libgcc, language: 'c')
 target_libc = static_library(
     'libc',
     dict_c_sources[subdir_libc],
-    include_directories: includes_proj,
+    include_directories: [includes_proj], # already has libc
+    implicit_include_directories: false,
 )
 dep_libc = declare_dependency(link_with: target_libc)
 
@@ -140,7 +156,9 @@ dep_libc = declare_dependency(link_with: target_libc)
 target_userlib = static_library(
     'userlib',
     dict_c_sources[subdir_userlib],
-    include_directories: includes_proj,
+    include_directories: [includes_proj, include_userlib],
+    implicit_include_directories: false,
+
 )
 dep_userlib = declare_dependency(link_with: target_userlib)
 
@@ -162,7 +180,8 @@ foreach source_user : dict_c_sources[subdir_user]
         source_user,
         name_suffix: 'o',
         dependencies: [dep_libc, dep_userlib],
-        include_directories: [includes_proj, include_userlib],
+        include_directories: [includes_proj, include_userlib, include_user],
+        implicit_include_directories: false,
         link_args: [user_link_args],
     )
 
@@ -197,17 +216,96 @@ foreach source_user : dict_c_sources[subdir_user]
     deps_userexec_blobs += dep_userexec_blob
 endforeach
 
-# kernel itself
-exec_kernel = executable(
-    'kernel',
+# kernel
+name_kernel = 'kernel'
+name_suffix_test = '-test'
+name_suffix_nontest = ''
+name_kernel_tests = 'tests.txt'
+name_kernel_testinfo = 'testinfo.c'
+
+# nontest kernel
+exec_nontest_kernel = executable(
+    name_kernel + name_suffix_nontest,
     dict_c_sources[subdir_kernel],
     dependencies: [dep_libc, deps_userexec_blobs],
-    include_directories: includes_proj,
-    link_args: [kernel_link_args],
+    include_directories: [includes_proj, include_kernel],
+    implicit_include_directories: false,
+    link_args: kernel_link_args,
 )
+message('kernel path:', exec_nontest_kernel.full_path())
 
-message('final kernel path:', exec_kernel.full_path())
+# kernel tests
+option_qemu_str = 'qemu-partial'
+option_qemu = get_option(option_qemu_str)
 
-# TODO: add tests
+if option_tests
+    # finds tests in nontest kernel
+    # (test functions exist but are not used)
+    # TODO: parse source code instead of symbols in object file
+    target_tests = custom_target(
+        name_kernel_tests,
+        command: [
+            script_find_tests,
+            '@OUTPUT@',
+            exec_nontest_kernel,
+        ],
+        output: name_kernel_tests,
+        depends: exec_nontest_kernel,
+    )
+    # testinfo file
+    target_testinfo = custom_target(
+        name_kernel_testinfo,
+        command: [script_make_testinfo, target_tests, '@OUTPUT@'],
+        output: name_kernel_testinfo,
+        depends: exec_nontest_kernel,
+    )
+    # test kernel
+    exec_test_kernel = executable(
+        name_kernel + name_suffix_test,
+        [dict_c_sources[subdir_kernel], target_testinfo],
+        dependencies: [dep_libc, deps_userexec_blobs],
+        include_directories: [includes_proj, include_kernel],
+        implicit_include_directories: false,
+        c_args: c_args_test,
+        link_args: kernel_link_args,
+    )
+    message('test kernel path:', exec_test_kernel.full_path())
+
+    # make sure qemu was passed in
+    if option_qemu == ''
+        error('must define', option_qemu, 'when', option_tests_str, 'is true')
+    endif
+
+    # will run test wrapper script, which finds and runs all subtests
+    test(
+        'kernel tests',
+        find_program(
+            script_run_tests,
+            required: true,
+        ),
+        args: [
+            option_qemu,
+            '-kernel', exec_test_kernel,
+        ],
+        protocol: 'tap',
+        verbose: true,
+        depends: exec_test_kernel,
+    )
+else
+    # always-failing test in case wrong options are set
+    test(
+        ' '.join(
+            [
+                'you need to run setup with',
+                option_tests_str,
+                'and',
+                option_qemu_str,
+            ],
+        ),
+        find_program('false'),
+    )
+endif
 
 # TODO: build opensbi here also?
+
+# TODO: use run_target() for compdb?

@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <string.h>
 
 void* memset(void* buf, char c, size_t n) {
@@ -42,4 +43,38 @@ int strcmp(const char* lhs, const char* rhs) {
             rhs += 1;
         }
     }
+}
+
+// TODO: dedeuplicate from strcmp
+int strncmp(const char* lhs, const char* rhs, size_t count) {
+    if (count == 0) {
+        return 0;
+    }
+
+    if (lhs == NULL && rhs == NULL) {
+        return 0;
+    } else if (lhs == NULL && rhs != NULL) {
+        return 1;
+    } else if (lhs != NULL && rhs == NULL) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        char left = *(lhs + i);
+        char right = *(rhs + i);
+
+        if (left == 0 && right != 0) {
+            return -1;
+        } else if (left != 0 && right == 0) {
+            return 1;
+        } else if (left == 0 && right == 0) {
+            return 0;
+        } else {
+            char diff = left - right;
+            if (diff != 0) {
+                return diff;
+            }
+        }
+    }
+    return 0;
 }

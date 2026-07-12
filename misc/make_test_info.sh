@@ -1,14 +1,18 @@
 #!/bin/sh
+TESTS_FILE=$1
+OUT=$2
 
-# read in stdin to variable
-TESTS=$(cat -)
+# read input to variable
+TESTS=$(cat "$TESTS_FILE")
 
 len() {
     echo $#
 }
 
+# shellcheck disable=SC2086
 NUM_TESTS=$(len $TESTS)
 
+{
 cat <<EOF
 // file generated via $0
 
@@ -27,9 +31,9 @@ echo
 
 echo "const Test tests_data[$NUM_TESTS] = {"
 for test in $TESTS; do
-    echo "    (Test) { .name = \"$test\", .func = $test },"
+    echo "    { .name = \"$test\", .func = $test },"
 done
 echo "};"
 
 echo "const Test* tests = (const Test*) &tests_data;"
-
+} > "$OUT"

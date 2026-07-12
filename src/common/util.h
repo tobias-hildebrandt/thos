@@ -5,6 +5,7 @@
 #define STRINGIFY_VALUE(x) STRINGIFY(x)
 // concat two tokens with an underscore
 #define CONCAT_(a, b) a##_##b
+#define CONCAT3_(a, b, c) a##_##b##_##c
 
 // integer division but rounds up
 #define INT_DIV_CEIL(num, denom) ((num + (denom - 1)) / denom)
