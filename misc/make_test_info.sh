@@ -1,16 +1,8 @@
 #!/bin/sh
-TESTS_FILE=$1
-OUT=$2
+OUT=$1; shift
 
-# read input to variable
-TESTS=$(cat "$TESTS_FILE")
-
-len() {
-    echo $#
-}
-
-# shellcheck disable=SC2086
-NUM_TESTS=$(len $TESTS)
+TESTS="$*"
+NUM_TESTS=$#
 
 {
 cat <<EOF

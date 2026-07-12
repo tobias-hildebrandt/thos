@@ -14,12 +14,12 @@ compiler = meson.get_compiler('c')
 
 ### scripts
 script_list_sources = 'misc/list_sources.sh'
-script_user_bin = 'misc/user-bin.sh'
-script_user_asm = 'misc/user-asm.sh'
+script_user_bin = 'misc/make_userexec_bin.sh'
+script_user_asm = 'misc/make_userexec_blob_asm.sh'
 script_find_libgcc = 'misc/find_libgcc.sh'
 script_find_tests = 'misc/find_tests.sh'
 script_make_testinfo = 'misc/make_test_info.sh'
-script_run_tests = 'misc/run_tests.sh'
+script_run_single_test = 'misc/run_single_test.sh'
 
 ### source directories
 dir_base = 'src'
@@ -134,9 +134,9 @@ endif
 c_args_proj = args_machine + c_args_proj
 link_args_proj = args_machine + link_args_proj
 
-absolute_source_dir = meson.project_source_root() / 'src'
-kernel_link_args = ['-Wl,-T' + (absolute_source_dir / 'kernel' / 'kernel.lds')]
-user_link_args = ['-Wl,-T' + (absolute_source_dir / 'user' / 'user.lds')]
+source_dir_absolute = meson.project_source_root() / 'src'
+kernel_link_args = ['-Wl,-T' + (source_dir_absolute / 'kernel' / 'kernel.lds')]
+user_link_args = ['-Wl,-T' + (source_dir_absolute / 'user' / 'user.lds')]
 
 add_project_arguments(c_args_proj, language: 'c')
 add_project_link_arguments(link_args_proj, language: 'c')
@@ -188,7 +188,7 @@ foreach source_user : dict_c_sources[subdir_user]
     # expanded user bin
     target_userexec_bin = custom_target(
         name_userexec_bin,
-        command: ['misc/user-bin.sh', target_userexec_exec, '@OUTPUT@'],
+        command: [script_user_bin, target_userexec_exec, '@OUTPUT@'],
         output: name_userexec_bin,
         depends: target_userexec_exec,
     )
@@ -196,7 +196,7 @@ foreach source_user : dict_c_sources[subdir_user]
     # assembly that .incbin's the user bin
     target_userexec_assembly = custom_target(
         name_userexec_assembly,
-        command: ['misc/user-asm.sh', target_userexec_bin, '@OUTPUT@', basename],
+        command: [script_user_asm, target_userexec_bin, '@OUTPUT@', basename],
         output: name_userexec_assembly,
         depends: target_userexec_bin,
     )
@@ -239,26 +239,22 @@ option_qemu_str = 'qemu-partial'
 option_qemu = get_option(option_qemu_str)
 
 if option_tests
-    # finds tests in nontest kernel
-    # (test functions exist but are not used)
-    # TODO: parse source code instead of symbols in object file
-    target_tests = custom_target(
-        name_kernel_tests,
-        command: [
+    # finds tests in kernel source code
+    target_tests = run_command(
+        [
             script_find_tests,
-            '@OUTPUT@',
-            exec_nontest_kernel,
+            '--full', source_dir_absolute / subdir_kernel,
         ],
-        output: name_kernel_tests,
-        depends: exec_nontest_kernel,
-    )
+        check: true,
+    ).stdout().splitlines()
+
     # testinfo file
     target_testinfo = custom_target(
         name_kernel_testinfo,
-        command: [script_make_testinfo, target_tests, '@OUTPUT@'],
+        command: [script_make_testinfo, '@OUTPUT@', target_tests],
         output: name_kernel_testinfo,
-        depends: exec_nontest_kernel,
     )
+
     # test kernel
     exec_test_kernel = executable(
         name_kernel + name_suffix_test,
@@ -276,21 +272,26 @@ if option_tests
         error('must define', option_qemu, 'when', option_tests_str, 'is true')
     endif
 
-    # will run test wrapper script, which finds and runs all subtests
-    test(
-        'kernel tests',
-        find_program(
-            script_run_tests,
-            required: true,
-        ),
-        args: [
-            option_qemu,
-            '-kernel', exec_test_kernel,
-        ],
-        protocol: 'tap',
-        verbose: true,
-        depends: exec_test_kernel,
-    )
+    # create indiviudal tests
+    foreach test : target_tests
+        test(
+            'kernel test '
+            + test.replace('_test__', '').replace('_should_fail', ''),
+            find_program(
+                script_run_single_test,
+                required: true,
+            ),
+            args: [
+                option_qemu,
+                '-kernel', exec_test_kernel,
+                '-append',
+                '--test' + test,
+            ],
+            should_fail: test.contains('_should_fail'),
+            verbose: true,
+            depends: exec_test_kernel,
+        )
+    endforeach
 else
     # always-failing test in case wrong options are set
     test(

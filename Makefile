@@ -110,7 +110,7 @@ build: setup
 
 # meson test
 .PHONY: test
-test: build
+test: build ${QEMU_FW}
 	meson test -C ${BUILD} ${TEST_ARGS}
 
 ### clean
