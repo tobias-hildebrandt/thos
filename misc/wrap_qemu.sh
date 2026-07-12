@@ -5,16 +5,15 @@ OUTFILE="$1"; shift
 COMMAND=$*
 PIPE=$(mktemp -u -p build/).fifo
 
-rm -f $PIPE
-mkfifo $PIPE
+mkfifo "$PIPE"
 
-tee -a $OUTFILE < $PIPE &
+tee -a "$OUTFILE" < "$PIPE" &
 PIPEPID=$!
 
-$COMMAND > $PIPE
+$COMMAND > "$PIPE"
 EXITCODE=$?
 
-rm -f $PIPE
+kill -9 $PIPEPID
+rm -f "$PIPE"
 
-echo "---QEMU EXIT CODE: $EXITCODE---" | tee -a $OUTFILE
-
+echo "---QEMU EXIT CODE: $EXITCODE---" | tee -a "$OUTFILE"

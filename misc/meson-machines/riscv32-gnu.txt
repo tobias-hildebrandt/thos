@@ -1,0 +1,9 @@
+[binaries]
+c = 'riscv64-unknown-elf-gcc'
+c_ld = 'bfd'
+
+[host_machine]
+system = 'none'
+cpu_family = 'riscv32'
+cpu = 'riscv32'
+endian = 'little'

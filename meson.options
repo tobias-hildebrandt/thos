@@ -1,0 +1,2 @@
+# pass all defines as one long string, e.g. THING1=123 THING2=234
+option('defines', type: 'string')

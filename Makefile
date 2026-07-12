@@ -1,369 +1,166 @@
-BUILD ?= build
-SRC ?= src
-MISC ?= misc
+# This Makefile is essentially just a command runner.
+# meson does the actual build (see meson.build).
 
-COMP_DB_FILENAME := compile_commands.json
-COMP_DB_PART_DIR := compdb
-
-COMP_DB := ${BUILD}/${COMP_DB_FILENAME}
-COMP_DB_ALL_PARTS = $(shell find ${BUILD}/${COMP_DB_PART_DIR}/ -type f)
-compdbpart_fn = ${BUILD}/${COMP_DB_PART_DIR}/$(shell echo $(1) | tr '/' '_').compdbpart
-
-PLATFORM ?= qemu64
-LIBGCC_PREFIX ?= /usr/lib/gcc/riscv64-unknown-elf/14.2.0
-GCC := riscv64-unknown-elf-gcc
-
-# gnu binutil's objcopy and objdump don't work!
-OBJCOPY := llvm-objcopy
-OBJDUMP := llvm-objdump
-
-opensbi_fw_fn = ${BUILD}/opensbi/opensbi-riscv$(1)-generic-fw_dynamic.bin
-OPENSBI_FIRMWARES := $(call opensbi_fw_fn,32) $(call opensbi_fw_fn,64)
-OPENSBI_DIR := subprojects/opensbi
-OPENSBI_FW_OPTIONS ?= 0x1
-
-ifeq (${PLATFORM}, qemu64)
-	CLANG_TARGET := riscv64-unknown-elf
-	PLATFORM_CFLAGS := -mcmodel=medany -march=rv64g -mabi=lp64d -DQEMU64=1
-	QEMU := qemu-system-riscv64
-	QEMU_FW := $(call opensbi_fw_fn,64)
-else ifeq (${PLATFORM}, qemu32)
-	CLANG_TARGET := riscv32-unknown-elf
-	PLATFORM_CFLAGS := -mcmodel=medany -march=rv32g -mabi=ilp32d -DQEMU32=1
-	LINK_ARGS := -Wl,-L${LIBGCC_PREFIX}/rv32iafd/ilp32d -lgcc
-	QEMU := qemu-system-riscv32
-	QEMU_FW := $(call opensbi_fw_fn,32)
-else
-# tab indentation not allowed
-$(error Unsupported platform: ${PLATFORM})
-endif
-
-OPTIMIZE ?= -O2
-DEBUG ?= -g3
-WARNINGS ?= -Wall -Wextra -Wpedantic -Wformat=2 \
-	-Wimplicit-fallthrough
-
-ifndef USE_GCC
-	CC := clang
-	COMMON_CFLAGS := --target=${CLANG_TARGET}
-	compdb_cflag_fn = -MJ $(call compdbpart_fn, $(1))
-	compdb_cc_wrap_fn =
-	WARNINGS += -Wno-gnu-zero-variadic-macro-arguments
-else
-	CC := ${GCC}
-	COMMON_CFLAGS :=
-	compdb_cflag_fn =
-	compdb_cc_wrap_fn = bear --output $(call compdbpart_fn, $(1)) --
-endif
-
-COMMON_CFLAGS += -std=gnu17 \
-	${PLATFORM_CFLAGS} \
-	-fno-stack-protector -ffreestanding -nostdlib \
-	${OPTIMIZE} ${DEBUG} \
-	${WARNINGS} \
-	-I ${SRC}/common/ \
-	-isystem ${SRC}/libc/
-
-KERNEL_CFLAGS := ${COMMON_CFLAGS} \
-	-I ${SRC}/kernel/ \
-	${KERNEL_CFLAGS_EXTRA}
-
-USER_CFLAGS := ${COMMON_CFLAGS} -I ${SRC}/userlib/ -Wno-empty-translation-unit
-
-KERNEL_FLAGS_FILE := ${BUILD}/kernel-flags.txt
-
-# function that takes a list of C sources and returns list of object files
-obj_fn = $(patsubst %.c,%.o,$(patsubst ${SRC}%, ${BUILD}%, $(1)))
-
-KERNEL_LINKER_SCRIPT := ${SRC}/kernel/kernel.lds
-KERNEL_C_SOURCES := $(shell find ${SRC}/kernel/ -name '*.c')
-KERNEL_HEADERS := $(shell find ${SRC}/kernel/ -name '*.h')
-KERNEL_OBJS := $(call obj_fn, ${KERNEL_C_SOURCES})
-KERNEL_ELF := ${BUILD}/kernel.elf
-KERNEL_OBJDUMP := ${BUILD}/kernel.objdump
-
-LIBC_C_SOURCES := $(shell find ${SRC}/libc/ -name '*.c')
-LIBC_HEADERS := $(shell find ${SRC}/libc/ -name '*.h')
-LIBC_OBJS := $(call obj_fn, ${LIBC_C_SOURCES})
-
-USERLIB_C_SOURCES := $(shell find ${SRC}/userlib/ -name '*.c')
-USERLIB_HEADERS := $(shell find ${SRC}/userlib/ -name '*.h')
-USERLIB_OBJS := $(call obj_fn, ${USERLIB_C_SOURCES})
-
-USER_LINKER_SCRIPT := ${SRC}/user/user.lds
-USER_C_SOURCES := $(shell find ${SRC}/user/ -name '*.c')
-USER_OBJS := $(call obj_fn, ${USER_C_SOURCES})
-USER_BLOBS := $(USER_OBJS:.o=.blob)
-USER_OBJDUMPS := $(USER_OBJS:.o=.objdump)
-# TODO: pass into C somehow? and do same with sections through nm/objdump?
-#USER_PROGS := $(shell basename -a $(USER_OBJS:.o=))
-
-QEMU_BOOTARGS ?=
-
-TESTS ?=
-TEST_C_SOURCE := ${BUILD}/test_info.c
-TEST_MAKE_TEST_INFO := misc/make_test_info.sh
-TEST_FIND_TESTS := misc/find_tests.sh
-TEST_C_OBJ := ${BUILD}/kernel/test_info.o
-ifneq ($(strip ${TESTS}),)
-	KERNEL_CFLAGS += -DTESTS_ENABLED
-	TEST_TARGETS := $(foreach test,${TESTS},maketest-_test__${test})
-# clean make output
-	MAKEFLAGS += -O
-endif
-
-QEMU_WRAP := misc/wrap_qemu.sh
-QEMU_FLAGS := -machine virt -bios ${QEMU_FW} -nographic -serial mon:stdio -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
-
-OUTFILE := ${BUILD}/out
-TESTFILE := ${BUILD}/test
-
-GDB_INIT_TEMPLATE := ${MISC}/gdbinit-template
-GDB_PORT ?= 7777
-
-GDB_INIT_FILE := ${BUILD}/gdbinit
+### variables
 
 # default to -j$(nproc)
 ifeq (,$(findstring j, $(MAKEFLAGS)))
 	MAKEFLAGS += -j$(shell nproc)
+# also set JOBS (passed to meson compile)
+	JOBS := $(shell nproc)
 endif
 
-# keep all intermediate targets
-.SECONDARY:
+# build architecture & toolchain
+TARGET ?= riscv64
+TOOLCHAIN ?= llvm
 
+# build dir
+BUILD_BASE ?= build
+BUILD := ${BUILD_BASE}/${TARGET}-${TOOLCHAIN}
+
+# the resulting kernel file made by meson
+KERNEL_ELF := ${BUILD}/kernel
+
+# meson args
+COMPILE_ARGS ?=
+SETUP_ARGS ?=
+DEFINES ?=
+ALL_SETUP_ARGS := ${SETUP_ARGS} -Ddefines='${DEFINES}'
+CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
+COMPILE_WRAPPER ?= misc/rewrite_paths.sh
+
+# opensbi stuff
+opensbi_fw_fn = ${BUILD_BASE}/opensbi/opensbi-$(1)-generic-fw_dynamic.bin
+OPENSBI_FIRMWARES := $(call opensbi_fw_fn,riscv64) $(call opensbi_fw_fn,riscv32)
+OPENSBI_DIR := subprojects/opensbi
+OPENSBI_FW_OPTIONS ?= 0x1
+
+# qemu stuff
+QEMU ?= qemu-system-${TARGET}
+QEMU_WRAP ?= misc/wrap_qemu.sh
+QEMU_FW := $(call opensbi_fw_fn,${TARGET})
+QEMU_BOOTARGS ?=
+QEMU_FLAGS ?= -machine virt -bios ${QEMU_FW} \
+	-nographic -serial mon:stdio \
+	-kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
+QEMU_OUTFILE := ${BUILD_BASE}/out
+
+# clangd IDE support
+COMP_DB_FILENAME := compile_commands.json
+
+# gdb debugger support
+GDB_INIT_TEMPLATE := misc/gdbinit-template
+GDB_INIT_FILE := ${BUILD_BASE}/gdbinit
+GDB_PORT ?= 7777
+
+### general
+
+# `make` runs build
 .PHONY: default
-default: kernel ${QEMU_FW}
+default: build
 
+# prints targets and arguments
 .PHONY: help
 help:
-	@echo "make targets:"
+	@echo "make targets and aliases:"
+	@echo "setup (configure)    configure build directory"
+	@echo "build (compile)      build the kernel"
+	@echo "opensbi (firmware)   build firmware"
+	@echo "qemu (run)           run kernel on qemu"
+	@echo "qemu-gdb (qemu-dbg)  same as qemu, but wait for gdb to attach"
 	@echo
-	@echo "kernel (default)     build the kernel ELF"
-	@echo "run (or qemu)        run the kernel via QEMU"
-	@echo "qemu-gdb             run the kernel via QEMU with GDB remote debugging"
-	@echo "clean                clean the build directory"
-	@echo "vars                 print Makefile vars"
+	@echo "make arguments:"
+	@echo "TARGET               target platform, riscv64 or riscv32"
+	@echo "TOOLCHAIN            c toolchain to use, llvm or gnu"
+	@echo "DEFINES              c defines, see src/kernel/flags.h"
+	@echo "SETUP_ARGS           meson setup args, e.g. --optimization=3"
+	@echo "COMPILE_ARGS         meson compile args, e.g. --verbose"
+	@echo "QEMU_BOOTARGS:       qemu args, e.g. -append somebootargs"
 
-.PHONY: vars
-vars:
-	@echo "MAKEFLAGS:       ${MAKEFLAGS}"
-	@echo "KERNEL_ELF:      ${KERNEL_ELF}"
-	@echo "KERNEL_OBJS:     ${KERNEL_OBJS}"
-	@echo "LIBC_OBJS:       ${LIBC_OBJS}"
-	@echo "USER_OBJS:       ${USER_OBJS}"
-	@echo "USER_BLOBS:      ${USER_BLOBS}"
-	@echo "USERLIB_OBJS:    ${USERLIB_OBJS}"
-	@echo "TESTS:           ${TESTS}"
-	@echo "QEMU_FW:         ${QEMU_FW}"
+# just makes a symlink to last-setup-target's compile_commands.json
+.PHONY: link-compdb
+link-compdb:
+	mkdir -p ${BUILD_BASE}
+	ln -sf ${PWD}/${BUILD}/${COMP_DB_FILENAME} ${PWD}/${BUILD_BASE}/${COMP_DB_FILENAME}
 
-.PHONY: cdefines
-cdefines:
-	@echo | ${CC} ${KERNEL_CFLAGS} -dM -E - | sed -r 's/^#define //'
+### meson
 
-.PHONY: kernel
-kernel: ${KERNEL_ELF} ${COMP_DB} ${KERNEL_OBJDUMP} ${USER_OBJDUMPS} # ${BUILD}/device.dts
+# meson setup, essentially configure
+.PHONY: setup configure
+configure: setup
+setup: link-compdb
+	meson setup ${BUILD} \
+		--cross-file ${CROSS_FILE} \
+		--reconfigure \
+		${ALL_SETUP_ARGS}
 
-.PHONY: run
-run: qemu
+# meson compile
+.PHONY: build compile
+compile: build
+build: setup
+	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} -j ${JOBS}
 
-# run kernel via qemu
-.PHONY: qemu
-qemu: kernel ${QEMU_FW} | ${OUTFILE}
-	${QEMU_WRAP} ${OUTFILE} ${QEMU} ${QEMU_FLAGS}
+### clean
 
-.PHONY: test
-test: ${TEST_TARGETS}
-
-.PHONY: test-all
-test-all: KERNEL_CFLAGS += -DTESTS_ENABLED
-test-all: kernel maketest-all
-
-# build kernel, re-invoke make
-.PHONY: maketest-all
-maketest-all: kernel
-	$(MAKE) test TESTS="$$(${TEST_FIND_TESTS} ${KERNEL_OBJS} | sed 's/_test__//g')"
-
-.PHONY: maketest-%
-maketest-%: kernel ${QEMU_FW}
-	echo > ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@)
-	${QEMU_WRAP} ${BUILD}/testout/$(patsubst maketest-_test__%,%,$@) ${QEMU} ${QEMU_FLAGS} -append $(patsubst maketest-%,%,$@)
-
-# generate the gdb init file
-${GDB_INIT_FILE}:
-	@sed 's/:PORT_GOES_HERE/:${GDB_PORT}/' < ${GDB_INIT_TEMPLATE} > $@
-
-# run kernel via qemu and wait for a remote gdb to attach
-.PHONY: qemu-dbg
-qemu-dbg: qemu-gdb
-.PHONY: qemu-gdb
-qemu-gdb: kernel ${GDB_INIT_FILE} ${QEMU_FW} | ${OUTFILE}
-	@echo "-----"
-	@echo "gdb port is: ${GDB_PORT}"
-	@echo "launch gdb with: gdb-multiarch -ix ${GDB_INIT_FILE} ${KERNEL_ELF}"
-	@echo "or launch CodeLLDB debug configuration"
-	@echo
-	@echo "(CTRL+A X to exit)"
-	@echo "-----"
-	@echo
-	${QEMU_WRAP} ${OUTFILE} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
-
-# dump qemu's device tree
-# ${BUILD}/device.dtb: ${KERNEL_ELF}
-# 	touch ${BUILD}/device.dtb
-# 	${QEMU} ${QEMU_FLAGS} -M virt,dumpdtb=build/device.dtb
-
-# decode device tree
-# ${BUILD}/device.dts: ${BUILD}/device.dtb
-# 	dtc build/device.dtb > build/device.dts
-
-.PHONY: ${OUTFILE}
-${OUTFILE}: | ${BUILD}
-	printf "" > $@
-
-# clean build dir
+# clean current target+toolchain build dir
 .PHONY: clean
 clean:
 	rm -rf ${BUILD}
 
-# clean submodule checkouts
-.PHONY: clean-checkouts
-clean-checkouts:
-	find subprojects/ -mindepth 2 -maxdepth 2 -exec rm -rf {} \;
-
-# clean submodules' builds
-.PHONY: clean-sub-builds
-clean-sub-builds: clean-opensbi
-
-# clean *everything*
+# clean all targets+toolchains build dirs
 .PHONY: clean-all
-clean-all: clean clean-checkouts
+clean-all:
+	rm -rf ${BUILD_BASE}
 
-# create the build dir structure
-# should only be used as order-only prerequisite
-.PHONY: ${BUILD}
-${BUILD}:
-	@mkdir -p ${BUILD}
-	@mkdir -p ${BUILD}/kernel
-	@mkdir -p ${BUILD}/libc
-	@mkdir -p ${BUILD}/user
-	@mkdir -p ${BUILD}/userlib
-	@mkdir -p ${BUILD}/testout
-	@mkdir -p ${BUILD}/opensbi
-	@mkdir -p ${BUILD}/${COMP_DB_PART_DIR}
-	@git submodule update --init --recursive
+### QEMU
 
-# compilation commands database for clangd
-${COMP_DB}: ${KERNEL_ELF}  | ${BUILD}
-ifdef USE_GCC
-# horrible bear kludge
-	@for file in ${COMP_DB_ALL_PARTS}; do \
-		sed -i '1d;$$d' $$file; \
-		echo "," >> $$file; \
-	done
-endif
-	@printf "[\n" > ${COMP_DB}
-	@cat ${COMP_DB_ALL_PARTS} >> ${COMP_DB}
-	@truncate -s-2 ${COMP_DB}
-	@printf "\n]" >> ${COMP_DB}
+# run kernel via qemu
+# only builds needed firmware
+.PHONY: qemu run
+run: qemu
+qemu: build ${QEMU_FW}
+	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
 
-# kernel disassembly
-${KERNEL_OBJDUMP}: ${KERNEL_ELF} | ${BUILD}
-	${OBJDUMP} -D $< > $@
+# generate the gdb init file
+${GDB_INIT_FILE}:
+	mkdir -p ${BUILD_BASE}
+	sed 's/:PORT_GOES_HERE/:${GDB_PORT}/' < ${GDB_INIT_TEMPLATE} > $@
 
-.PHONY: phony-kernel-flags
-phony-kernel-flags:
+# run kernel via qemu and wait for a remote gdb to attach
+.PHONY: qemu-gdb qemu-dbg
+qemu-dbg: qemu-gdb
+qemu-gdb: build ${QEMU_FW} ${GDB_INIT_FILE}
+	@echo "gdb port is: ${GDB_PORT}"
+	@echo "launch gdb with:"
+	@echo
+	@echo "gdb-multiarch -ix ${GDB_INIT_FILE} ${KERNEL_ELF}"
+	@echo
+	@echo "(CTRL+A X to exit)"
+	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
 
-# writes KERNEL_CFLAGS to file
-# allows other targets to be re-run if flags change
-${KERNEL_FLAGS_FILE}: phony-kernel-flags
-	@TEMPFILE=$$(mktemp); \
-		echo '${KERNEL_CFLAGS}' >> $$TEMPFILE; \
-		cmp -s $$TEMPFILE $@ || mv -f $$TEMPFILE $@
+### OpenSBI
 
-# kernel ELF binary
-${KERNEL_ELF}: ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${KERNEL_LINKER_SCRIPT} ${TEST_C_OBJ} ${KERNEL_FLAGS_FILE} | ${BUILD}
-	${CC} ${KERNEL_CFLAGS} \
-		-fuse-ld=lld \
-		-Wl,-T${KERNEL_LINKER_SCRIPT} -Wl,-Map=${BUILD}/kernel.map ${LINK_ARGS} \
-		-o $@ ${KERNEL_OBJS} ${LIBC_OBJS} ${USER_BLOBS} ${TEST_C_OBJ}
-
-# test info source file
-${TEST_C_SOURCE}: ${KERNEL_OBJS} ${KERNEL_FLAGS_FILE} | ${BUILD}
-	${TEST_FIND_TESTS} ${KERNEL_OBJS} | ${TEST_MAKE_TEST_INFO} > $@
-
-# test info object
-${TEST_C_OBJ}: ${TEST_C_SOURCE} ${KERNEL_FLAGS_FILE} | ${BUILD}
-	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
-
-# kernel object
-${BUILD}/kernel/%.o: ${SRC}/kernel/%.c ${KERNEL_HEADERS} ${LIBC_HEADERS} ${KERNEL_FLAGS_FILE} | ${BUILD}
-	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
-
-# libc object
-${BUILD}/libc/%.o: ${SRC}/libc/%.c ${LIBC_HEADERS} ${KERNEL_FLAGS_FILE} | ${BUILD}
-	$(call compdb_cc_wrap_fn, $@) ${CC} ${KERNEL_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
-
-## user programs
-
-# can't use objcopy for bin->blob since ABI gets lost in translation
-# https://github.com/llvm/llvm-project/issues/68915
-
-# userlib
-${BUILD}/userlib/%.o: ${SRC}/userlib/%.c ${USERLIB_HEADERS} | ${BUILD}
-	$(call compdb_cc_wrap_fn, $@) ${CC} ${USER_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
-
-# step 1
-# user object
-${BUILD}/user/%.o: ${SRC}/user/%.c ${USERLIB_HEADERS} | ${BUILD}
-	$(call compdb_cc_wrap_fn, $@) ${CC} ${USER_CFLAGS} -c $< -o $@ $(call compdb_cflag_fn, $@)
-
-# step 2
-# user ELF binary
-${BUILD}/user/%.elf: ${BUILD}/user/%.o ${LIBC_OBJS} ${USERLIB_OBJS} | ${BUILD}
-	${CC} ${USER_CFLAGS} \
-		-fuse-ld=lld \
-		-Wl,-T${USER_LINKER_SCRIPT} -Wl,-Map=${BUILD}/user/$(shell basename $@ .elf).map ${LINK_ARGS} \
-		-o $@ ${LIBC_OBJS} ${USERLIB_OBJS} $<
-
-# step 3
-# user BIN (fully-expanded memory image)
-${BUILD}/user/%.bin: ${BUILD}/user/%.elf | ${BUILD}
-	${OBJCOPY} --set-section-flags *=alloc,contents --output-target=binary $< $@
-
-# step 4
-# user BIN dummy assembler file
-${BUILD}/user/%.S: ${BUILD}/user/%.bin | ${BUILD}
-	@printf "" > $@
-	@echo "# autogenerated assembler file for user program $(shell basename $@ .S)" >> $@
-	@echo ".global __USER_$(shell basename $@ .S)_START" >> $@
-	@echo ".global __USER_$(shell basename $@ .S)_END" >> $@
-	@echo ".p2align 12 # 2^12 = 4096" >> $@
-	@echo "__USER_$(shell basename $@ .S)_START:" >> $@
-	@echo ".incbin \"$<\"" >> $@
-	@echo "__USER_$(shell basename $@ .S)_END:" >> $@
-
-# step 5
-# user BIN binary as linkable blob
-${BUILD}/user/%.blob: ${BUILD}/user/%.S ${BUILD}/user/%.bin | ${BUILD}
-	${CC} ${USER_CFLAGS} -c $< -o $@
-
-# user disassembly
-${BUILD}/user/%.objdump: ${BUILD}/user/%.elf | ${BUILD}
-	${OBJDUMP} -D $< > $@
-
-## OpenSBI
-
-.PHONY: opensbi
+# builds both firmwares
+.PHONY: opensbi firmware
+firmware: opensbi
 opensbi: ${OPENSBI_FIRMWARES}
 
+# cleans firmwares and opensbi build artifacts
 .PHONY: clean-opensbi
 clean-opensbi:
 	rm -rf ${OPENSBI_DIR}/build/
+	rm -rf ${OPENSBI_FIRMWARES}
 
-${OPENSBI_FIRMWARES}: ${BUILD}/opensbi/opensbi-riscv%-generic-fw_dynamic.bin: ${OPENSBI_DIR} | ${BUILD}
+# initializes opensbi submodule
+${OPENSBI_DIR}:
+	git submodule update --init --recursive
+
+# builds and links single opensbi firmware image
+${OPENSBI_FIRMWARES}: ${BUILD_BASE}/opensbi/opensbi-riscv%-generic-fw_dynamic.bin: ${OPENSBI_DIR}
 	mkdir -p ${OPENSBI_DIR}/build
+	mkdir -p ${BUILD_BASE}/opensbi
 	$(MAKE) -C ${OPENSBI_DIR} \
 		CROSS_COMPILE=riscv$*-unknown- PLATFORM_RISCV_XLEN=$* \
 		PLATFORM=generic FW_OPTIONS=${OPENSBI_FW_OPTIONS} LLVM=1 O=build/$*/
 	ln -sf ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.bin \
-		${PWD}/$(call opensbi_fw_fn,$*)
+		${PWD}/${QEMU_FW}
