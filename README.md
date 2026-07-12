@@ -10,11 +10,12 @@
 - Partial C standard library
 
 ## Build System
-`thos` uses `make` as its build system.
+`thos` uses `meson` as its build system and provides a `make` wrapper.
 
-- `make` builds the OS to `build/kernel.elf`
+- `make` or `make kernel` configures and builds the kernel
 - `make run` (or `make qemu`) runs the OS on qemu
 - `make qemu-gdb` (or `make qemu-dbg`) runs the OS on qemu but waits for gdb
+- `make test` builds a test kernel and runs all tests on qemu
 
 ## Target Details
 - `rv64g`/`rv32g` architecture with `medany` code model
