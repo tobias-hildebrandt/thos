@@ -1,0 +1,6 @@
+If:
+  # not libc
+  PathMatch: src/(common|kernel|user|userlib)/.*.[ch]
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
