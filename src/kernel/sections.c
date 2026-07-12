@@ -23,8 +23,8 @@ SECTION_IMPL(BSS);
 SECTION_IMPL(STACK);
 SECTION_IMPL(PAGES);
 
-SECTION_IMPL(USER_user);
-SECTION_IMPL(USER_user2);
+SECTION_IMPL(USER_first);
+SECTION_IMPL(USER_second);
 
 extern const char __GLOBAL_SPECIAL_PAGE[];
 const uintptr_t GLOBAL_SPECIAL_PAGE = (uintptr_t)__GLOBAL_SPECIAL_PAGE;
@@ -51,6 +51,6 @@ void print_all_sections(void) {
     PRINT_SECTION(STACK);
     PRINT_SECTION(PAGES);
 
-    PRINT_SECTION(USER_user);
-    PRINT_SECTION(USER_user2);
+    PRINT_SECTION(USER_first);
+    PRINT_SECTION(USER_second);
 }

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "build_info.h"
+
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 

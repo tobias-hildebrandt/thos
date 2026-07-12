@@ -18,11 +18,11 @@
 #define COMPILER_STRING "unknown"
 #endif
 
-#if defined(QEMU64)
+#if __SIZEOF_POINTER__ == 8
 #define POINTER_BITS 64
 #define ONLY64(expr) expr
 #define ONLY32(expr)
-#elif defined(QEMU32)
+#elif __SIZEOF_POINTER__ == 4
 #define POINTER_BITS 32
 #define ONLY64(expr)
 #define ONLY32(expr) expr

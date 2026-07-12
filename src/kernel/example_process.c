@@ -154,16 +154,16 @@ void start_example_processes(void) {
     (void)p3;
 
     Process* p4 = allocate_process((ProcessArguments){
-        .entry_address = (uintptr_t)USER_user_START,
+        .entry_address = (uintptr_t)USER_first_START,
         .is_user_program = true,
-        .user_program_end = (uintptr_t)USER_user_END,
+        .user_program_end = (uintptr_t)USER_first_END,
     });
     (void)p4;
 
     Process* p5 = allocate_process((ProcessArguments){
-        .entry_address = (uintptr_t)USER_user2_START,
+        .entry_address = (uintptr_t)USER_second_START,
         .is_user_program = true,
-        .user_program_end = (uintptr_t)USER_user2_END,
+        .user_program_end = (uintptr_t)USER_second_END,
     });
     (void)p5;
 }

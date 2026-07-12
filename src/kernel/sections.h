@@ -21,8 +21,9 @@ SECTION_DECLARE(BSS);
 SECTION_DECLARE(STACK);
 SECTION_DECLARE(PAGES);
 
-SECTION_DECLARE(USER_user);
-SECTION_DECLARE(USER_user2);
+// TODO: pass in via commandline -D define?
+SECTION_DECLARE(USER_first);
+SECTION_DECLARE(USER_second);
 
 // places symbol in the global special page
 #define IN_GLOBAL_SPECIAL __attribute__((section(".global_special")))

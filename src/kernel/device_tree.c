@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "endian.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "list.h"
