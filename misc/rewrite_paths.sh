@@ -30,4 +30,3 @@ rm -f "$PIPE"
 # return with same exit code as command
 exit $EXITCODE
 
-
