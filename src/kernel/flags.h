@@ -107,6 +107,10 @@
 #define DEBUG_ALLOCATE_PROCESS 0
 #endif
 
+#ifndef EXIT_VIA_SBI
+#define EXIT_VIA_SBI 0
+#endif
+
 #ifndef TIMER_INTERRUPT_DELAY
 #define TIMER_INTERRUPT_DELAY 10000
 #endif

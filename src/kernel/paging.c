@@ -6,11 +6,11 @@
 #include <string.h>
 
 #include "build_info.h"
-#include "exit_sifive.h"
 #include "flags.h"
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
+#include "sifive_test.h"
 #include "util.h"
 
 #if POINTER_BITS == 64
@@ -271,10 +271,12 @@ void init_kernel_page_table(void) {
     }
 
     // map device addresses
-    map_address(kernel_page_table,
-                (VirtualAddress){.value = SIFIVE_TEST_DEVICE_ADDR},
-                SIFIVE_TEST_DEVICE_ADDR,
-                (PageTableEntryFlags){.read = true, .write = true});
+    if (!EXIT_VIA_SBI) {
+        map_address(kernel_page_table,
+                    (VirtualAddress){.value = SIFIVE_TEST_DEVICE_ADDR},
+                    SIFIVE_TEST_DEVICE_ADDR,
+                    (PageTableEntryFlags){.read = true, .write = true});
+    }
 
     map_global_special_page(
         kernel_page_table,
