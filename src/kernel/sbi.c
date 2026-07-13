@@ -1,11 +1,9 @@
 #include "sbi.h"
 
 #include <stdint.h>
-#include <stdlib.h>
 
 #include "asm.h"
-#include "flags.h"
-#include "io.h"
+#include "build_info.h"
 
 SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                      long arg5, long fid, long eid) {
@@ -37,6 +35,8 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
     REGS_END
 }
 
+// TODO: add flags to use actually use sbi_{shutdown,set_timer}
+
 // TODO:
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-debug-console.adoc
 
@@ -55,24 +55,32 @@ SbiReturn sbi_shutdown(void) {
                     0x0 /* No reason */);
 }
 
-// implement stdlib.h's exit
-// writes exit code to qemu virt board's sifive test device
-#define SIFIVE_TEST_DEVICE_ADDR 0x100000UL
-#define SIFIVE_TEST_SUCCESS 0x5555
-#define SIFIVE_TEST_FAILURE 0x3333
-void exit(int exit_code) {
-    uint32_t encoded;
-    if (exit_code == EXIT_SUCCESS) {
-        encoded = SIFIVE_TEST_SUCCESS;
+// legacy set timer
+// https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-legacy.adoc
+SbiReturn sbi_set_timer(uint64_t time) {
+    if (POINTER_BITS == 64) {
+        return SBI_CALL(
+            // Extension: Set Timer
+            0x0,
+            // (ignored)
+            0x0,
+            // time value, fits within a0 register
+            time);
     } else {
-        encoded = (exit_code << 16) | SIFIVE_TEST_FAILURE;
-    };
-
-    PRINTF_IF(DEBUG_EXIT, "exiting with code 0x%x\n", encoded);
-
-    ASM("sw %[value], 0(%[test_device_address])\n"
-        "wfi\n"
-        //
-        ::[value] "r"(encoded),
-        [test_device_address] "r"(SIFIVE_TEST_DEVICE_ADDR));
+        /*
+        https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/binary-encoding.adoc
+        Parameters that are 2×XLEN bits wide are passed in a pair of
+        argument registers, with the low-order XLEN bits in the lower-numbered
+        register and the high-order XLEN bits in the higher-numbered register.
+        */
+        return SBI_CALL(
+            // Extension: Set Timer
+            0x0,
+            // (ignored)
+            0x0,
+            // time value (low bits)
+            (uint32_t)time,
+            // time value (high bits)
+            (uint32_t)(time >> 32));
+    }
 }

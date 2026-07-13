@@ -118,6 +118,15 @@ void process_mem_ops(void) {
     }
 }
 
+// process that never yields or SBI ecalls, to test timer interrupts
+void process_never_yields(void) {
+    print_process_start(__func__);
+
+    while (1) {
+        spin(EXAMPLE_PROCESSES_SPIN);
+    }
+}
+
 void start_example_processes(void) {
     Process* p0 = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_load_a0,
@@ -166,4 +175,10 @@ void start_example_processes(void) {
         .user_program_end = (uintptr_t)USER_second_END,
     });
     (void)p5;
+
+    Process* p6 = allocate_process((ProcessArguments){
+        .entry_address = (uintptr_t)process_never_yields,
+        .is_user_program = false,
+    });
+    (void)p6;
 }

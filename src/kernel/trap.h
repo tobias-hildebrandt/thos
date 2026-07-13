@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "asm.h"
@@ -23,11 +24,14 @@ struct TrapFrame {
 typedef struct TrapFrame TrapFrame;
 
 void enable_trap_vector(void);
-void enable_kernel_traps(void);
+void enable_traps_on_return(bool return_to_kernel_mode);
+void disable_traps_on_return(void);
+void disable_traps_now(void);
 void restore_after_trap(TrapFrame* context);
 void TrapFrame_print(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // write SSIP to 0x2 for supervisor software interrupt
 // clobbers a register!
-#define KERNEL_SOFTWARE_INTERRUPT() ASM("csrw sip, %[val]\n" ::[val] "r"(0x2))
+#define KERNEL_SOFTWARE_INTERRUPT() \
+    ASM("csrrsi x0, sip, %[val]\n" ::[val] "i"(0x2))

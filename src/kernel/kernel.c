@@ -34,7 +34,6 @@ __attribute__((section(".text.boot"))) NAKED void boot(void) {
 
 void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
     enable_trap_vector();
-    enable_kernel_traps();
 
     init_kernel_page_table();
 

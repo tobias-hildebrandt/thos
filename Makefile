@@ -7,7 +7,7 @@
 ifeq (,$(findstring j, $(MAKEFLAGS)))
 	MAKEFLAGS += -j$(shell nproc)
 # also set JOBS (passed to meson compile)
-	JOBS := $(shell nproc)
+	JOBS := -j$(shell nproc)
 endif
 
 # build architecture & toolchain
@@ -62,6 +62,9 @@ GDB_PORT ?= 7777
 # device tree parser
 DEVICETREE_SCRIPT := misc/parse-device-tree.sh
 
+# objdump
+OBJDUMP ?= llvm-objdump
+
 ### general
 
 # `make` runs build
@@ -109,7 +112,11 @@ setup: link-compdb
 .PHONY: build compile
 compile: build
 build: setup
-	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} -j ${JOBS}
+	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} ${JOBS}
+# objdump kernels
+# TODO: move into meson?
+	${OBJDUMP} -D ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
+	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -D ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
 
 # meson test
 .PHONY: test
@@ -154,6 +161,7 @@ qemu-gdb: build ${QEMU_FW} ${GDB_INIT_FILE}
 	@echo "(CTRL+A X to exit)"
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
 
+# dump and decode device tree
 .PHONY: device-tree
 device-tree: DEFINES := DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
 device-tree: build
@@ -177,6 +185,7 @@ clean-opensbi:
 ${OPENSBI_DIR}:
 	git submodule update --init --recursive
 
+# TODO: move to meson?
 # builds and links single opensbi firmware image
 ${OPENSBI_FIRMWARES}: ${BUILD_BASE}/opensbi/opensbi-riscv%-generic-fw_dynamic.bin: ${OPENSBI_DIR}
 	mkdir -p ${OPENSBI_DIR}/build

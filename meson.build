@@ -87,12 +87,26 @@ c_args_clang = [
 # gcc c arguments
 c_args_gcc = []
 
+# riscv extensions
+# 37.1.11. Subset Naming Convention
+arch_extensions = [
+    # General = IMAFDZicsr_Zifencei
+    'g',
+    # 7.1.1. "Zicntr" Extension for Base Counters and Timers
+    'Zicntr',
+]
+arch_base = '-march=rv'
+args_machine += [
+    arch_base
+    + target_machine.cpu().strip('riscv')
+    + '_'.join(arch_extensions).to_lower(),
+]
+
+# riscv ABI
 if target_machine.cpu() == 'riscv64'
-    args_machine += ['-march=rv64g', '-mabi=lp64d']
-    c_args_proj += '-DQEMU64=1'
+    args_machine += '-mabi=lp64d'
 elif target_machine.cpu() == 'riscv32'
-    args_machine += ['-march=rv32g', '-mabi=ilp32d']
-    c_args_proj += '-DQEMU32=1'
+    args_machine += '-mabi=ilp32d'
 else
     error('unknown host_machine architecture')
 endif
@@ -101,7 +115,7 @@ endif
 option_defines_str = 'defines'
 option_defines = get_option(option_defines_str)
 if option_defines != ''
-    foreach define : option_defines.split(' ')
+    foreach define : option_defines.strip().split(' ')
         c_args_proj += '-D' + define
     endforeach
 endif

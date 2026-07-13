@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 struct SbiReturn {
     long error;
     long value;
@@ -34,3 +35,4 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
 
 SbiReturn sbi_putchar(int c);
 SbiReturn sbi_shutdown(void);
+SbiReturn sbi_set_timer(uint64_t time);

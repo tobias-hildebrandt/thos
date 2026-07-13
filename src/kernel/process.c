@@ -13,16 +13,8 @@
 #include "panic.h"
 #include "sections.h"
 #include "syscalls.h"
+#include "timer.h"
 #include "trap.h"
-
-// values for sstatus register, which controls sret behavior
-//
-// SPIE bit 5, supervisor traps enabled (1) or disabled (0)
-// SPP  bit 8, kernel mode (1) or user mode (0)
-#define SSTATUS_SUPERVISOR_TRAPS (1 << 5)
-#define SSTATUS_USER_MODE (0)
-#define SSTATUS_KERNEL_MODE (1 << 8)
-#define SSTATUS_SUM (1 << 18)
 
 // entry user-memory address
 // must match what's defined in user program ld script
@@ -320,18 +312,10 @@ void kernel_switch(TrapFrame* frame) {
 
     // TODO: memset 0 process's kernel stack?
 
-    // set sret to go to kernel mode or user mode
-    uintptr_t sstatus;
-    if (Process_is_kernel_process(current_process)) {
-        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_KERNEL_MODE | SSTATUS_SUM;
-        ASM("csrw sstatus, %0\n" ::"r"(sstatus));
-    } else {
-        sstatus = SSTATUS_SUPERVISOR_TRAPS | SSTATUS_USER_MODE | SSTATUS_SUM;
-        ASM("csrw sstatus, %0\n" ::"r"(sstatus));
-    }
-
-    // also make sure kernel traps are active
-    enable_kernel_traps();
+    // make sure kernel traps are active
+    enable_traps_on_return(Process_is_kernel_process(current_process));
+    // and timer interrupts
+    enable_timer_interrupts();
 
     SatpRegister new_satp = satp_from_page_table(current_process->page_table);
 
@@ -348,6 +332,9 @@ void kernel_switch(TrapFrame* frame) {
     }
 
     current_process->context.satp = new_satp.value;
+
+    // set interrupt timer
+    set_timer(TIMER_INTERRUPT_DELAY);
 
     restore_after_trap(&current_process->context);
 }

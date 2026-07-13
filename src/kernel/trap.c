@@ -1,5 +1,6 @@
 #include "trap.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -24,12 +25,13 @@
 
 #define SUPERVISOR_SOFTWARE_INTERRUPT SCAUSE(1, 1)
 #define ECALL_U_MODE SCAUSE(0, 8)
+#define SUPERVISOR_TIMER_INTERRUPT SCAUSE(1, 5)
 
 const char* decode_scause(uint64_t scause) {
     switch (scause) {
             // clang-format off
         case SUPERVISOR_SOFTWARE_INTERRUPT: return "Supervisor software interrupt";
-        SCAUSE_CASE(1, 5, "Supervisor timer interrupt");
+        case SUPERVISOR_TIMER_INTERRUPT: return "Supervisor timer interrupt";
         SCAUSE_CASE(1, 9, "Supervisor external interrupt");
         SCAUSE_CASE(1, 13, "Counter-overflow interrupt");
         SCAUSE_CASE(0, 0, "Instruction address misaligned");
@@ -92,6 +94,8 @@ void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, s11);
 }
 
+#define SSTATUS_SPP (1 << 8)
+
 void handle_trap(TrapFrame* frame) {
     uintptr_t scause;
     uintptr_t stval;
@@ -103,14 +107,22 @@ void handle_trap(TrapFrame* frame) {
     ASM("csrr %0, sepc" : "=r"(sepc));
     ASM("csrr %0, sstatus" : "=r"(sstatus));
 
-    bool was_in_kernel_mode = (sstatus & (1 << 8)) >> 8;
+    disable_traps_on_return();
+
+    bool was_in_kernel_mode = sstatus & (SSTATUS_SPP);
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
+    bool timer_interrupt = (scause == SUPERVISOR_TIMER_INTERRUPT);
+
+    bool fatal =
+        (was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
+        (!was_in_kernel_mode && !(ecall));
 
     int pid = current_process == NULL ? -1 : my_pid();
 
-    if (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
-        (was_in_kernel_mode && !software_interrupt)) {
+    if ((was_in_kernel_mode && fatal) ||
+        (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
+         (timer_interrupt && DEBUG_TIMER_INTERRUPTS))) {
         printf(
             "\n***\ntrap: %s\n"
             "scause:  %p, stval: %p, sepc: %p\n"
@@ -120,7 +132,8 @@ void handle_trap(TrapFrame* frame) {
             decode_scause(scause), scause, stval, sepc, sstatus, pid,
             was_in_kernel_mode ? "kernel" : "user");
 
-        if (DEBUG_SOFTWARE_INTERRUPTS == 2) {
+        if (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
+            (timer_interrupt && DEBUG_TIMER_INTERRUPTS == 2)) {
             TrapFrame_print(frame);
         }
 
@@ -128,7 +141,7 @@ void handle_trap(TrapFrame* frame) {
     }
     // TODO: determine which other exceptions are recoverable?
 
-    if (software_interrupt || ecall) {
+    if (!fatal) {
         // clear interrupt
         ASM("csrw sip, %[val]\n" ::[val] "r"(0x0));
 
@@ -154,6 +167,7 @@ void handle_trap(TrapFrame* frame) {
         clean_process();
         kernel_switch(NULL);
     } else {
+        // handle fatal kernel trap
         printf("fatal trap\n");
         TrapFrame_print(frame);
         printf("***\n");
@@ -336,8 +350,24 @@ void enable_trap_vector(void) {
     ASM("csrw stvec, %0" ::"r"((uintptr_t)trap_vector));
 }
 
+// SPIE supervisor traps will be enabled after sret (1) or disabled (0)
+#define SSTATUS_TRAPS_AFTER_SRET (1 << 5)
+
+// SIE supervisor traps current enabled (1) or disable (0)
+#define SSTATUS_TRAPS_NOW (1 << 2)
+
+// SPP which privilege level to sret to, kernel mode (1) or user mode (0)
+#define SSTATUS_PRIVILEGE (1 << 8)
+
+// SUM Supervisor User Memory access, allows kernel to access user-marked pages
+#define SSTATUS_SUM (1 << 18)
+
+#define SIE_SSIE (0x2)
+
+// sets bits in sstatus and sie to enable supervisor interrupts and
+// supervisor software interrupts
 // 12.1.1.3. Supervisor Interrupt (sip and sie) Registers
-void enable_kernel_traps(void) {
+void enable_traps_on_return(bool return_to_kernel_mode) {
     uintptr_t sstatus;
     uintptr_t sie;
     // read
@@ -347,13 +377,18 @@ void enable_kernel_traps(void) {
         : [sstatus] "=r"(sstatus),
         [sie] "=r"(sie));
 
+    sstatus |= SSTATUS_TRAPS_AFTER_SRET | SSTATUS_SUM;
+    if (return_to_kernel_mode) {
+        // write SPP
+        sstatus |= SSTATUS_PRIVILEGE;
+    } else {
+        // clear SPP
+        sstatus &= ~SSTATUS_PRIVILEGE;
+    }
     // printf("sstatus: %p\nsie: %p\n", sstatus, sie);
 
-    // set bits
-    // SIE bit
-    sstatus |= 0x2;
-    // SSIE bit
-    sie |= 0x2;
+    // SSIE (supervisor software interrupt enable) bit
+    sie |= SIE_SSIE;
 
     // write
     ASM("csrw sstatus, %[sstatus]\n"
@@ -361,4 +396,18 @@ void enable_kernel_traps(void) {
         //
         ::[sstatus] "r"(sstatus),
         [sie] "r"(sie));
+}
+
+void disable_traps_on_return(void) {
+    uintptr_t sstatus;
+    ASM("csrr %0, sstatus\n" : "=r"(sstatus));
+    sstatus &= ~(SSTATUS_TRAPS_AFTER_SRET);
+    ASM("csrw sstatus, %0\n" ::"r"(sstatus));
+}
+
+void disable_traps_now(void) {
+    uintptr_t sstatus;
+    ASM("csrr %0, sstatus\n" : "=r"(sstatus));
+    sstatus &= ~(SSTATUS_TRAPS_NOW);
+    ASM("csrw sstatus, %0\n" ::"r"(sstatus));
 }
