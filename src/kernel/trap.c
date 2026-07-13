@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "asm.h"
+#include "csr.h"
 #include "flags.h"
 #include "paging.h"  // IWYU pragma: keep
 #include "panic.h"
@@ -97,16 +98,10 @@ void TrapFrame_print(TrapFrame* frame) {
 #define SSTATUS_SPP (1 << 8)
 
 void handle_trap(TrapFrame* frame) {
-    uintptr_t scause;
-    uintptr_t stval;
-    uintptr_t sepc;
-    uintptr_t sstatus;
-
-    ASM("csrr %0, scause" : "=r"(scause));
-    ASM("csrr %0, stval" : "=r"(stval));
-    ASM("csrr %0, sepc" : "=r"(sepc));
-    ASM("csrr %0, sstatus" : "=r"(sstatus));
-
+    uintptr_t scause = csr_read_scause();
+    uintptr_t stval = csr_read_stval();
+    uintptr_t sepc = csr_read_sepc();
+    uintptr_t sstatus = csr_read_sstatus();
     disable_traps_on_return();
 
     bool was_in_kernel_mode = sstatus & (SSTATUS_SPP);
@@ -142,8 +137,9 @@ void handle_trap(TrapFrame* frame) {
     // TODO: determine which other exceptions are recoverable?
 
     if (!fatal) {
-        // clear interrupt
-        ASM("csrw sip, %[val]\n" ::[val] "r"(0x0));
+        // clear all interrupts
+        // TODO: only clear given interrupt
+        csr_write_sip(0x0);
 
         if (ecall) {
             handle_syscall(frame);
@@ -347,7 +343,7 @@ IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
 void enable_trap_vector(void) {
     // located in global special page
     // which is mapped for both kernel and user processes
-    ASM("csrw stvec, %0" ::"r"((uintptr_t)trap_vector));
+    csr_write_stvec((uintptr_t)trap_vector);
 }
 
 // SPIE supervisor traps will be enabled after sret (1) or disabled (0)
@@ -368,14 +364,8 @@ void enable_trap_vector(void) {
 // supervisor software interrupts
 // 12.1.1.3. Supervisor Interrupt (sip and sie) Registers
 void enable_traps_on_return(bool return_to_kernel_mode) {
-    uintptr_t sstatus;
-    uintptr_t sie;
-    // read
-    ASM("csrr %[sstatus], sstatus\n"
-        "csrr %[sie], sie\n"
-        //
-        : [sstatus] "=r"(sstatus),
-        [sie] "=r"(sie));
+    uintptr_t sstatus = csr_read_sstatus();
+    uintptr_t sie = csr_read_sie();
 
     sstatus |= SSTATUS_TRAPS_AFTER_SRET | SSTATUS_SUM;
     if (return_to_kernel_mode) {
@@ -391,23 +381,18 @@ void enable_traps_on_return(bool return_to_kernel_mode) {
     sie |= SIE_SSIE;
 
     // write
-    ASM("csrw sstatus, %[sstatus]\n"
-        "csrw sie, %[sie]\n"
-        //
-        ::[sstatus] "r"(sstatus),
-        [sie] "r"(sie));
+    csr_write_sstatus(sstatus);
+    csr_write_sie(sie);
 }
 
 void disable_traps_on_return(void) {
-    uintptr_t sstatus;
-    ASM("csrr %0, sstatus\n" : "=r"(sstatus));
+    uintptr_t sstatus = csr_read_sstatus();
     sstatus &= ~(SSTATUS_TRAPS_AFTER_SRET);
-    ASM("csrw sstatus, %0\n" ::"r"(sstatus));
+    csr_write_sstatus(sstatus);
 }
 
 void disable_traps_now(void) {
-    uintptr_t sstatus;
-    ASM("csrr %0, sstatus\n" : "=r"(sstatus));
+    uintptr_t sstatus = csr_read_sstatus();
     sstatus &= ~(SSTATUS_TRAPS_NOW);
-    ASM("csrw sstatus, %0\n" ::"r"(sstatus));
+    csr_write_sstatus(sstatus);
 }

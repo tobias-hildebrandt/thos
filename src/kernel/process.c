@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "asm.h"
+#include "csr.h"
 #include "flags.h"
 #include "io.h"
 #include "paging.h"
@@ -284,7 +285,7 @@ void kernel_switch(TrapFrame* frame) {
         // first time this process is going to run
 
         // set sepc to return address (which is actually the entry point)
-        ASM("csrw sepc, %0\n" ::"r"(current_process->context.ra));
+        csr_write_sepc(current_process->context.ra);
 
         // set up new return address
         if (Process_is_kernel_process(current_process)) {
@@ -295,15 +296,14 @@ void kernel_switch(TrapFrame* frame) {
 
     } else {
         // go back to restored counter
-        ASM("csrw sepc, %0\n" ::"r"(current_process->context.pc));
+        csr_write_sepc(current_process->context.pc);
     }
 
     // process now running
     current_process->state = PROCESS_RUNNING;
 
     if (DEBUG_SWITCH) {
-        uintptr_t sepc;
-        ASM("csrr %0, sepc\n" : "=r"(sepc));
+        uintptr_t sepc = csr_read_sepc();
         printf("kernel_switch: switch on  pid %2d, %s, sepc %p\n",
                current_process->id,
                Process_is_kernel_process(current_process) ? "kernel" : "user  ",

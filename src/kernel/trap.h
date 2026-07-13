@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "asm.h"
+#include "csr.h"  // IWYU pragma: keep
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
@@ -32,6 +32,5 @@ void TrapFrame_print(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // write SSIP to 0x2 for supervisor software interrupt
-// clobbers a register!
-#define KERNEL_SOFTWARE_INTERRUPT() \
-    ASM("csrrsi x0, sip, %[val]\n" ::[val] "i"(0x2))
+// TODO:
+#define KERNEL_SOFTWARE_INTERRUPT() csr_write_sip(0x2);
