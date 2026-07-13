@@ -6,6 +6,8 @@
 #include <stdio.h>
 
 #include "asm.h"
+#include "bits.h"
+#include "build_info.h"
 #include "csr.h"
 #include "flags.h"
 #include "paging.h"  // IWYU pragma: keep
@@ -95,7 +97,8 @@ void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, s11);
 }
 
-#define SSTATUS_SPP (1 << 8)
+// SPP privilege level before interrupt (1 is supervisor, 0 is user)
+#define SSTATUS_SPP 8
 
 void handle_trap(TrapFrame* frame) {
     uintptr_t scause = csr_read_scause();
@@ -104,7 +107,7 @@ void handle_trap(TrapFrame* frame) {
     uintptr_t sstatus = csr_read_sstatus();
     disable_traps_on_return();
 
-    bool was_in_kernel_mode = sstatus & (SSTATUS_SPP);
+    bool was_in_kernel_mode = BIT_GET(sstatus, SSTATUS_SPP);
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
     bool timer_interrupt = (scause == SUPERVISOR_TIMER_INTERRUPT);
@@ -346,20 +349,6 @@ void enable_trap_vector(void) {
     csr_write_stvec((uintptr_t)trap_vector);
 }
 
-// SPIE supervisor traps will be enabled after sret (1) or disabled (0)
-#define SSTATUS_TRAPS_AFTER_SRET (1 << 5)
-
-// SIE supervisor traps current enabled (1) or disable (0)
-#define SSTATUS_TRAPS_NOW (1 << 2)
-
-// SPP which privilege level to sret to, kernel mode (1) or user mode (0)
-#define SSTATUS_PRIVILEGE (1 << 8)
-
-// SUM Supervisor User Memory access, allows kernel to access user-marked pages
-#define SSTATUS_SUM (1 << 18)
-
-#define SIE_SSIE (0x2)
-
 // sets bits in sstatus and sie to enable supervisor interrupts and
 // supervisor software interrupts
 // 12.1.1.3. Supervisor Interrupt (sip and sie) Registers
@@ -367,18 +356,14 @@ void enable_traps_on_return(bool return_to_kernel_mode) {
     uintptr_t sstatus = csr_read_sstatus();
     uintptr_t sie = csr_read_sie();
 
-    sstatus |= SSTATUS_TRAPS_AFTER_SRET | SSTATUS_SUM;
-    if (return_to_kernel_mode) {
-        // write SPP
-        sstatus |= SSTATUS_PRIVILEGE;
-    } else {
-        // clear SPP
-        sstatus &= ~SSTATUS_PRIVILEGE;
-    }
+    BIT_SET(sstatus, SSTATUS_TRAPS_AFTER_SRET);
+    BIT_SET(sstatus, SSTATUS_SUM);
+
+    BIT_BOOL(sstatus, SSTATUS_PRIVILEGE, return_to_kernel_mode);
+
     // printf("sstatus: %p\nsie: %p\n", sstatus, sie);
 
-    // SSIE (supervisor software interrupt enable) bit
-    sie |= SIE_SSIE;
+    BIT_SET(sie, SIE_SSIE);
 
     // write
     csr_write_sstatus(sstatus);
@@ -387,12 +372,12 @@ void enable_traps_on_return(bool return_to_kernel_mode) {
 
 void disable_traps_on_return(void) {
     uintptr_t sstatus = csr_read_sstatus();
-    sstatus &= ~(SSTATUS_TRAPS_AFTER_SRET);
+    BIT_UNSET(sstatus, SSTATUS_TRAPS_AFTER_SRET);
     csr_write_sstatus(sstatus);
 }
 
 void disable_traps_now(void) {
     uintptr_t sstatus = csr_read_sstatus();
-    sstatus &= ~(SSTATUS_TRAPS_NOW);
+    BIT_UNSET(sstatus, SSTATUS_TRAPS_NOW);
     csr_write_sstatus(sstatus);
 }
