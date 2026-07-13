@@ -3,20 +3,21 @@
 # $* qemu exec and args
 OUTFILE="$1"; shift
 COMMAND=$*
+
+echo > "$OUTFILE"
+
 PIPE=$(mktemp -u -p build/).fifo
 
 mkfifo "$PIPE"
 
-{
-    # qemu outputs \r\n instead of \n
-    tr -d '\r' |tee -a "$OUTFILE"
-} < "$PIPE" &
-PIPEPID=$!
+# qemu outputs \r\n instead of \n
+# stdbuf needed to force tr to have unbuffered output
+stdbuf -o0 tr -d '\r' < "$PIPE" | tee -a "$OUTFILE" &
 
 $COMMAND > "$PIPE"
 EXITCODE=$?
 
-kill -9 $PIPEPID
+# shellcheck disable=SC2086
 rm -f "$PIPE"
 
 echo "---QEMU EXIT CODE: $EXITCODE---" | tee -a "$OUTFILE"
