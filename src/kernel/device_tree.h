@@ -52,10 +52,20 @@ struct DeviceTree {
 };
 typedef struct DeviceTree DeviceTree;
 
+struct DeviceTreePath {
+    char** path;
+};
+typedef struct DeviceTreePath DeviceTreePath;
+
+#define DEVICE_TREE_PATH_FROM_ROOT(...)           \
+    (DeviceTreePath) {                            \
+        .path = (char*[]){"", __VA_ARGS__, NULL}, \
+    }
+
 DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header);
 void DeviceTree_print(DeviceTree* tree);
-DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char** path,
-                                          uint8_t offset);
+DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node,
+                                          DeviceTreePath path);
 DeviceTreeProperty* DeviceTreeNode_find_property(DeviceTreeNode* node,
                                                  char* property_name);
 void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header);

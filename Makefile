@@ -44,7 +44,7 @@ SETUP_ARGS ?=
 COMPILE_ARGS ?=
 TEST_ARGS ?=
 DEFINES ?=
-ALL_SETUP_ARGS := ${SETUP_ARGS} \
+ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
 	-D qemu-partial='${QEMU} ${QEMU_PARTIAL_FLAGS}'
 
@@ -58,6 +58,9 @@ COMP_DB_FILENAME := compile_commands.json
 GDB_INIT_TEMPLATE := misc/gdbinit-template
 GDB_INIT_FILE := ${BUILD_BASE}/gdbinit
 GDB_PORT ?= 7777
+
+# device tree parser
+DEVICETREE_SCRIPT := misc/parse-device-tree.sh
 
 ### general
 
@@ -83,7 +86,7 @@ help:
 	@echo "SETUP_ARGS           meson setup args, e.g. --optimization=3"
 	@echo "COMPILE_ARGS         meson compile args, e.g. --verbose"
 	@echo "TEST_ARGS            meson test args, e.g. --list"
-	@echo "QEMU_BOOTARGS       qemu args, e.g. -append somebootargs"
+	@echo "QEMU_BOOTARGS        qemu args, e.g. -append somebootargs"
 
 # just makes a symlink to last-setup-target's compile_commands.json
 .PHONY: link-compdb
@@ -150,6 +153,12 @@ qemu-gdb: build ${QEMU_FW} ${GDB_INIT_FILE}
 	@echo
 	@echo "(CTRL+A X to exit)"
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS} -S -gdb tcp::${GDB_PORT}
+
+.PHONY: device-tree
+device-tree: DEFINES := DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
+device-tree: build
+	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
+	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD_BASE}/dt.hex ${BUILD_BASE}/dt.dtb ${BUILD_BASE}/dt.dts
 
 ### OpenSBI
 

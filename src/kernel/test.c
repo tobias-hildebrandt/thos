@@ -30,9 +30,8 @@ void run_test_from_bootargs(DeviceTree* device_tree) {
         (void)device_tree;
     }
 
-    const char* args_path[] = {DEVICE_TREE_ROOT_PATH, "chosen", NULL};
-    DeviceTreeNode* chosen =
-        DeviceTreeNode_find_child(device_tree->root, (char**)args_path, 0);
+    DeviceTreePath path = DEVICE_TREE_PATH_FROM_ROOT("chosen");
+    DeviceTreeNode* chosen = DeviceTreeNode_find_child(device_tree->root, path);
 
     DeviceTreeProperty* boot_args =
         DeviceTreeNode_find_property(chosen, "bootargs");

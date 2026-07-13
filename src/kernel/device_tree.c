@@ -222,8 +222,9 @@ DeviceTreeProperty* DeviceTreeNode_find_property(DeviceTreeNode* node,
 // path should start with DEVICE_TREE_ROOT_PATH if starting at root
 // path must end with a NULL
 // depth should be 0 if starting at root
-DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
-                                          uint8_t depth) {
+DeviceTreeNode* DeviceTreeNode_find_child_recursive(DeviceTreeNode* node,
+                                                    DeviceTreePath path,
+                                                    uint8_t depth) {
     DeviceTreeNode* check = NULL;
 
     if (DEBUG_DEVICE_TREE_SEARCH) {
@@ -231,9 +232,9 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
     }
 
     // if path matches
-    if (0 == strcmp(node->name, *(path + depth))) {
+    if (0 == strcmp(node->name, *(path.path + depth))) {
         // don't search any more!
-        if (*(path + depth + 1) == NULL) {
+        if (*(path.path + depth + 1) == NULL) {
             if (DEBUG_DEVICE_TREE_SEARCH) {
                 D(depth) printf("match!\n");
             }
@@ -249,7 +250,8 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
             if (DEBUG_DEVICE_TREE_SEARCH) {
                 D(depth) printf("checking child\n");
             }
-            check = DeviceTreeNode_find_child(node->child, path, depth + 1);
+            check = DeviceTreeNode_find_child_recursive(node->child, path,
+                                                        depth + 1);
 
             if (check != NULL) {
                 return check;
@@ -259,7 +261,7 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
 
     // check sibling
     if (node->next != NULL) {
-        check = DeviceTreeNode_find_child(node->next, path, depth);
+        check = DeviceTreeNode_find_child_recursive(node->next, path, depth);
 
         if (check != NULL) {
             return check;
@@ -267,6 +269,11 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node, char* path[],
     }
 
     return NULL;
+}
+
+DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node,
+                                          DeviceTreePath path) {
+    return DeviceTreeNode_find_child_recursive(node, path, 0);
 }
 
 void DeviceTreeNode_print(DeviceTreeNode* node, uint8_t depth) {
