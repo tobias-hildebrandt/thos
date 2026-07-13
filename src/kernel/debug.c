@@ -98,14 +98,22 @@ void debug_printf(void) {
 
     printf("min width 10, zero-pad \"12345\":   _%010u_\n", 12345);
     printf("min width 10, zero-pad \"ffff\":    _%010x_\n", 0xffff);
-    printf("min width 8, zero-pad \"ffff\":     _%08x_\n", 0xffff);
+    printf("min width  8, zero-pad \"ffff\":     _%08x_\n", 0xffff);
 
     printf("pointer 0x0:                %p\n", 0);
     printf("pointer 0xffff:             %p\n", 0xffff);
     ONLY64(printf("pointer 0x0123456789abcdef: %p\n", 0x0123456789abcdefLL));
 
-    for (int i = 0; i < 10; i++) {
-        printf("minwidth variable %d 123 \"%*d\"\n", i, i, 123);
+    printf("minwidth variable %d 123 NORM SPACE \"%*d\"\n", 0, 0, 123);
+    printf("minwidth variable %d 123 NORM ZERO  \"%0*d\"\n", 0, 0, 123);
+    printf("minwidth variable %d 123 LEFT SPACE \"%-*d\"\n", 0, 0, 123);
+    printf("minwidth variable %d 123 LEFT ZERO  \"%-0*d\"\n", 0, 0, 123);
+
+    for (int i = 3; i < 10; i++) {
+        printf("minwidth variable %d 123 NORM SPACE \"%*d\"\n", i, i, 123);
+        printf("minwidth variable %d 123 NORM ZERO  \"%0*d\"\n", i, i, 123);
+        printf("minwidth variable %d 123 LEFT SPACE \"%-*d\"\n", i, i, 123);
+        printf("minwidth variable %d 123 LEFT ZERO  \"%-0*d\"\n", i, i, 123);
     }
 }
 

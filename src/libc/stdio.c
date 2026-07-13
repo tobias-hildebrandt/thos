@@ -18,6 +18,7 @@ struct PrintState {
     bool in_conversion_spec;
     uint8_t long_modifiers;
     bool zero_pad;
+    bool left_pad;
     bool alternative;
     const char* min_width_chars;
     int min_width;
@@ -170,7 +171,7 @@ int print_signed(va_list* args, PrintState* state) {
 // TODO: handle right-align
 #define MIN_WIDTH_CALL(STATE, PRINTED, FAKE_CALL, REAL_CALL)       \
     do {                                                           \
-        if (STATE.min_width > 0) {                                 \
+        if (STATE.min_width > 0 && !STATE.left_pad) {              \
             int requested = STATE.min_width;                       \
             /* call with real min_width, doesn't actually print */ \
             int would_print = FAKE_CALL;                           \
@@ -188,6 +189,23 @@ int print_signed(va_list* args, PrintState* state) {
             /* call with min_width 0, will print */                \
             STATE.min_width = 0;                                   \
             PRINTED += REAL_CALL;                                  \
+        } else if (STATE.min_width > 0 && STATE.left_pad) {        \
+            int requested = STATE.min_width;                       \
+            /* call with min_width 0, will print */                \
+            STATE.min_width = 0;                                   \
+            int did_print = REAL_CALL;                             \
+            PRINTED += did_print;                                  \
+            if (requested > did_print) {                           \
+                int to_print = requested - did_print;              \
+                for (int i = 0; i < to_print; i++) {               \
+                    if (STATE.zero_pad) {                          \
+                        putchar('0');                              \
+                    } else {                                       \
+                        putchar(' ');                              \
+                    }                                              \
+                    PRINTED += 1;                                  \
+                }                                                  \
+            }                                                      \
         } else {                                                   \
             PRINTED += REAL_CALL;                                  \
         }                                                          \
@@ -262,6 +280,10 @@ int printf(const char* format_str, ...) {
                     // variable min width
                     int i = va_arg(args, int);
                     state.min_width = i;
+                    break;
+                }
+                case '-': {
+                    state.left_pad = true;
                     break;
                 }
                 // conversion specifiers
