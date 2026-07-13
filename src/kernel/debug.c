@@ -115,6 +115,23 @@ void debug_printf(void) {
         printf("minwidth variable %d 123 LEFT SPACE \"%-*d\"\n", i, i, 123);
         printf("minwidth variable %d 123 LEFT ZERO  \"%-0*d\"\n", i, i, 123);
     }
+
+    printf("printf int (char) bool 0x00             = 0b%08b\n", 0x0);
+    printf("printf int (char) bool 0xff             = 0b%08b\n", (char)0xff);
+    printf("printf int (char) bool 0xa5             = 0b%08b\n", (char)0xa5);
+    printf("printf int (char) bool 0x99             = 0b%08b\n", (char)0x99);
+    printf("printf int (char) bool 0x81             = 0b%08b\n", (char)0x81);
+
+    printf("printf int bool 0                       = 0b%032b\n", 0x0);
+    printf("printf int bool 0xffffffff              = 0b%032b\n", 0xffffffff);
+    printf("printf int bool 0x01234567              = 0b%032b\n", 0x01234567);
+    printf("printf int bool 0x89abcdef              = 0b%032b\n", 0x89abcdef);
+
+    printf("printf longlong bool 0                  = 0b%064llb\n", 0x0LL);
+    printf("printf longlong bool 0xffffffffffffffff = 0b%064llb\n",
+           0xffffffffffffffffLL);
+    printf("printf longlong bool 0x0123456789abcdef = 0b%064llb\n",
+           0x0123456789abcdefLL);
 }
 
 // TODO: assert

@@ -7,6 +7,8 @@
 
 #include "build_info.h"
 
+// TODO: implement half modifiers %h
+
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 
@@ -92,6 +94,50 @@ int print_hex(va_list* args, PrintState* state) {
             ascii = '0' + place_value;
         } else {
             ascii = 'a' + place_value - 10;
+        }
+        started = true;
+        maybe_putchar(ascii, state);
+        printed += 1;
+    }
+
+    return printed;
+}
+
+int print_binary(va_list* args, PrintState* state) {
+    int printed = 0;
+    int shift;
+    uint32_t value32 = 0;
+    uint64_t value64 = 0;
+    // TODO: just use platform's int/long/longlong types?
+    bool use_32 = SHOULD_USE_32(state);
+    if (use_32) {
+        value32 = va_arg(*args, int32_t);
+        shift = 32 - 1;
+    } else {
+        value64 = va_arg(*args, int64_t);
+        shift = 64 - 1;
+    }
+
+    if (state->alternative) {
+        maybe_putchar('0', state);
+        maybe_putchar('b', state);
+        printed += 2;
+    }
+
+    bool started = false;
+
+    for (; shift >= 0; shift--) {
+        uint64_t place_value = ((use_32 ? value32 : value64) >> shift) & 0x1;
+
+        if (place_value == 0 && !started && shift != 0) {
+            continue;
+        }
+
+        unsigned int ascii;
+        if (place_value) {
+            ascii = '1';
+        } else {
+            ascii = '0';
         }
         started = true;
         maybe_putchar(ascii, state);
@@ -322,6 +368,16 @@ int printf(const char* format_str, ...) {
                     MIN_WIDTH_CALL(state, printed,
                                    print_hex(&args_copy, &state),
                                    print_hex(&args, &state));
+                    PrintState_reset(&state);
+                    break;
+                }
+                case 'b': {
+                    // binary
+                    va_list args_copy;
+                    va_copy(args_copy, args);
+                    MIN_WIDTH_CALL(state, printed,
+                                   print_binary(&args_copy, &state),
+                                   print_binary(&args, &state));
                     PrintState_reset(&state);
                     break;
                 }
