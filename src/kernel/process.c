@@ -163,8 +163,10 @@ Process* allocate_process(ProcessArguments args) {
     process->state = PROCESS_READY;
     // TODO: s0 might be the frame pointer, maybe do something with it?
 
-    printf("allocated ");
-    Process_print(process);
+    if (DEBUG_ALLOCATE_PROCESS) {
+        printf("allocated ");
+        Process_print(process);
+    }
 
     return process;
 }
