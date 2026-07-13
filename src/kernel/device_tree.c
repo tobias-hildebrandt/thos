@@ -1,5 +1,6 @@
 #include "device_tree.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -277,25 +278,64 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node,
 }
 
 void DeviceTreeNode_print(DeviceTreeNode* node, uint8_t depth) {
-    D(depth) printf("DeviceTreeNode {\n");
+    printf("DeviceTreeNode {\n");
+    D(depth + 1) printf("name: \"%s\",\n", node->name);
+
+    int counter = 0;
 
     DeviceTreeProperty* prop = node->properties;
     while (prop != NULL) {
-        D(depth + 1) printf("DeviceTreeProperty { ");
+        D(depth + 1) printf("prop[%d]: ", counter);
+        printf("DeviceTreeProperty { ");
         printf("name: \"%s\", ", prop->name);
-        printf("data: [%d] ", prop->value_len);
+        printf("data: ");
+
+        // check if value could be a string
+        // (doesnt check for multiple nul-terminated strings)
+        const bool ends_with_nul =
+            (((char*)prop->value)[prop->value_len - 1]) == 0;
+        bool normal_ascii = true;
+        bool all_zeros = true;
+        bool first_is_not_zero =
+            prop->value_len > 0 ? ((char*)prop->value)[0] != 0 : false;
         for (size_t i = 0; i < prop->value_len; i++) {
-            printf("%02x ", ((char*)prop->value)[i]);
+            char value = ((char*)prop->value)[i];
+            // just check for non-control normal ascii
+            if ((value < 0x20 || value > 0x7e) && value != 0 &&
+                !(value == '\n' || value == '\t' || value == '\r')) {
+                normal_ascii = false;
+                break;
+            }
+            if (value != 0) {
+                all_zeros = false;
+            }
         }
+
+        if (normal_ascii && !all_zeros && ends_with_nul && first_is_not_zero) {
+            // print as string
+            printf("\"%s\" ", prop->value);
+        }
+        // print as hex
+        printf("[%d] ", prop->value_len);
+
+        for (size_t i = 0; i < prop->value_len; i++) {
+            char value = ((char*)prop->value)[i];
+            printf("%02x ", value);
+        }
+
         printf("},\n");
 
         prop = prop->next;
+        counter += 1;
     }
 
+    counter = 0;
     DeviceTreeNode* child = node->child;
     while (child != NULL) {
+        D(depth + 1) printf("child[%d]: ", counter);
         DeviceTreeNode_print(child, depth + 1);
         child = child->next;
+        counter += 1;
     }
 
     D(depth) printf("},\n");
@@ -304,7 +344,7 @@ void DeviceTreeNode_print(DeviceTreeNode* node, uint8_t depth) {
 void DeviceTree_print(DeviceTree* tree) {
     printf("DeviceTree {\n");
     D(1) printf("boot_cpuid_phys: %x,\n", tree->boot_cpuid_phys);
-    DeviceTreeNode_print(tree->root, 1);
+    D(1) DeviceTreeNode_print(tree->root, 1);
     printf("}\n");
 }
 
