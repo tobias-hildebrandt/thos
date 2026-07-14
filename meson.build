@@ -249,8 +249,9 @@ exec_nontest_kernel = executable(
 message('kernel path:', exec_nontest_kernel.full_path())
 
 # kernel tests
-option_qemu_str = 'qemu-partial'
-option_qemu = get_option(option_qemu_str)
+# TODO: merge enable-test and test-args
+option_test_args_str = 'test-args'
+option_test_args = get_option(option_test_args_str)
 
 if option_tests
     # finds tests in kernel source code
@@ -282,8 +283,14 @@ if option_tests
     message('test kernel path:', exec_test_kernel.full_path())
 
     # make sure qemu was passed in
-    if option_qemu == ''
-        error('must define', option_qemu, 'when', option_tests_str, 'is true')
+    if option_test_args == ''
+        error(
+            'must define',
+            option_test_args,
+            'when',
+            option_tests_str,
+            'is true',
+        )
     endif
 
     # create indiviudal tests
@@ -296,7 +303,7 @@ if option_tests
                 required: true,
             ),
             args: [
-                option_qemu,
+                option_test_args,
                 '-kernel', exec_test_kernel,
                 '-append',
                 '--test' + test,
@@ -314,7 +321,7 @@ else
                 'you need to run setup with',
                 option_tests_str,
                 'and',
-                option_qemu_str,
+                option_test_args_str,
             ],
         ),
         find_program('false'),

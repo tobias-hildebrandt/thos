@@ -22,6 +22,8 @@ void exit(int exit_code) {
 
     SbiReturn ret;
 
+    printf("---EXITCODE %d---", exit_code);
+
     PRINTF_IF(DEBUG_EXIT, "trying SBI shutdown\n");
     ret = sbi_shutdown(0x0);
     PRINTF_IF(DEBUG_EXIT, "SBI shutdown fail, error %ld\n", ret.error);

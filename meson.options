@@ -3,5 +3,5 @@ option('defines', type: 'string')
 
 # build tests into the kernel
 option('enable-tests', type: 'boolean', value: true)
-# qemu partial command line, for running tests
-option('qemu-partial', type: 'string')
+# arguments to pass to test script
+option('test-args', type: 'string')

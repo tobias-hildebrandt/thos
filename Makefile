@@ -44,18 +44,20 @@ QEMU_OUTFILE := ${BUILD_BASE}/out
 # meson args
 SETUP_ARGS ?=
 COMPILE_ARGS ?=
-TEST_ARGS ?=
+TEST_ARGS ?= # args passed to `meson test`, not `meson setup -D test-args=`
 DEFINES ?=
+TEST_PREFIX_ARGS ?=
 
 # force specific variables based on machine
 ifeq ($(strip ${MACHINE}),sifive_u)
 override DEFINES += USE_SBI_EXIT=1 USE_SBI_SET_TIMER=1
 override QEMU_PARTIAL_FLAGS += -no-reboot
+override TEST_PREFIX_ARGS := --parse-exitcode
 endif
 
 ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
-	-D qemu-partial='${QEMU} ${QEMU_PARTIAL_FLAGS}'
+	-D test-args='${TEST_PREFIX_ARGS} ${QEMU} ${QEMU_PARTIAL_FLAGS}'
 
 CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
 COMPILE_WRAPPER ?= misc/rewrite_paths.sh
