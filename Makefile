@@ -10,7 +10,7 @@ ifeq (,$(findstring j, $(MAKEFLAGS)))
 	JOBS := -j$(shell nproc)
 endif
 
-# build architecture & toolchain
+# build architecture, toolchain, and board
 TARGET ?= riscv64
 TOOLCHAIN ?= llvm
 MACHINE ?= virt
@@ -97,6 +97,7 @@ help:
 	@echo "make arguments:"
 	@echo "TARGET               target platform, riscv64 or riscv32"
 	@echo "TOOLCHAIN            c toolchain to use, llvm or gnu"
+	@echo "MACHINE              qemu machine target, virt or sifive_u"
 	@echo "DEFINES              c defines, see src/kernel/flags.h"
 	@echo "SETUP_ARGS           meson setup args, e.g. --optimization=3"
 	@echo "COMPILE_ARGS         meson compile args, e.g. --verbose"
@@ -123,6 +124,7 @@ setup: link-compdb
 # meson compile
 .PHONY: build compile
 compile: build
+kernel: build
 build: setup
 	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} ${JOBS}
 # objdump kernels
