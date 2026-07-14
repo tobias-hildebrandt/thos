@@ -16,15 +16,12 @@
 #include "util.h"
 
 __attribute__((section(".text.boot"))) NAKED void boot(void) {
-    ASM(
-        // set stack pointer
-        "la sp, "STRINGIFY(STACK_END)"\n"
-        "ld sp, (sp)\n"
+    // set stack pointer
+    ASM("la sp, " STRINGIFY(STACK_END) "\n");
+    ASM(ASM_LOAD "sp, (sp)\n");
 
-        // jump to kernel function
-        "j " STRINGIFY(kernel_main) "\n"
-
-        : :: "sp");
+    // jump to kernel function
+    ASM("j " STRINGIFY(kernel_main) "\n");
 }
 
 void kernel_main(uintptr_t hart_id,

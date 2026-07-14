@@ -17,7 +17,7 @@ MACHINE ?= virt
 
 # build dir
 BUILD_BASE ?= build
-BUILD := ${BUILD_BASE}/${TARGET}-${TOOLCHAIN}
+BUILD := ${BUILD_BASE}/${TARGET}-${TOOLCHAIN}-${MACHINE}
 
 # kernel file made by meson
 KERNEL_ELF := ${BUILD}/kernel
@@ -138,6 +138,11 @@ endif
 .PHONY: test
 test: build ${QEMU_FW}
 	meson test -C ${BUILD} ${TEST_ARGS}
+
+# run matrix test script
+.PHONY: matrix-test
+matrix-test:
+	misc/run_test_matrix.sh
 
 ### clean
 
