@@ -4,12 +4,15 @@ TARGETS=${TARGETS:-"riscv64 riscv32"}
 TOOLCHAINS=${TOOLCHAINS:-"llvm gnu"}
 MACHINES=${MACHINES:-"virt sifive_u"}
 
+mkdir -p "build/"
+
 OUT="build/test-matrix-out.txt"
 TEST_RESULTS="build/test-matrix-results.txt"
 
 printf "" > "$OUT"
 printf "" > "$TEST_RESULTS"
 
+# TODO: parallelize
 for TARGET in $TARGETS; do
     for TOOLCHAIN in $TOOLCHAINS; do
         for MACHINE in $MACHINES; do

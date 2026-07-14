@@ -4,7 +4,7 @@
 OUTFILE="$1"; shift
 COMMAND=$*
 
-echo > "$OUTFILE"
+echo "---COMMAND: $COMMAND---" > "$OUTFILE"
 
 PIPE=$(mktemp -u -p build/).fifo
 

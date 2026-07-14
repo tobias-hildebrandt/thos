@@ -20,6 +20,8 @@ script_find_libgcc = 'misc/find_libgcc.sh'
 script_find_tests = 'misc/find_tests.sh'
 script_make_testinfo = 'misc/make_test_info.sh'
 script_run_single_test = 'misc/run_single_test.sh'
+script_make_opensbi = 'misc/make_opensbi.sh'
+script_make_qemu_launch = 'misc/make_qemu_launch.sh'
 
 ### source directories
 dir_base = 'src'
@@ -238,7 +240,7 @@ name_kernel_tests = 'tests.txt'
 name_kernel_testinfo = 'testinfo.c'
 
 # nontest kernel
-exec_nontest_kernel = executable(
+exec_kernel_nontest = executable(
     name_kernel + name_suffix_nontest,
     dict_c_sources[subdir_kernel],
     dependencies: [dep_libc, deps_userexec_blobs],
@@ -246,13 +248,9 @@ exec_nontest_kernel = executable(
     implicit_include_directories: false,
     link_args: kernel_link_args,
 )
-message('kernel path:', exec_nontest_kernel.full_path())
+message('kernel path:', exec_kernel_nontest.full_path())
 
-# kernel tests
-# TODO: merge enable-test and test-args
-option_test_args_str = 'test-args'
-option_test_args = get_option(option_test_args_str)
-
+# kernel test target
 if option_tests
     # finds tests in kernel source code
     target_tests = run_command(
@@ -271,7 +269,7 @@ if option_tests
     )
 
     # test kernel
-    exec_test_kernel = executable(
+    exec_kernel_test = executable(
         name_kernel + name_suffix_test,
         [dict_c_sources[subdir_kernel], target_testinfo],
         dependencies: [dep_libc, deps_userexec_blobs],
@@ -280,20 +278,103 @@ if option_tests
         c_args: c_args_test,
         link_args: kernel_link_args,
     )
-    message('test kernel path:', exec_test_kernel.full_path())
+    message('test kernel path:', exec_kernel_test.full_path())
+endif
 
-    # make sure qemu was passed in
-    if option_test_args == ''
-        error(
-            'must define',
-            option_test_args,
-            'when',
-            option_tests_str,
-            'is true',
-        )
+### OpenSBI
+# TODO: move to wrap/subproject so each build in matrix doesn't have to rebuild?
+
+option_opensbi_dir_str = 'opensbi-dir'
+option_opensbi_fw_type_str = 'opensbi-fw-type'
+option_opensbi_fw_options_str = 'opensbi-fw-options'
+
+opensbi_dir = get_option(option_opensbi_dir_str)
+opensbi_fw_type = get_option(option_opensbi_fw_type_str)
+opensbi_fw_options = get_option(option_opensbi_fw_options_str)
+opensbi_fw_type += '.bin'
+# TODO: support fw_payload for test AND nontest kernel
+
+if opensbi_dir == ''
+    warning('not building opensbi!')
+else
+    # TODO: pass as option?
+    opensbi_platform = 'generic'
+    opensbi_build_subdir = 'platform' / 'generic' / 'firmware'
+    opensbi_firmware_name = 'opensbi_' + target_machine.cpu() + '-fw_' + opensbi_fw_type
+
+    firmware_opensbi = custom_target(
+        opensbi_firmware_name,
+        command: [
+            script_make_opensbi,
+            meson.current_source_dir() / opensbi_dir,
+            meson.current_build_dir() / '@PRIVATE_DIR@',
+            'fw_' + opensbi_fw_type,
+            meson.current_build_dir() / opensbi_firmware_name,
+        ],
+        env: {
+            'CROSS_COMPILE': target_machine.cpu() + '-unknown-',
+            'PLATFORM_RISCV_XLEN': target_machine.cpu().strip('riscv'),
+            'PLATFORM': opensbi_platform,
+            'FW_OPTIONS': opensbi_fw_options,
+            'LLVM': compiler.get_id() == 'clang' ? '1' : '0',
+        },
+        output: opensbi_firmware_name,
+        build_by_default: true,
+    )
+    message('opensbi firmware path:', firmware_opensbi.full_path())
+endif
+
+# custom target to write QEMU launch command
+option_machine_str = 'machine'
+option_machine = get_option(option_machine_str)
+
+define_sbi_exit = [
+    option_defines.contains('USE_SBI_EXIT=')
+    and not option_defines.contains('USE_SBI_EXIT=0'),
+].get(0)
+
+if option_machine != ''
+    name_qemu_launch = 'qemu-launch.sh'
+
+    # only partial, still needs a possible ' -kernel <kernel>' str
+    qemu_launch_cmd_str = ' '.join(
+        [
+            'qemu-system-' + target_machine.cpu(),
+            '-machine', option_machine,
+            '-nographic -serial mon:stdio', define_sbi_exit ? '-no-reboot' : '',
+            '-bios ', firmware_opensbi.full_path(),
+        ],
+    )
+    qemu_kernel_str = opensbi_fw_type != 'payload' ? ' -kernel ' + exec_kernel_nontest.full_path() : ''
+
+    target_qemu_launch = custom_target(
+        name_qemu_launch,
+        command: [
+            script_make_qemu_launch,
+            '@OUTPUT@',
+            qemu_launch_cmd_str + qemu_kernel_str,
+        ],
+        output: name_qemu_launch,
+        build_by_default: true,
+    )
+    message('qemu launch command written to', target_qemu_launch.full_path())
+else
+    warning('no machine arg passed, not generating launch script!')
+endif
+
+# TODO: use custom_target() for compdb?
+
+### tests
+if option_tests
+    if option_machine == ''
+        error('must pass machine arg to enable tests')
     endif
+    # parse exitcode from stdout if USE_SBI_EXIT is defined and not 0
+    test_parse_exitcode_str = '--parse-exitcode'
 
-    # create indiviudal tests
+    qemu_test_kernel_str = opensbi_fw_type != 'payload' ? ' -kernel ' + exec_kernel_test.full_path() : ''
+
+    # create individual tests
     foreach test : target_tests
         test(
             'kernel test '
@@ -303,31 +384,21 @@ if option_tests
                 required: true,
             ),
             args: [
-                option_test_args,
-                '-kernel', exec_test_kernel,
-                '-append',
-                '--test' + test,
+                define_sbi_exit ? test_parse_exitcode_str : '',
+                qemu_launch_cmd_str
+                + qemu_test_kernel_str
+                + ' -append --test'
+                + test,
             ],
             should_fail: test.contains('_should_fail'),
             verbose: true,
-            depends: exec_test_kernel,
+            depends: exec_kernel_test,
         )
     endforeach
 else
     # always-failing test in case wrong options are set
     test(
-        ' '.join(
-            [
-                'you need to run setup with',
-                option_tests_str,
-                'and',
-                option_test_args_str,
-            ],
-        ),
+        'tests not enabled',
         find_program('false'),
     )
 endif
-
-# TODO: build opensbi here also?
-
-# TODO: use run_target() for compdb?

@@ -25,21 +25,15 @@ KERNEL_ELF := ${BUILD}/kernel
 KERNEL_ELF_TEST := ${BUILD}/kernel-test
 
 # opensbi stuff
-opensbi_fw_fn = ${BUILD_BASE}/opensbi/opensbi-$(1)-generic-fw_dynamic.bin
-OPENSBI_FIRMWARES := $(call opensbi_fw_fn,riscv64) $(call opensbi_fw_fn,riscv32)
 OPENSBI_DIR := subprojects/opensbi
 OPENSBI_FW_OPTIONS ?= 0x1
+OPENSBI_FW_TYPE ?= dynamic
 
 # qemu stuff
-QEMU ?= qemu-system-${TARGET}
+QEMU := ${BUILD}/qemu-launch.sh # built by meson
 QEMU_WRAP ?= misc/wrap_qemu.sh
-QEMU_FW := $(call opensbi_fw_fn,${TARGET})
-FIRMWARE ?= $(shell realpath ${QEMU_FW})
-QEMU_BOOTARGS ?=
-QEMU_PARTIAL_FLAGS ?= -machine ${MACHINE} -bios ${FIRMWARE} \
-	-nographic -serial mon:stdio
-QEMU_FLAGS ?= ${QEMU_PARTIAL_FLAGS} -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
 QEMU_OUTFILE := ${BUILD_BASE}/out
+QEMU_FLAGS :=
 
 # meson args
 SETUP_ARGS ?=
@@ -57,7 +51,11 @@ endif
 
 ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
-	-D test-args='${TEST_PREFIX_ARGS} ${QEMU} ${QEMU_PARTIAL_FLAGS}'
+	-D enable-tests=true \
+	-D machine='${MACHINE}' \
+	-D opensbi-dir='${OPENSBI_DIR}' \
+	-D opensbi-fw-type='${OPENSBI_FW_TYPE}' \
+	-D opensbi-fw-options='${OPENSBI_FW_OPTIONS}'
 
 CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
 COMPILE_WRAPPER ?= misc/rewrite_paths.sh
@@ -89,7 +87,6 @@ help:
 	@echo "make targets and aliases:"
 	@echo "setup (configure)    configure build directory"
 	@echo "build (compile)      build the kernel"
-	@echo "opensbi (firmware)   build firmware"
 	@echo "qemu (run)           run kernel on qemu"
 	@echo "qemu-gdb (qemu-dbg)  same as qemu, but wait for gdb to attach"
 	@echo "test                 build test kernel, run tests on qemu"
@@ -110,12 +107,17 @@ link-compdb:
 	mkdir -p ${BUILD_BASE}
 	ln -sf ${PWD}/${BUILD}/${COMP_DB_FILENAME} ${PWD}/${BUILD_BASE}/${COMP_DB_FILENAME}
 
+# initializes git submodules
+.PHONY: git-submodules
+git-submodules:
+	git submodule update --init --recursive
+
 ### meson
 
 # meson setup, essentially configure
 .PHONY: setup configure
 configure: setup
-setup: link-compdb
+setup: link-compdb git-submodules
 	meson setup ${BUILD} \
 		--cross-file ${CROSS_FILE} \
 		--reconfigure \
@@ -159,10 +161,10 @@ clean-all:
 ### QEMU
 
 # run kernel via qemu
-# only builds needed firmware
+# only builds the required firmware
 .PHONY: qemu run
 run: qemu
-qemu: build ${QEMU_FW}
+qemu: build
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
 
 # generate the gdb init file
@@ -171,9 +173,10 @@ ${GDB_INIT_FILE}:
 	sed 's/:PORT_GOES_HERE/:${GDB_PORT}/' < ${GDB_INIT_TEMPLATE} > $@
 
 # run kernel via qemu and wait for a remote gdb to attach
+# TODO: debug not working on sifive_u? maybe not supported?
 .PHONY: qemu-gdb qemu-dbg
 qemu-dbg: qemu-gdb
-qemu-gdb: build ${QEMU_FW} ${GDB_INIT_FILE}
+qemu-gdb: build ${GDB_INIT_FILE}
 	@echo "gdb port is: ${GDB_PORT}"
 	@echo "launch gdb with:"
 	@echo
@@ -188,35 +191,3 @@ device-tree: DEFINES += DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
 device-tree: build
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
 	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD}/dt.hex ${BUILD}/dt.dtb ${BUILD}/dt.dts
-
-### OpenSBI
-
-# builds both firmwares
-.PHONY: opensbi firmware
-firmware: opensbi
-opensbi: ${OPENSBI_FIRMWARES}
-
-# cleans firmwares and opensbi build artifacts
-.PHONY: clean-opensbi
-clean-opensbi:
-	rm -rf ${OPENSBI_DIR}/build/
-	rm -rf ${BUILD_BASE}/opensbi
-
-# initializes opensbi submodule
-${OPENSBI_DIR}:
-	git submodule update --init --recursive
-
-# TODO: move to meson?
-# builds and links single opensbi firmware image
-${OPENSBI_FIRMWARES}: ${BUILD_BASE}/opensbi/opensbi-riscv%-generic-fw_dynamic.bin: ${OPENSBI_DIR}
-	mkdir -p ${OPENSBI_DIR}/build
-	mkdir -p ${BUILD_BASE}/opensbi
-	$(MAKE) -C ${OPENSBI_DIR} \
-		CROSS_COMPILE=riscv$*-unknown- PLATFORM_RISCV_XLEN=$* \
-		PLATFORM=generic FW_OPTIONS=${OPENSBI_FW_OPTIONS} LLVM=1 O=build/$*/
-	ln -sf ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.bin \
-		${PWD}/$(call opensbi_fw_fn,riscv$*)
-ifneq ($(strip ${DUMP}),)
-	${OBJDUMP} -D ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.elf \
-		> ${PWD}/$(call opensbi_fw_fn,riscv$*).objdump
-endif

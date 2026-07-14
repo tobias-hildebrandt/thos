@@ -3,5 +3,20 @@ option('defines', type: 'string')
 
 # build tests into the kernel
 option('enable-tests', type: 'boolean', value: true)
-# arguments to pass to test script
-option('test-args', type: 'string')
+
+# which machine to target
+option('machine', type: 'string', value: 'virt')
+
+# path to opensbi source dir
+option('opensbi-dir', type: 'string')
+# opensbi firmware options string
+option('opensbi-fw-options', type: 'string', value: '0x1')
+# opensbi firmware type
+option(
+    'opensbi-fw-type',
+    type: 'combo',
+    choices: ['dynamic', 'jump', 'payload'],
+    value: 'dynamic',
+)
+
+# TODO: add option to pass dtb into opensbi, for shakti_c

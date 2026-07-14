@@ -19,4 +19,3 @@ See `make help`.
 - `make qemu` runs the OS on qemu
 - `make qemu-gdb` runs the OS on qemu but waits for gdb
 - `make test` builds a test kernel and runs all tests on qemu
-- `make opensbi` builds OpenSBI firmwares
