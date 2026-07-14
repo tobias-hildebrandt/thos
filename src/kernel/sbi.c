@@ -49,9 +49,9 @@ SbiReturn sbi_putchar(int ch) {
 
 // system reset shutdown
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-sys-reset.adoc
-SbiReturn sbi_shutdown(void) {
+SbiReturn sbi_shutdown(long type) {
     return SBI_CALL(0x53525354 /* System Reset Extension */,
-                    0x0 /* Function: System reset */, 0x0 /* Shutdown */,
+                    0x0 /* Function: System reset */, type,
                     0x0 /* No reason */);
 }
 
@@ -81,6 +81,6 @@ SbiReturn sbi_set_timer(uint64_t time) {
             // time value (low bits)
             (uint32_t)time,
             // time value (high bits)
-            (uint32_t)(time >> 32));
+            (uint32_t)((time >> 32) & 0xffffffff));
     }
 }

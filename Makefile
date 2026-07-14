@@ -13,6 +13,7 @@ endif
 # build architecture & toolchain
 TARGET ?= riscv64
 TOOLCHAIN ?= llvm
+MACHINE ?= virt
 
 # build dir
 BUILD_BASE ?= build
@@ -33,8 +34,9 @@ OPENSBI_FW_OPTIONS ?= 0x1
 QEMU ?= qemu-system-${TARGET}
 QEMU_WRAP ?= misc/wrap_qemu.sh
 QEMU_FW := $(call opensbi_fw_fn,${TARGET})
+FIRMWARE ?= $(shell realpath ${QEMU_FW})
 QEMU_BOOTARGS ?=
-QEMU_PARTIAL_FLAGS ?= -machine virt -bios $(shell realpath ${QEMU_FW}) \
+QEMU_PARTIAL_FLAGS ?= -machine ${MACHINE} -bios ${FIRMWARE} \
 	-nographic -serial mon:stdio
 QEMU_FLAGS ?= ${QEMU_PARTIAL_FLAGS} -kernel ${KERNEL_ELF} ${QEMU_BOOTARGS}
 QEMU_OUTFILE := ${BUILD_BASE}/out
@@ -44,6 +46,13 @@ SETUP_ARGS ?=
 COMPILE_ARGS ?=
 TEST_ARGS ?=
 DEFINES ?=
+
+# force specific variables based on machine
+ifeq ($(strip ${MACHINE}),sifive_u)
+override DEFINES += USE_SBI_EXIT=1 USE_SBI_SET_TIMER=1
+override QEMU_PARTIAL_FLAGS += -no-reboot
+endif
+
 ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
 	-D qemu-partial='${QEMU} ${QEMU_PARTIAL_FLAGS}'
@@ -64,6 +73,7 @@ DEVICETREE_SCRIPT := misc/parse-device-tree.sh
 
 # objdump
 OBJDUMP ?= llvm-objdump
+DUMP ?= 1
 
 ### general
 
@@ -115,8 +125,10 @@ build: setup
 	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} ${JOBS}
 # objdump kernels
 # TODO: move into meson?
+ifneq ($(strip ${DUMP}),)
 	${OBJDUMP} -D ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
 	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -D ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
+endif
 
 # meson test
 .PHONY: test
@@ -163,10 +175,10 @@ qemu-gdb: build ${QEMU_FW} ${GDB_INIT_FILE}
 
 # dump and decode device tree
 .PHONY: device-tree
-device-tree: DEFINES := DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
+device-tree: DEFINES += DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
 device-tree: build
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
-	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD_BASE}/dt.hex ${BUILD_BASE}/dt.dtb ${BUILD_BASE}/dt.dts
+	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD}/dt.hex ${BUILD}/dt.dtb ${BUILD}/dt.dts
 
 ### OpenSBI
 
@@ -179,7 +191,7 @@ opensbi: ${OPENSBI_FIRMWARES}
 .PHONY: clean-opensbi
 clean-opensbi:
 	rm -rf ${OPENSBI_DIR}/build/
-	rm -rf ${OPENSBI_FIRMWARES}
+	rm -rf ${BUILD_BASE}/opensbi
 
 # initializes opensbi submodule
 ${OPENSBI_DIR}:
@@ -194,4 +206,8 @@ ${OPENSBI_FIRMWARES}: ${BUILD_BASE}/opensbi/opensbi-riscv%-generic-fw_dynamic.bi
 		CROSS_COMPILE=riscv$*-unknown- PLATFORM_RISCV_XLEN=$* \
 		PLATFORM=generic FW_OPTIONS=${OPENSBI_FW_OPTIONS} LLVM=1 O=build/$*/
 	ln -sf ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.bin \
-		${PWD}/${QEMU_FW}
+		${PWD}/$(call opensbi_fw_fn,riscv$*)
+ifneq ($(strip ${DUMP}),)
+	${OBJDUMP} -D ${PWD}/${OPENSBI_DIR}/build/$*/platform/generic/firmware/fw_dynamic.elf \
+		> ${PWD}/$(call opensbi_fw_fn,riscv$*).objdump
+endif

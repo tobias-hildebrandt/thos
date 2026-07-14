@@ -20,7 +20,7 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                                  SBI_CALL3, SBI_CALL2, SBI_CALL1,              \
                                  SBI_CALL0)(__VA_ARGS__))
 
-#define SBI_CALL0(eid, fid) __sbi_call(0, 0, 0, 0, 0, fid, eid)
+#define SBI_CALL0(eid, fid) __sbi_call(0, 0, 0, 0, 0, 0, fid, eid)
 #define SBI_CALL1(eid, fid, arg0) __sbi_call(arg0, 0, 0, 0, 0, 0, fid, eid)
 #define SBI_CALL2(eid, fid, arg0, arg1) \
     __sbi_call(arg0, arg1, 0, 0, 0, 0, fid, eid)
@@ -34,5 +34,5 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
     __sbi_call(arg0, arg1, arg2, arg3, arg4, arg5, fid, eid)
 
 SbiReturn sbi_putchar(int c);
-SbiReturn sbi_shutdown(void);
+SbiReturn sbi_shutdown(long type);
 SbiReturn sbi_set_timer(uint64_t time);

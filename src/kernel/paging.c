@@ -271,7 +271,8 @@ void init_kernel_page_table(void) {
     }
 
     // map device addresses
-    if (!EXIT_VIA_SBI) {
+    if (!USE_SBI_EXIT) {
+        // need to map sifive_test device
         map_address(kernel_page_table,
                     (VirtualAddress){.value = SIFIVE_TEST_DEVICE_ADDR},
                     SIFIVE_TEST_DEVICE_ADDR,

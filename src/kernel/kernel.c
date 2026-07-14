@@ -1,4 +1,6 @@
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "asm.h"
 #include "build_info.h"
@@ -7,7 +9,6 @@
 #include "example_process.h"
 #include "flags.h"
 #include "paging.h"
-#include "panic.h"
 #include "process.h"
 #include "sections.h"
 #include "test.h"
@@ -17,22 +18,17 @@
 __attribute__((section(".text.boot"))) NAKED void boot(void) {
     ASM(
         // set stack pointer
-        "mv sp, %[stack]\n"
-
-        // move device tree pointer from a1 to a0
-        "mv a0, a1\n"
-
-        // zero out a1 for good measure
-        "mv a1, x0\n"
+        "la sp, "STRINGIFY(STACK_END)"\n"
+        "ld sp, (sp)\n"
 
         // jump to kernel function
         "j " STRINGIFY(kernel_main) "\n"
 
-        // load stack address from define
-        ::[stack] "r"(STACK_END));
+        : :: "sp");
 }
 
-void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
+void kernel_main(uintptr_t hart_id,
+                 const DeviceTreeHeadersRaw* device_tree_headers) {
     enable_trap_vector();
 
     init_kernel_page_table();
@@ -47,6 +43,8 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
         ""
         "----------\n"
         "Hello kernel_main\n");
+
+    printf("hartid: %d\n", hart_id);
 
     printf("(compiled with %s)\n", COMPILER_STRING);
     printf("\n");
@@ -82,5 +80,8 @@ void kernel_main(const DeviceTreeHeadersRaw* device_tree_headers) {
         begin_processes();
     }
 
-    PANIC("end of kernel_main");
+    printf("end of kernel_main\n");
+
+    // TODO: set return address in .boot?
+    exit(0);
 }

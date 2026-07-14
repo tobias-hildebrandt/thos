@@ -10,7 +10,7 @@
 #define SIFIVE_TEST_FAILURE 0x3333
 
 // writes exit code to qemu virt board's sifive test device
-void sifive_exit(int exit_code) {
+void sifive_test_exit(int exit_code) {
     uint32_t encoded;
     if (exit_code == EXIT_SUCCESS) {
         encoded = SIFIVE_TEST_SUCCESS;

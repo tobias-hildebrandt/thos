@@ -21,6 +21,7 @@
 #define DEBUG_TESTS 1
 #define DEBUG_TIMER_INTERRUPTS 1
 #define DEBUG_ALLOCATE_PROCESS 1
+#define DEBUG_EXIT 1
 #endif
 
 #ifndef DEBUG_EXAMPLE_PROCESSES
@@ -107,8 +108,16 @@
 #define DEBUG_ALLOCATE_PROCESS 0
 #endif
 
-#ifndef EXIT_VIA_SBI
-#define EXIT_VIA_SBI 0
+#ifndef DEBUG_EXIT
+#define DEBUG_EXIT 0
+#endif
+
+#ifndef USE_SBI_EXIT
+#define USE_SBI_EXIT 0
+#endif
+
+#ifndef USE_SBI_SET_TIMER
+#define USE_SBI_SET_TIMER 0
 #endif
 
 #ifndef TIMER_INTERRUPT_DELAY
