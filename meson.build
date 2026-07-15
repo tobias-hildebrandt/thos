@@ -10,18 +10,21 @@ project(
     },
 )
 
+proj_opensbi = subproject('opensbi')
+
 compiler = meson.get_compiler('c')
 
 ### scripts
-script_list_sources = 'misc/list_sources.sh'
-script_user_bin = 'misc/make_userexec_bin.sh'
-script_user_asm = 'misc/make_userexec_blob_asm.sh'
-script_find_libgcc = 'misc/find_libgcc.sh'
-script_find_tests = 'misc/find_tests.sh'
-script_make_testinfo = 'misc/make_test_info.sh'
-script_run_single_test = 'misc/run_single_test.sh'
-script_make_opensbi = 'misc/make_opensbi.sh'
-script_make_qemu_launch = 'misc/make_qemu_launch.sh'
+scripts_dir = [meson.current_source_dir() / 'misc']
+
+script_list_sources = find_program('list_sources.sh', dirs: scripts_dir)
+script_make_bin = find_program('make_bin.sh', dirs: scripts_dir)
+script_user_asm = find_program('make_userexec_blob_asm.sh', dirs: scripts_dir)
+script_find_libgcc = find_program('find_libgcc.sh', dirs: scripts_dir)
+script_find_tests = find_program('find_tests.sh', dirs: scripts_dir)
+script_make_testinfo = find_program('make_test_info.sh', dirs: scripts_dir)
+script_run_single_test = find_program('run_single_test.sh', dirs: scripts_dir)
+script_make_qemu_launch = find_program('make_qemu_launch.sh', dirs: scripts_dir)
 
 ### source directories
 dir_base = 'src'
@@ -62,20 +65,14 @@ include_user = include_directories(dir_base / subdir_user)
 includes_proj = [include_common, include_libc]
 
 ### compiler and linker args
-# machine-specific args, passed to both compiler and linker
-args_machine = [
-    '-mcmodel=medany',
-]
+# args from cross files
+default_c_args = get_option('c_args')
+default_link_args = get_option('c_link_args')
+
 # project-wide link arguments
-link_args_proj = [
-    '-nostdlib',
-]
+link_args_proj = default_link_args
 # project-wide c arguments
-c_args_proj = [
-    # embedded system args
-    '-ffreestanding',
-    '-nostdinc',
-    '-fno-stack-protector',
+c_args_proj = default_c_args + [
     # warning args
     '-Wformat=2',
     # fix path in __FILE__ macro
@@ -89,28 +86,10 @@ c_args_clang = [
 # gcc c arguments
 c_args_gcc = []
 
-# riscv extensions
-# 37.1.11. Subset Naming Convention
-arch_extensions = [
-    # General = IMAFDZicsr_Zifencei
-    'g',
-    # 7.1.1. "Zicntr" Extension for Base Counters and Timers
-    'Zicntr',
-]
-arch_base = '-march=rv'
-args_machine += [
-    arch_base
-    + target_machine.cpu().strip('riscv')
-    + '_'.join(arch_extensions).to_lower(),
-]
-
-# riscv ABI
-if target_machine.cpu() == 'riscv64'
-    args_machine += '-mabi=lp64d'
-elif target_machine.cpu() == 'riscv32'
-    args_machine += '-mabi=ilp32d'
-else
-    error('unknown host_machine architecture')
+if compiler.get_id() == 'clang'
+    c_args_proj += c_args_clang
+elif compiler.get_id() == 'gcc'
+    c_args_proj += c_args_gcc
 endif
 
 # command-line options
@@ -133,22 +112,19 @@ endif
 # TODO: build libgcc / llvm compiler-rt as subprojects?
 
 # add libgcc
+args_machine = []
+foreach arg : default_c_args
+    if arg.startswith('-m')
+        args_machine += arg
+    endif
+endforeach
+
 archive_libgcc = run_command(
     script_find_libgcc,
     env: {'MACHINE_ARGS': ' '.join(args_machine)},
     check: true,
 ).stdout().strip()
 dep_libgcc = declare_dependency(link_args: archive_libgcc)
-
-if compiler.get_id() == 'clang'
-    args_machine += '--target=' + target_machine.cpu() + '-unknown-elf'
-    c_args_proj += c_args_clang
-elif compiler.get_id() == 'gcc'
-    c_args_proj += c_args_gcc
-endif
-
-c_args_proj = args_machine + c_args_proj
-link_args_proj = args_machine + link_args_proj
 
 source_dir_absolute = meson.project_source_root() / 'src'
 kernel_link_args = ['-Wl,-T' + (source_dir_absolute / 'kernel' / 'kernel.lds')]
@@ -204,7 +180,12 @@ foreach source_user : dict_c_sources[subdir_user]
     # expanded user bin
     target_userexec_bin = custom_target(
         name_userexec_bin,
-        command: [script_user_bin, target_userexec_exec, '@OUTPUT@'],
+        command: [
+            script_make_bin,
+            target_userexec_exec,
+            '@OUTPUT@',
+            '--set-section-flags', '*=alloc,contents',
+        ],
         output: name_userexec_bin,
         depends: target_userexec_exec,
     )
@@ -281,48 +262,8 @@ if option_tests
     message('test kernel path:', exec_kernel_test.full_path())
 endif
 
-### OpenSBI
-# TODO: move to wrap/subproject so each build in matrix doesn't have to rebuild?
-
-option_opensbi_dir_str = 'opensbi-dir'
-option_opensbi_fw_type_str = 'opensbi-fw-type'
-option_opensbi_fw_options_str = 'opensbi-fw-options'
-
-opensbi_dir = get_option(option_opensbi_dir_str)
-opensbi_fw_type = get_option(option_opensbi_fw_type_str)
-opensbi_fw_options = get_option(option_opensbi_fw_options_str)
-opensbi_fw_type += '.bin'
-# TODO: support fw_payload for test AND nontest kernel
-
-if opensbi_dir == ''
-    warning('not building opensbi!')
-else
-    # TODO: pass as option?
-    opensbi_platform = 'generic'
-    opensbi_build_subdir = 'platform' / 'generic' / 'firmware'
-    opensbi_firmware_name = 'opensbi_' + target_machine.cpu() + '-fw_' + opensbi_fw_type
-
-    firmware_opensbi = custom_target(
-        opensbi_firmware_name,
-        command: [
-            script_make_opensbi,
-            meson.current_source_dir() / opensbi_dir,
-            meson.current_build_dir() / '@PRIVATE_DIR@',
-            'fw_' + opensbi_fw_type,
-            meson.current_build_dir() / opensbi_firmware_name,
-        ],
-        env: {
-            'CROSS_COMPILE': target_machine.cpu() + '-unknown-',
-            'PLATFORM_RISCV_XLEN': target_machine.cpu().strip('riscv'),
-            'PLATFORM': opensbi_platform,
-            'FW_OPTIONS': opensbi_fw_options,
-            'LLVM': compiler.get_id() == 'clang' ? '1' : '0',
-        },
-        output: opensbi_firmware_name,
-        build_by_default: true,
-    )
-    message('opensbi firmware path:', firmware_opensbi.full_path())
-endif
+opensbi_firmware = proj_opensbi.get_variable('firmware_dynamic_bin')
+opensbi_fw_type = proj_opensbi.get_variable('fw_type')
 
 # custom target to write QEMU launch command
 option_machine_str = 'machine'
@@ -342,7 +283,7 @@ if option_machine != ''
             'qemu-system-' + target_machine.cpu(),
             '-machine', option_machine,
             '-nographic -serial mon:stdio', define_sbi_exit ? '-no-reboot' : '',
-            '-bios ', firmware_opensbi.full_path(),
+            '-bios ', opensbi_firmware.full_path(),
         ],
     )
     qemu_kernel_str = opensbi_fw_type != 'payload' ? ' -kernel ' + exec_kernel_nontest.full_path() : ''
@@ -356,6 +297,7 @@ if option_machine != ''
         ],
         output: name_qemu_launch,
         build_by_default: true,
+        depends: opensbi_firmware,
     )
     message('qemu launch command written to', target_qemu_launch.full_path())
 else
@@ -379,10 +321,7 @@ if option_tests
         test(
             'kernel test '
             + test.replace('_test__', '').replace('_should_fail', ''),
-            find_program(
-                script_run_single_test,
-                required: true,
-            ),
+            script_run_single_test,
             args: [
                 define_sbi_exit ? test_parse_exitcode_str : '',
                 qemu_launch_cmd_str

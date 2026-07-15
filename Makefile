@@ -53,11 +53,18 @@ ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
 	-D enable-tests=true \
 	-D machine='${MACHINE}' \
-	-D opensbi-dir='${OPENSBI_DIR}' \
-	-D opensbi-fw-type='${OPENSBI_FW_TYPE}' \
-	-D opensbi-fw-options='${OPENSBI_FW_OPTIONS}'
+	-D opensbi:fw-type='${OPENSBI_FW_TYPE}' \
+	-D opensbi:fw-options='${OPENSBI_FW_OPTIONS}' \
+	-D opensbi:verbose="$$(\
+	echo '${COMPILE_ARGS}' | grep -q -e '--verbose' && echo true || echo false\
+	)"
 
-CROSS_FILE := misc/meson-machines/${TARGET}-${TOOLCHAIN}.txt
+CROSS_FILE_DIR := misc/meson-machines
+CROSS_FILE_COMMON := ${CROSS_FILE_DIR}/riscv_common.ini
+CROSS_FILE_TARGET := ${CROSS_FILE_DIR}/${TARGET}.ini
+CROSS_FILE_TOOLCHAIN := ${CROSS_FILE_DIR}/${TOOLCHAIN}.ini
+CROSS_FILE_FINAL := ${CROSS_FILE_DIR}/final.ini
+
 COMPILE_WRAPPER ?= misc/rewrite_paths.sh
 
 # clangd IDE support
@@ -107,19 +114,17 @@ link-compdb:
 	mkdir -p ${BUILD_BASE}
 	ln -sf ${PWD}/${BUILD}/${COMP_DB_FILENAME} ${PWD}/${BUILD_BASE}/${COMP_DB_FILENAME}
 
-# initializes git submodules
-.PHONY: git-submodules
-git-submodules:
-	git submodule update --init --recursive
-
 ### meson
 
 # meson setup, essentially configure
 .PHONY: setup configure
 configure: setup
-setup: link-compdb git-submodules
+setup: link-compdb
 	meson setup ${BUILD} \
-		--cross-file ${CROSS_FILE} \
+		--cross-file ${CROSS_FILE_COMMON} \
+		--cross-file ${CROSS_FILE_TARGET} \
+		--cross-file ${CROSS_FILE_TOOLCHAIN} \
+		--cross-file ${CROSS_FILE_FINAL} \
 		--reconfigure \
 		${ALL_SETUP_ARGS}
 

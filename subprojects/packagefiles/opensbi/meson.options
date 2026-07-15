@@ -1,0 +1,13 @@
+# opensbi firmware options string
+option('fw-options', type: 'string', value: '0x1')
+# opensbi firmware type
+option(
+    'fw-type',
+    type: 'combo',
+    choices: ['dynamic', 'jump', 'payload'],
+    value: 'dynamic',
+)
+# pass verbose flag to make
+option('verbose', type: 'boolean', value: false)
+
+# TODO: add option to pass dtb into opensbi, for shakti_c
