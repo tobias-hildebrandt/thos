@@ -29,9 +29,15 @@ c_args = get_option('c_args')
 link_args = get_option('c_link_args')
 
 # TODO pass in
-fw_text_start = '0x0'
-fw_jump_address = '0x80200000'
 fw_platform = 'generic'
+# address to put opensbi
+fw_text_start = '0x80000000'
+# address of kernel
+fw_jump_address = '0x80200000'
+# fw_payload_align = target_machine.cpu().contains('32') ? '0x400000' : '0x200000'
+fw_payload_align = '0x200000'
+fw_payload_offset = '0x200000' # TODO: jump_address - text_start??
+# TODO devicetree args? FW_FDT_*
 
 ### includes
 include_opensbi = include_directories('include')
@@ -99,13 +105,15 @@ lib_libplatsbi = custom_target(
 )
 
 ### pre-processed linker scripts
-name_firmwares = ['fw_dynamic', 'fw_jump']
+name_firmwares = ['fw_dynamic', 'fw_jump', 'fw_payload']
 
 defines = [
     # TODO: move to options
     ['-DFW_OPTIONS=' + fw_options],
     ['-DFW_TEXT_START=' + fw_text_start],
     ['-DFW_JUMP_ADDR=' + fw_jump_address],
+    ['-DFW_PAYLOAD_OFFSET=' + fw_payload_offset],
+    # ['-DFW_PAYLOAD_ALIGN=' + fw_payload_align],
 ]
 
 # preprocessor only
@@ -142,11 +150,11 @@ foreach name_firmware : name_firmwares
     }
 endforeach
 
-# TODO: refactor to script? custom_target? something?
-
 ### firmware elfs
 
+# map of fw_* -> { args: { elf: ..., bin: ... } } | { elf: ..., bin: ..., args: ... }
 firmwares = {}
+
 link_args += [
     # taken from opensbi's Makefile ELFFLAGS
     '-Wl,--gc-sections',
@@ -156,34 +164,81 @@ link_args += [
 ]
 
 foreach name_firmware : name_firmwares
+    # copy assembly source so that superprojects can use it
+    assembly_source = custom_target(
+        name_firmware + '.S',
+        command: [
+            'cp',
+            '@INPUT@',
+            '@OUTPUT@',
+        ],
+        input: meson.current_source_dir() / subdir_firmware / name_firmware + '.S',
+        output: name_firmware + '.S',
+    )
+
+    # arguments for targets
+    target_args = {
+        'elf': {
+            'extension': '.elf',
+            'sources': [assembly_source, lib_libplatsbi],
+            'c_args': defines,
+            'link_args': link_args,
+            'include_directories': [include_all],
+            'implicit_include_directories': false,
+            'dependencies': linker_script_targets[name_firmware],
+        },
+        'bin': {
+            'extension': '.bin',
+            'output': name_firmware + '.bin',
+            'depends': name_firmware + '.bin',
+        },
+    }
+
+    # fw_payload only exports args, not elf or bin
+    # user of this dependency must make target themselves
+    # and add -DFW_PAYLOAD_PATH=your_target.bin
+    if name_firmware == 'fw_payload'
+        firmwares += {
+            name_firmware: {
+                'args': target_args,
+            },
+        }
+        continue
+    endif
+
+    # fw_dynamic and fw_jump can be built here and used simply
+    elf = target_args['elf']
+    bin = target_args['bin']
+
     firmware_elf = executable(
-        name_firmware + '.elf',
+        name_firmware + elf['extension'],
         # sources
-        [subdir_firmware / name_firmware + '.S', lib_libplatsbi],
-        c_args: [defines],
-        link_args: link_args,
-        include_directories: [include_all],
-        implicit_include_directories: false,
-        dependencies: linker_script_targets[name_firmware],
+        elf['sources'],
+        c_args: elf['c_args'],
+        link_args: elf['link_args'],
+        include_directories: elf['include_directories'],
+        implicit_include_directories: elf['implicit_include_directories'],
+        dependencies: elf['dependencies'],
     )
     firmware_bin = custom_target(
-        name_firmware + '.bin',
+        name_firmware + bin['extension'],
+        # command depends on elf
+        # TODO: call above executable() inline??
         command: [
             script_make_bin,
             firmware_elf,
             '@OUTPUT@',
             '--strip-all',
         ],
-        output: name_firmware + '.bin',
+        output: bin['output'],
     )
 
     firmwares += {
         name_firmware: {
             'elf': firmware_elf,
             'bin': firmware_bin,
+            # if the user wants to build it themselves for some reason
+            'args': target_args,
         },
     }
 endforeach
-
-# TODO: export stuff to easily make fw_payload?
-#  FW_PAYLOAD_OFFSET FW_PAYLOAD_ALIGN

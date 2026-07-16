@@ -215,14 +215,15 @@ endforeach
 
 # kernel
 name_kernel = 'kernel'
-name_suffix_test = '-test'
-name_suffix_nontest = ''
+tag_test = '-test'
+tag_nontest = ''
+
 name_kernel_tests = 'tests.txt'
 name_kernel_testinfo = 'testinfo.c'
 
 # nontest kernel
 exec_kernel_nontest = executable(
-    name_kernel + name_suffix_nontest,
+    name_kernel + tag_nontest,
     dict_c_sources[subdir_kernel],
     dependencies: [dep_libc, deps_userexec_blobs],
     include_directories: [includes_proj, include_kernel],
@@ -230,6 +231,10 @@ exec_kernel_nontest = executable(
     link_args: kernel_link_args,
 )
 message('kernel path:', exec_kernel_nontest.full_path())
+
+kernel_elfs = {
+    tag_nontest: exec_kernel_nontest,
+}
 
 # kernel test target
 if option_tests
@@ -251,7 +256,7 @@ if option_tests
 
     # test kernel
     exec_kernel_test = executable(
-        name_kernel + name_suffix_test,
+        name_kernel + tag_test,
         [dict_c_sources[subdir_kernel], target_testinfo],
         dependencies: [dep_libc, deps_userexec_blobs],
         include_directories: [includes_proj, include_kernel],
@@ -260,11 +265,64 @@ if option_tests
         link_args: kernel_link_args,
     )
     message('test kernel path:', exec_kernel_test.full_path())
+
+    kernel_elfs += {tag_test: exec_kernel_test}
 endif
 
+# TODO: add support for '-bios default'
 opensbi_fw_type = proj_opensbi.get_variable('fw_type')
-opensbi_firmware = proj_opensbi.get_variable('firmwares')['fw_' + opensbi_fw_type]['bin']
+opensbi_firmware_dict = proj_opensbi.get_variable('firmwares')['fw_' + opensbi_fw_type]
 
+kernel_firmwares = {}
+if opensbi_fw_type == 'payload'
+    opensbi_elf_args = opensbi_firmware_dict['args']['elf']
+    opensbi_bin_args = opensbi_firmware_dict['args']['bin']
+
+    foreach suffix : kernel_elfs.keys()
+        kernel_bin = custom_target(
+            name_kernel + suffix + '.bin',
+            command: [
+                script_make_bin,
+                kernel_elfs[suffix],
+                '@OUTPUT@',
+                '--strip-all',
+            ],
+            output: name_kernel + suffix + '.bin',
+        )
+
+        opensbi_elf = executable(
+            'fw_payload' + suffix + opensbi_elf_args['extension'],
+            # sources
+            opensbi_elf_args['sources'],
+            c_args: opensbi_elf_args['c_args']
+            + ['-DFW_PAYLOAD_PATH="' + kernel_bin.full_path().strip() + '"'],
+            link_args: opensbi_elf_args['link_args'],
+            include_directories: opensbi_elf_args['include_directories'],
+            implicit_include_directories: opensbi_elf_args['implicit_include_directories'],
+            dependencies: [
+                opensbi_elf_args['dependencies'],
+                declare_dependency(sources: kernel_bin),
+            ],
+        )
+        opensbi_bin = custom_target(
+            'fw_payload' + suffix + opensbi_bin_args['extension'],
+            command: [
+                script_make_bin,
+                opensbi_elf,
+                '@OUTPUT@',
+                '--strip-all',
+            ],
+            output: 'fw_payload' + suffix + opensbi_bin_args['extension'],
+        )
+
+        kernel_firmwares += {suffix: opensbi_bin}
+    endforeach
+else
+    kernel_firmwares = {
+        tag_nontest: opensbi_firmware_dict['bin'],
+        tag_test: opensbi_firmware_dict['bin'],
+    }
+endif
 # custom target to write QEMU launch command
 option_machine_str = 'machine'
 option_machine = get_option(option_machine_str)
@@ -275,29 +333,44 @@ define_sbi_exit = [
 ].get(0)
 
 if option_machine != ''
-    name_qemu_launch = 'qemu-launch.sh'
+    name_qemu_launch = 'qemu-launch-' + opensbi_fw_type + '.sh'
 
-    # only partial, still needs a possible ' -kernel <kernel>' str
-    qemu_launch_cmd_str = ' '.join(
+    # only partial, still needs the bios bin or 'none' and ' -kernel <kernel>' str
+    qemu_partial_launch = ' '.join(
         [
             'qemu-system-' + target_machine.cpu(),
             '-machine', option_machine,
             '-nographic -serial mon:stdio', define_sbi_exit ? '-no-reboot' : '',
-            '-bios ', opensbi_firmware.full_path(),
+            '-bios ',
         ],
     )
-    qemu_kernel_str = opensbi_fw_type != 'payload' ? ' -kernel ' + exec_kernel_nontest.full_path() : ''
+    if opensbi_fw_type == 'payload'
+        # launch via empty bios with -kernel fw_payload
+        qemu_full_launch = [
+            qemu_partial_launch
+            + 'none -kernel '
+            + kernel_firmwares[tag_nontest].full_path(),
+        ][0]
+    else
+        # launch via normal bios with -kernel
+        qemu_full_launch = [
+            qemu_partial_launch
+            + kernel_firmwares[tag_nontest].full_path()
+            + ' -kernel '
+            + exec_kernel_nontest.full_path(),
+        ][0]
+    endif
 
     target_qemu_launch = custom_target(
         name_qemu_launch,
         command: [
             script_make_qemu_launch,
             '@OUTPUT@',
-            qemu_launch_cmd_str + qemu_kernel_str,
+            qemu_full_launch,
         ],
         output: name_qemu_launch,
         build_by_default: true,
-        depends: opensbi_firmware,
+        depends: [exec_kernel_nontest, kernel_firmwares[tag_nontest]],
     )
     message('qemu launch command written to', target_qemu_launch.full_path())
 else
@@ -307,7 +380,7 @@ endif
 # TODO: use custom_target() for compdb?
 
 ### tests
-# TODO: use target_qemu_launch?
+# TODO: use something similar to target_qemu_launch?
 if option_tests
     if option_machine == ''
         error('must pass machine arg to enable tests')
@@ -315,7 +388,22 @@ if option_tests
     # parse exitcode from stdout if USE_SBI_EXIT is defined and not 0
     test_parse_exitcode_str = '--parse-exitcode'
 
-    qemu_test_kernel_str = opensbi_fw_type != 'payload' ? ' -kernel ' + exec_kernel_test.full_path() : ''
+    if opensbi_fw_type == 'payload'
+        # launch via empty bios with -kernel fw_payload
+        qemu_full_launch = [
+            qemu_partial_launch
+            + 'none -kernel '
+            + kernel_firmwares[tag_test].full_path(),
+        ][0]
+    else
+        # launch via normal bios and kernel as -kernel
+        qemu_full_launch = [
+            qemu_partial_launch
+            + kernel_firmwares[tag_test].full_path()
+            + ' -kernel '
+            + exec_kernel_test.full_path(),
+        ][0]
+    endif
 
     # create individual tests
     foreach test : target_tests
@@ -325,14 +413,11 @@ if option_tests
             script_run_single_test,
             args: [
                 define_sbi_exit ? test_parse_exitcode_str : '',
-                qemu_launch_cmd_str
-                + qemu_test_kernel_str
-                + ' -append --test'
-                + test,
+                qemu_full_launch + ' -append --test' + test,
             ],
             should_fail: test.contains('_should_fail'),
             verbose: true,
-            depends: exec_kernel_test,
+            depends: [exec_kernel_test, kernel_firmwares[tag_test]],
         )
     endforeach
 else

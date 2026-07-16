@@ -30,7 +30,7 @@ OPENSBI_FW_OPTIONS ?= 0x1
 OPENSBI_FW_TYPE ?= dynamic
 
 # qemu stuff
-QEMU := ${BUILD}/qemu-launch.sh # built by meson
+QEMU := ${BUILD}/qemu-launch-${OPENSBI_FW_TYPE}.sh # built by meson
 QEMU_WRAP ?= misc/wrap_qemu.sh
 QEMU_OUTFILE := ${BUILD_BASE}/out
 QEMU_FLAGS :=
