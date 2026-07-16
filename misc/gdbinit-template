@@ -1,5 +1,6 @@
 set confirm off
-set architecture riscv:rv64
-target remote :PORT_GOES_HERE
+set architecture riscv:rvARCH_GOES_HERE
+target extended-remote :PORT_GOES_HERE
 set disassemble-next-line auto
-set riscv use-compressed-breakpoints yes
+set riscv use-compressed-breakpoints no
+set schedule-multiple on

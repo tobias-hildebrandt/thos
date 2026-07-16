@@ -1,0 +1,12 @@
+diff --git a/lib/sbi/sbi_trap_ldst.c b/lib/sbi/sbi_trap_ldst.c
+index e726520..1b81cb4 100644
+--- a/lib/sbi/sbi_trap_ldst.c
++++ b/lib/sbi/sbi_trap_ldst.c
+@@ -287,6 +287,7 @@ static int sbi_trap_emulate_store(struct sbi_trap_context *tcntx,
+ 	struct sbi_trap_regs *regs = &tcntx->regs;
+ 	ulong insn, insn_len, imm = 0, off = 0;
+ 	union sbi_ldst_data val;
++	val.data_ulong = 0;
+ 	struct sbi_trap_info uptrap;
+ 	bool xform = false, fp = false, c_store = false, c_stsp = false;
+ 	int rc, len = 0, prev_xlen = 0;

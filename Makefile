@@ -71,8 +71,9 @@ COMPILE_WRAPPER ?= misc/rewrite_paths.sh
 COMP_DB_FILENAME := compile_commands.json
 
 # gdb debugger support
+MAKE_GDB_INIT_SCRIPT := misc/make_gdbinit.sh
 GDB_INIT_TEMPLATE := misc/gdbinit-template
-GDB_INIT_FILE := ${BUILD_BASE}/gdbinit
+GDB_INIT_FILE := ${BUILD}/gdbinit
 GDB_PORT ?= 7777
 
 # device tree parser
@@ -174,8 +175,12 @@ qemu: build
 
 # generate the gdb init file
 ${GDB_INIT_FILE}:
-	mkdir -p ${BUILD_BASE}
-	sed 's/:PORT_GOES_HERE/:${GDB_PORT}/' < ${GDB_INIT_TEMPLATE} > $@
+	mkdir -p ${BUILD}
+	${MAKE_GDB_INIT_SCRIPT} $@ ${GDB_INIT_TEMPLATE} ${GDB_PORT} ${TARGET}
+# TODO: also move into script
+ifeq ($(strip ${MACHINE}),sifive_u)
+	{ echo "add-inferior"; echo "inferior 2"; echo "attach 2"; } >> $@
+endif
 
 # run kernel via qemu and wait for a remote gdb to attach
 # TODO: debug not working on sifive_u? maybe not supported?

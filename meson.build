@@ -377,8 +377,6 @@ else
     warning('no machine arg passed, not generating launch script!')
 endif
 
-# TODO: use custom_target() for compdb?
-
 ### tests
 # TODO: use something similar to target_qemu_launch?
 if option_tests
@@ -427,3 +425,7 @@ else
         find_program('false'),
     )
 endif
+
+# TODO: use custom_target() for compdb?
+
+# TODO: move gdbinit make here too
