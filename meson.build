@@ -262,8 +262,8 @@ if option_tests
     message('test kernel path:', exec_kernel_test.full_path())
 endif
 
-opensbi_firmware = proj_opensbi.get_variable('firmware_dynamic_bin')
 opensbi_fw_type = proj_opensbi.get_variable('fw_type')
+opensbi_firmware = proj_opensbi.get_variable('firmwares')['fw_' + opensbi_fw_type]['bin']
 
 # custom target to write QEMU launch command
 option_machine_str = 'machine'
@@ -307,6 +307,7 @@ endif
 # TODO: use custom_target() for compdb?
 
 ### tests
+# TODO: use target_qemu_launch?
 if option_tests
     if option_machine == ''
         error('must pass machine arg to enable tests')

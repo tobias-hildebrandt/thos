@@ -1,6 +1,7 @@
 project(
     'opensbi',
     ['c'],
+    version: '1.9.0',
     meson_version: '1.7.0',
 )
 
@@ -19,16 +20,17 @@ option_fw_type_str = 'fw-type'
 option_fw_options_str = 'fw-options'
 option_verbose_str = 'verbose'
 
-verbose = get_option(option_verbose_str)
 # TODO: build only specific fw type if this is passed in, otherwise build all
 fw_type = get_option(option_fw_type_str)
 fw_options = get_option(option_fw_options_str)
+verbose = get_option(option_verbose_str)
 
 c_args = get_option('c_args')
 link_args = get_option('c_link_args')
 
-# TODO pass in?
+# TODO pass in
 fw_text_start = '0x0'
+fw_jump_address = '0x80200000'
 fw_platform = 'generic'
 
 ### includes
@@ -36,6 +38,7 @@ include_opensbi = include_directories('include')
 include_firmware = include_directories(subdir_firmware)
 
 include_all = [include_opensbi, include_firmware]
+include_args = ['-I', 'include', '-I', subdir_firmware]
 
 ### make-wrapped static libraries
 
@@ -96,54 +99,54 @@ lib_libplatsbi = custom_target(
 )
 
 ### pre-processed linker scripts
+name_firmwares = ['fw_dynamic', 'fw_jump']
 
-# TODO: FW_PAYLOAD_OFFSET FW_PAYLOAD_ALIGN
 defines = [
-    # TODO: move to option?
-    '-DFW_TEXT_START='
-    + fw_text_start,
-    '-DFW_OPTIONS=' + fw_options,
+    # TODO: move to options
+    ['-DFW_OPTIONS=' + fw_options],
+    ['-DFW_TEXT_START=' + fw_text_start],
+    ['-DFW_JUMP_ADDR=' + fw_jump_address],
 ]
 
-args_preprocess = [
-    '-P', defines,
-    c_args,
-]
+# preprocessor only
+# no #line commands
+args_preprocess = ['-E', '-x', 'c', '-P', defines, c_args]
 
-name_linker_script_base = 'fw_base.ld'
-# TODO: all 3 types of firmware as exported dependencies
-name_linker_script_target = 'fw_dynamic.elf.ld'
+linker_script_targets = {}
+
+foreach name_firmware : name_firmwares
+    name = name_firmware + '.ld'
+    input = subdir_firmware / name_firmware + '.elf.ldS'
+    # TODO: move to script?
+    target = custom_target(
+        name,
+        command: [
+            compiler.cmd_array(),
+            args_preprocess,
+            include_args,
+            '@INPUT@',
+            '-o', '@OUTPUT@',
+        ],
+        input: input,
+        output: name,
+    )
+
+    # TODO: figure out real dependency?
+    dep_linker_script = declare_dependency(
+        sources: target,
+        link_args: '-Wl,-T' + target.full_path(),
+    )
+
+    linker_script_targets += {
+        name_firmware: dep_linker_script,
+    }
+endforeach
 
 # TODO: refactor to script? custom_target? something?
-linker_script_base = compiler.preprocess(
-    subdir_firmware / name_linker_script_base + 'S',
-    output: '@BASENAME@.ld',
-    compile_args: args_preprocess,
-    include_directories: [include_all],
-)
-dep_linker_script_base = declare_dependency(sources: linker_script_base)
-linker_script_target = compiler.preprocess(
-    subdir_firmware / name_linker_script_target + 'S',
-    output: '@BASENAME@.ld',
-    compile_args: args_preprocess,
-    include_directories: [include_all],
-    dependencies: dep_linker_script_base,
-)
-linker_script_path = ''
-foreach preprocessed : linker_script_target
-    if preprocessed.full_path().split('/')[-1] == name_linker_script_target
-        linker_script_path = preprocessed.full_path()
-    endif
-endforeach
-if linker_script_path == ''
-    error('failed to get preprocessed linker script:', name_linker_script_target)
-endif
-# TODO: real dependency
-dep_firmware_linker_script = declare_dependency(
-    link_args: '-Wl,-T' + linker_script_path,
-)
 
 ### firmware elfs
+
+firmwares = {}
 link_args += [
     # taken from opensbi's Makefile ELFFLAGS
     '-Wl,--gc-sections',
@@ -152,26 +155,35 @@ link_args += [
     '-Wl,-pie',
 ]
 
-name_firmware_dynamic = 'fw_dynamic'
-firmware_dynamic_elf = executable(
-    name_firmware_dynamic + '.elf',
-    [
-        subdir_firmware / 'fw_dynamic.S',
-        # lib_libsbi,
-        lib_libplatsbi,
-    ],
-    c_args: [defines],
-    link_args: link_args,
-    include_directories: [include_all],
-    implicit_include_directories: false,
-    build_by_default: true,
-    dependencies: [dep_firmware_linker_script],
-    link_depends: linker_script_target,
-)
-firmware_dynamic_bin = custom_target(
-    name_firmware_dynamic + '.bin',
-    command: [script_make_bin, firmware_dynamic_elf, '@OUTPUT@', '--strip-all'],
-    output: name_firmware_dynamic + '.bin',
-)
-# exported, don't complain
-_ = firmware_dynamic_bin
+foreach name_firmware : name_firmwares
+    firmware_elf = executable(
+        name_firmware + '.elf',
+        # sources
+        [subdir_firmware / name_firmware + '.S', lib_libplatsbi],
+        c_args: [defines],
+        link_args: link_args,
+        include_directories: [include_all],
+        implicit_include_directories: false,
+        dependencies: linker_script_targets[name_firmware],
+    )
+    firmware_bin = custom_target(
+        name_firmware + '.bin',
+        command: [
+            script_make_bin,
+            firmware_elf,
+            '@OUTPUT@',
+            '--strip-all',
+        ],
+        output: name_firmware + '.bin',
+    )
+
+    firmwares += {
+        name_firmware: {
+            'elf': firmware_elf,
+            'bin': firmware_bin,
+        },
+    }
+endforeach
+
+# TODO: export stuff to easily make fw_payload?
+#  FW_PAYLOAD_OFFSET FW_PAYLOAD_ALIGN

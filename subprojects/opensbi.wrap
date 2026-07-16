@@ -6,4 +6,4 @@ depth = 1
 patch_directory = opensbi
 
 [provide]
-dependency_names = firmware_dynamic_bin
+dependency_names = firmwares
