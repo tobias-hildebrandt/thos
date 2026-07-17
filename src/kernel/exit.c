@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "board.h"
+#include "device/board.h"
+#include "device/sifive_test.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "sbi.h"
-#include "sifive_test.h"
 
 // TODO: detect in qemu wrapper, shutdown qemu externally
 #define SHUTDOWN_FAIL_STRING "---UNABLE TO SHUTDOWN---"

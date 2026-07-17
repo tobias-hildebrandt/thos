@@ -3,9 +3,9 @@
 #include <stdint.h>
 
 #include "asm.h"
-#include "board.h"
 #include "build_info.h"
 #include "csr.h"
+#include "device/board.h"
 #include "sbi.h"
 
 uint64_t read_time(void) {

@@ -1,12 +1,12 @@
-#include "board.h"
+#include "device/board.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "device/sifive_plic.h"
+#include "device/sifive_test.h"
+#include "device/sifive_uart.h"
 #include "panic.h"
-#include "sifive_plic.h"
-#include "sifive_test.h"
-#include "sifive_uart.h"
 #include "util.h"
 
 // TODO: parse from device tree at runtime

@@ -4,7 +4,7 @@
 #include <stdio.h>   // IWYU pragma: keep
 #include <stdlib.h>  // IWYU pragma: keep
 
-#include "device_tree.h"
+#include "device/device_tree.h"
 #include "util.h"
 
 #define TEST_NAME(NAME) CONCAT_(_test_, NAME)

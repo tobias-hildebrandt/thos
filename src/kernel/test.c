@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>  // IWYU pragma: keep
 
-#include "device_tree.h"
+#include "device/device_tree.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "panic.h"

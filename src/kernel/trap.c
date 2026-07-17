@@ -7,16 +7,16 @@
 
 #include "asm.h"
 #include "bits.h"
-#include "board.h"
 #include "build_info.h"
 #include "csr.h"
+#include "device/board.h"
+#include "device/sifive_plic.h"
+#include "device/sifive_uart.h"
 #include "flags.h"
 #include "paging.h"  // IWYU pragma: keep
 #include "panic.h"
 #include "process.h"
 #include "sections.h"
-#include "sifive_plic.h"
-#include "sifive_uart.h"
 #include "syscall.h"
 #include "util.h"
 

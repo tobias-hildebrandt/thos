@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "board.h"
 #include "build_info.h"
+#include "device/board.h"
+#include "device/sifive_plic.h"
 #include "flags.h"
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
-#include "sifive_plic.h"
 #include "util.h"
 
 #if POINTER_BITS == 64

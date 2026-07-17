@@ -5,7 +5,7 @@
 
 #include "asm.h"
 #include "bits.h"
-#include "board.h"
+#include "device/board.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 
