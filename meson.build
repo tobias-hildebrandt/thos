@@ -15,16 +15,16 @@ proj_opensbi = subproject('opensbi')
 compiler = meson.get_compiler('c')
 
 ### scripts
-scripts_dir = [meson.current_source_dir() / 'misc']
+misc_dir = meson.current_source_dir() / 'misc'
 
-script_list_sources = find_program('list_sources.sh', dirs: scripts_dir)
-script_make_bin = find_program('make_bin.sh', dirs: scripts_dir)
-script_user_asm = find_program('make_userexec_blob_asm.sh', dirs: scripts_dir)
-script_find_libgcc = find_program('find_libgcc.sh', dirs: scripts_dir)
-script_find_tests = find_program('find_tests.sh', dirs: scripts_dir)
-script_make_testinfo = find_program('make_test_info.sh', dirs: scripts_dir)
-script_run_single_test = find_program('run_single_test.sh', dirs: scripts_dir)
-script_make_qemu_launch = find_program('make_qemu_launch.sh', dirs: scripts_dir)
+script_list_sources = find_program('list_sources.sh', dirs: [misc_dir])
+script_make_bin = find_program('make_bin.sh', dirs: [misc_dir])
+script_user_asm = find_program('make_userexec_blob_asm.sh', dirs: [misc_dir])
+script_find_libgcc = find_program('find_libgcc.sh', dirs: [misc_dir])
+script_find_tests = find_program('find_tests.sh', dirs: [misc_dir])
+script_make_testinfo = find_program('make_test_info.sh', dirs: [misc_dir])
+script_run_single_test = find_program('run_single_test.sh', dirs: [misc_dir])
+script_make_qemu_launch = find_program('make_qemu_launch.sh', dirs: [misc_dir])
 
 ### source directories
 dir_base = 'src'
@@ -60,6 +60,7 @@ include_kernel = include_directories(dir_base / subdir_kernel)
 include_libc = include_directories(dir_base / subdir_libc, is_system: true)
 include_userlib = include_directories(dir_base / subdir_userlib)
 include_user = include_directories(dir_base / subdir_user)
+include_build_dir = include_directories('.')
 
 # must be manually included in build targets, no project_includes() in meson
 includes_proj = [include_common, include_libc]
@@ -92,22 +93,84 @@ elif compiler.get_id() == 'gcc'
     c_args_proj += c_args_gcc
 endif
 
-# command-line options
+# defines
 option_defines_str = 'defines'
 option_defines = get_option(option_defines_str)
-if option_defines != ''
-    foreach define : option_defines.strip().split(' ')
-        c_args_proj += '-D' + define
-    endforeach
-endif
+
+file_defines_debug = misc_dir / 'defines' / 'debug.txt'
+file_defines_other = misc_dir / 'defines' / 'other.txt'
+
+# parse defines files, generate a flags.h
+# TODO: add and parse comments in files?
+defines_debug = run_command(
+    ['grep', '-v', '#', file_defines_debug],
+    check: true,
+).stdout().splitlines()
+defines_other = run_command(
+    ['grep', '-v', '#', file_defines_other],
+    check: true,
+).stdout().splitlines()
+
+# TODO: move to shell script?
+defines_map = {}
+define_debug_all = false
+foreach define : option_defines.strip().split(' ')
+    if define == ''
+        continue
+    endif
+    define_splits = define.split('=')
+    if define_splits[0] == 'DEBUG' and define_splits[1].to_int() > 0
+        define_debug_all = true
+        continue
+    endif
+    defines_map += {
+        define_splits[0]: define_splits[1],
+    }
+endforeach
+foreach define : defines_other
+    if define == '' or defines_map.has_key(define)
+        continue
+    endif
+    define_splits = define.split('=')
+    defines_map += {
+        define_splits[0]: define_splits[1],
+    }
+endforeach
+foreach define : defines_debug
+    if define == ''
+        continue
+    endif
+    if define_debug_all
+        defines_map += {
+            define: 1,
+        }
+        continue
+    endif
+    if defines_map.has_key(define)
+        continue
+    endif
+    defines_map += {
+        define: 0,
+    }
+endforeach
+
+# TODO: make private subdir, copy there, -I that instead of entire builddir
+header_flags = configure_file(
+    output: 'flags.h',
+    configuration: defines_map,
+)
+
+# TESTS_ENABLED and MACHINE still get passed to compiler on commandline
+
 # tests option
 option_tests_str = 'enable-tests'
 c_define_tests = 'TESTS_ENABLED'
-c_args_test = []
 option_tests = get_option(option_tests_str)
-if option_tests
-    c_args_test += '-D' + c_define_tests
-endif
+
+# normal kernel gets 0, test kernel gets 1
+c_arg_kernel_nontest = '-D' + c_define_tests + '=0'
+c_arg_kernel_test = '-D' + c_define_tests + '=1'
+
 # machine option
 option_machine_str = 'machine'
 option_machine = get_option(option_machine_str)
@@ -229,11 +292,12 @@ name_kernel_testinfo = 'testinfo.c'
 # nontest kernel
 exec_kernel_nontest = executable(
     name_kernel + tag_nontest,
-    dict_c_sources[subdir_kernel],
+    dict_c_sources[subdir_kernel] + header_flags,
     dependencies: [dep_libc, deps_userexec_blobs],
-    include_directories: [includes_proj, include_kernel],
+    include_directories: [includes_proj, include_kernel, include_build_dir],
     implicit_include_directories: false,
     link_args: kernel_link_args,
+    c_args: c_arg_kernel_nontest,
 )
 message('kernel path:', exec_kernel_nontest.full_path())
 
@@ -262,11 +326,11 @@ if option_tests
     # test kernel
     exec_kernel_test = executable(
         name_kernel + tag_test,
-        [dict_c_sources[subdir_kernel], target_testinfo],
+        [dict_c_sources[subdir_kernel], target_testinfo, header_flags],
         dependencies: [dep_libc, deps_userexec_blobs],
-        include_directories: [includes_proj, include_kernel],
+        include_directories: [includes_proj, include_kernel, include_build_dir],
         implicit_include_directories: false,
-        c_args: c_args_test,
+        c_args: c_arg_kernel_test,
         link_args: kernel_link_args,
     )
     message('test kernel path:', exec_kernel_test.full_path())

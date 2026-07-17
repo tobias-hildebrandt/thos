@@ -12,6 +12,7 @@
 // TODO: parse from device tree at runtime
 
 #ifndef MACHINE
+#pragma message "MACHINE unset, default to unknown!"
 #define MACHINE unknown
 #endif
 
