@@ -14,7 +14,7 @@ mkfifo "$PIPE"
 # stdbuf needed to force tr to have unbuffered output
 stdbuf -o0 tr -d '\r' < "$PIPE" | tee -a "$OUTFILE" &
 
-$COMMAND > "$PIPE"
+$COMMAND > "$PIPE" 2>&1
 EXITCODE=$?
 
 # shellcheck disable=SC2086

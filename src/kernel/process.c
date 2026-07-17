@@ -245,7 +245,7 @@ Process* find_next_process(void) {
 }
 
 // switch to a different process
-// called from inside a trap OR kernel_main OR clean_process
+// TODO: scheduling algorithm
 void kernel_switch(TrapFrame* frame) {
     PRINTF_IF(DEBUG_SWITCH, "kernel_switch: framepointer %p\n", frame);
 
@@ -312,12 +312,12 @@ void kernel_switch(TrapFrame* frame) {
                sepc);
     }
 
-    // TODO: memset 0 process's kernel stack?
-
     // make sure kernel traps are active
-    enable_traps_on_return(Process_is_kernel_process(current_process));
-    // and timer interrupts
-    enable_timer_interrupts();
+    prepare_sstatus_for_return(Process_is_kernel_process(current_process));
+
+    // enable necessary supervisor interrupts (will only actually be active
+    // after return)
+    enable_interrupts();
 
     SatpRegister new_satp = satp_from_page_table(current_process->page_table);
 

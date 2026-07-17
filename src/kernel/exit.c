@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "board.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "sbi.h"
@@ -12,9 +13,9 @@
 // implement's stdlib.h's exit
 void exit(int exit_code) {
     PRINTF_IF(DEBUG_EXIT, "shutting down via %s\n",
-              USE_SBI_EXIT ? "sbi" : "sifive_test");
+              board.sifive_test ? "sifive_test" : "sbi");
 
-    if (!USE_SBI_EXIT) {
+    if (board.sifive_test) {
         PRINTF_IF(DEBUG_EXIT, "trying sifive_test shutdown\n");
         sifive_test_exit(exit_code);
         PRINTF_IF(DEBUG_EXIT, "sifive_test_exit fail\n");
@@ -22,7 +23,7 @@ void exit(int exit_code) {
 
     SbiReturn ret;
 
-    printf("---EXITCODE %d---", exit_code);
+    printf("---EXITCODE %d---\n", exit_code);
 
     PRINTF_IF(DEBUG_EXIT, "trying SBI shutdown\n");
     ret = sbi_shutdown(0x0);

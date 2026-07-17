@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "build_info.h"
 
@@ -41,3 +42,9 @@
 #define REGS_START
 #define REGS_END
 #endif
+
+// atomically OR a word in memory
+static inline void atomic_or_memory_word(uint32_t* ptr, uint32_t value) {
+    ASM("amoor.w x0, %[source], (%[store])" ::[source] "r"(value),
+        [store] "r"(ptr) : "memory");
+}

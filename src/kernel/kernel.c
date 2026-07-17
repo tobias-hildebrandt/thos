@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "asm.h"
+#include "board.h"
 #include "build_info.h"
 #include "debug.h"
 #include "device_tree.h"
@@ -11,6 +12,7 @@
 #include "paging.h"
 #include "process.h"
 #include "sections.h"
+#include "sifive_uart.h"
 #include "test.h"
 #include "trap.h"
 #include "util.h"
@@ -49,6 +51,11 @@ void kernel_main(uintptr_t hart_id,
     if (DUMP_DEVICE_TREE) {
         DeviceTree_dump_raw(device_tree_headers);
         DeviceTree_print(&device_tree);
+    }
+
+    // TODO: move into a board init function
+    if (board.sifive_uart1) {
+        sifive_uart_init();
     }
 
     if (DEBUG_SECTIONS) {

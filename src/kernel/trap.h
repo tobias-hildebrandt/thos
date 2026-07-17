@@ -25,12 +25,13 @@ struct TrapFrame {
 typedef struct TrapFrame TrapFrame;
 
 void enable_trap_vector(void);
-void enable_traps_on_return(bool return_to_kernel_mode);
-void disable_traps_on_return(void);
+void prepare_sstatus_for_return(bool return_to_kernel_mode);
+void enable_interrupts(void);
 void disable_traps_now(void);
 void restore_after_trap(TrapFrame* context);
 void TrapFrame_print(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // trigger supervisor software interrupt
-#define KERNEL_SOFTWARE_INTERRUPT() csr_write_sip(BIT_TO_INT(SIP_SSIP))
+#define KERNEL_SOFTWARE_INTERRUPT() \
+    csr_write_sip(BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT))

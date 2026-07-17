@@ -4,12 +4,14 @@
 #include <stdlib.h>  // IWYU pragma: keep, needed for exit
 
 #include "flags.h"  // IWYU pragma: keep, needed for PANIC_LOOP
+#include "trap.h"   // IWYU pragma: keep, needed for disable_traps_now
 
 // TODO: extract to function, simplify macros?
 
 #if PANIC_LOOP == 0
 #define PANIC(format_str, ...)                            \
     do {                                                  \
+        disable_traps_now();                              \
         printf(                                           \
             "!!!\n"                                       \
             "Kernel panic!\n"                             \
@@ -21,6 +23,7 @@
 #else
 #define PANIC(format_str, ...)                            \
     do {                                                  \
+        disable_traps_now();                              \
         printf(                                           \
             "!!!\n"                                       \
             "Kernel panic!\n"                             \

@@ -7,6 +7,7 @@
 
 #include "asm.h"
 #include "bits.h"
+#include "board.h"
 #include "build_info.h"
 #include "csr.h"
 #include "flags.h"
@@ -14,6 +15,8 @@
 #include "panic.h"
 #include "process.h"
 #include "sections.h"
+#include "sifive_plic.h"
+#include "sifive_uart.h"
 #include "syscall.h"
 #include "util.h"
 
@@ -29,13 +32,14 @@
 #define SUPERVISOR_SOFTWARE_INTERRUPT SCAUSE(1, 1)
 #define ECALL_U_MODE SCAUSE(0, 8)
 #define SUPERVISOR_TIMER_INTERRUPT SCAUSE(1, 5)
+#define SUPERVISOR_EXTERNAL_INTERRUPT SCAUSE(1, 9)
 
 const char* decode_scause(uint64_t scause) {
     switch (scause) {
             // clang-format off
         case SUPERVISOR_SOFTWARE_INTERRUPT: return "Supervisor software interrupt";
         case SUPERVISOR_TIMER_INTERRUPT: return "Supervisor timer interrupt";
-        SCAUSE_CASE(1, 9, "Supervisor external interrupt");
+        case SUPERVISOR_EXTERNAL_INTERRUPT: return "Supervisor external interrupt";
         SCAUSE_CASE(1, 13, "Counter-overflow interrupt");
         SCAUSE_CASE(0, 0, "Instruction address misaligned");
         SCAUSE_CASE(0, 1, "Instruction access fault");
@@ -105,33 +109,39 @@ void handle_trap(TrapFrame* frame) {
     uintptr_t stval = csr_read_stval();
     uintptr_t sepc = csr_read_sepc();
     uintptr_t sstatus = csr_read_sstatus();
-    disable_traps_on_return();
 
     bool was_in_kernel_mode = BIT_GET(sstatus, SSTATUS_SPP);
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
     bool timer_interrupt = (scause == SUPERVISOR_TIMER_INTERRUPT);
+    bool external_interrupt = (scause == SUPERVISOR_EXTERNAL_INTERRUPT);
+    bool before_processes = current_process_stack_top == NULL;
 
     bool fatal =
-        (was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
-        (!was_in_kernel_mode && !(ecall));
+        ((was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
+         (!was_in_kernel_mode && !(ecall))) &&
+        !external_interrupt;
 
     int pid = current_process == NULL ? -1 : my_pid();
 
+    // TODO: debug flag for external interrupts
     if ((was_in_kernel_mode && fatal) ||
         (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
-         (timer_interrupt && DEBUG_TIMER_INTERRUPTS))) {
+         (timer_interrupt && DEBUG_TIMER_INTERRUPTS) ||
+         (external_interrupt && DEBUG_EXTERNAL_INTERRUPTS))) {
         printf(
             "\n***\ntrap: %s\n"
             "scause:  %p, stval: %p, sepc: %p\n"
             "sstatus: %p\n"
-            "pid: %d\n"
+            "pid: %d, before_processes: %s\n"
             "(was in %s mode)\n",
             decode_scause(scause), scause, stval, sepc, sstatus, pid,
+            before_processes ? "yes" : "no",
             was_in_kernel_mode ? "kernel" : "user");
 
         if (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
-            (timer_interrupt && DEBUG_TIMER_INTERRUPTS == 2)) {
+            (timer_interrupt && DEBUG_TIMER_INTERRUPTS == 2) ||
+            (external_interrupt && DEBUG_EXTERNAL_INTERRUPTS == 2)) {
             TrapFrame_print(frame);
         }
 
@@ -146,6 +156,21 @@ void handle_trap(TrapFrame* frame) {
 
         if (ecall) {
             handle_syscall(frame);
+        }
+
+        // TODO: move to own handler
+        if (external_interrupt) {
+            GET_BOARD_DEVICE(board.sifive_plic);
+            GET_BOARD_DEVICE(board.sifive_uart1);
+
+            uint32_t interrupt = sifive_plic_claim(1);
+            if (interrupt == SIFIVE_UART1_INTERRUPT) {
+                sifive_uart_drain();
+            } else {
+                PANIC("claimed unknown external interrupt: %d\n", interrupt);
+            }
+
+            sifive_plic_complete(1, interrupt);
         }
 
         // run switch
@@ -173,6 +198,8 @@ void handle_trap(TrapFrame* frame) {
         PANIC("fatal trap");
     };
 }
+
+#define TRAP_STACK_OK "trap_vector_stack_ok"
 
 // 12.1.2. Supervisor Trap Vector Base Address (stvec) Register
 // "the address must be 4-byte aligned"
@@ -206,6 +233,12 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         // sp = (uintptr_t) current_process_stack_top;
         ASM_LOAD "sp, " STRINGIFY(current_process_stack_top) "\n"
 
+        // if sp is not zero (trap before processes begin), jump ahead
+        "bnez sp, "TRAP_STACK_OK"\n"
+        // reload from scratch
+        "csrr sp, sscratch\n"
+
+        ASM_SET_LABEL(TRAP_STACK_OK)
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
 
@@ -349,35 +382,32 @@ void enable_trap_vector(void) {
     csr_write_stvec((uintptr_t)trap_vector);
 }
 
-// sets bits in sstatus and sie to enable supervisor interrupts and
-// supervisor software interrupts
-// 12.1.1.3. Supervisor Interrupt (sip and sie) Registers
-void enable_traps_on_return(bool return_to_kernel_mode) {
+// sets bits in sstatus to enable traps after return
+void prepare_sstatus_for_return(bool return_to_kernel_mode) {
     uintptr_t sstatus = csr_read_sstatus();
-    uintptr_t sie = csr_read_sie();
 
     BIT_SET(sstatus, SSTATUS_TRAPS_AFTER_SRET);
     BIT_SET(sstatus, SSTATUS_SUM);
-
     BIT_BOOL(sstatus, SSTATUS_PRIVILEGE, return_to_kernel_mode);
 
     // printf("sstatus: %p\nsie: %p\n", sstatus, sie);
 
-    BIT_SET(sie, SIE_SSIE);
-
     // write
     csr_write_sstatus(sstatus);
-    csr_write_sie(sie);
 }
 
-void disable_traps_on_return(void) {
-    uintptr_t sstatus = csr_read_sstatus();
-    BIT_UNSET(sstatus, SSTATUS_TRAPS_AFTER_SRET);
-    csr_write_sstatus(sstatus);
-}
-
+// disable supervisor traps right now
 void disable_traps_now(void) {
     uintptr_t sstatus = csr_read_sstatus();
     BIT_UNSET(sstatus, SSTATUS_TRAPS_NOW);
     csr_write_sstatus(sstatus);
+}
+
+// enable SIE's supervisor software, timer, and external interrupt enable bits
+void enable_interrupts(void) {
+    uintptr_t sie = csr_read_sie();
+    sie = BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT) |
+          BIT_TO_INT(SIE_SIP_TIMER_INTERRUPT) |
+          BIT_TO_INT(SIE_SIP_EXTERNAL_INTERRUPT);
+    csr_write_sie(sie);
 }

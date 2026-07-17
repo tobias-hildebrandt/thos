@@ -108,6 +108,11 @@ option_tests = get_option(option_tests_str)
 if option_tests
     c_args_test += '-D' + c_define_tests
 endif
+# machine option
+option_machine_str = 'machine'
+option_machine = get_option(option_machine_str)
+
+c_args_proj += '-DMACHINE=' + option_machine
 
 # TODO: build libgcc / llvm compiler-rt as subprojects?
 
@@ -324,26 +329,33 @@ else
     }
 endif
 # custom target to write QEMU launch command
-option_machine_str = 'machine'
-option_machine = get_option(option_machine_str)
-
-define_sbi_exit = [
-    option_defines.contains('USE_SBI_EXIT=')
-    and not option_defines.contains('USE_SBI_EXIT=0'),
-].get(0)
 
 if option_machine != ''
     name_qemu_launch = 'qemu-launch-' + opensbi_fw_type + '.sh'
+
+    # TODO: centralize config in machine files readable in C and meson?
+    qemu_no_reboot = false
+
+    qemu_extra_devices = ''
+    if option_machine == 'sifive_u'
+        qemu_no_reboot = true
+        # TODO: actually use this in qemu launch script and tests
+        qemu_extra_devices = [
+            '-chardev pipe,path=build/serial1.fifo,id=char1',
+            ' -serial chardev:char1',
+        ]
+    endif
 
     # only partial, still needs the bios bin or 'none' and ' -kernel <kernel>' str
     qemu_partial_launch = ' '.join(
         [
             'qemu-system-' + target_machine.cpu(),
             '-machine', option_machine,
-            '-nographic -serial mon:stdio', define_sbi_exit ? '-no-reboot' : '',
+            '-nographic -serial mon:stdio', qemu_no_reboot ? '-no-reboot' : '',
             '-bios ',
         ],
     )
+    # TODO: use format strings? or move logic into shell script
     if opensbi_fw_type == 'payload'
         # launch via empty bios with -kernel fw_payload
         qemu_full_launch = [
@@ -383,7 +395,7 @@ if option_tests
     if option_machine == ''
         error('must pass machine arg to enable tests')
     endif
-    # parse exitcode from stdout if USE_SBI_EXIT is defined and not 0
+    # parse exitcode from stdout
     test_parse_exitcode_str = '--parse-exitcode'
 
     if opensbi_fw_type == 'payload'
@@ -410,7 +422,7 @@ if option_tests
             + test.replace('_test__', '').replace('_should_fail', ''),
             script_run_single_test,
             args: [
-                define_sbi_exit ? test_parse_exitcode_str : '',
+                qemu_no_reboot ? test_parse_exitcode_str : '',
                 qemu_full_launch + ' -append --test' + test,
             ],
             should_fail: test.contains('_should_fail'),

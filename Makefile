@@ -40,19 +40,11 @@ SETUP_ARGS ?=
 COMPILE_ARGS ?=
 TEST_ARGS ?= # args passed to `meson test`, not `meson setup -D test-args=`
 DEFINES ?=
-TEST_PREFIX_ARGS ?=
-
-# force specific variables based on machine
-ifeq ($(strip ${MACHINE}),sifive_u)
-override DEFINES += USE_SBI_EXIT=1 USE_SBI_SET_TIMER=1
-override QEMU_PARTIAL_FLAGS += -no-reboot
-override TEST_PREFIX_ARGS := --parse-exitcode
-endif
 
 ALL_SETUP_ARGS ?= ${SETUP_ARGS} \
 	-D defines='${DEFINES}' \
 	-D enable-tests=true \
-	-D machine='${MACHINE}' \
+	-D machine=${MACHINE} \
 	-D opensbi:fw-type='${OPENSBI_FW_TYPE}' \
 	-D opensbi:fw-options='${OPENSBI_FW_OPTIONS}' \
 	-D opensbi:verbose="$$(\
@@ -140,6 +132,7 @@ build: setup
 ifneq ($(strip ${DUMP}),)
 	${OBJDUMP} -D ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
 	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -D ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
+	${OBJDUMP} -D ${BUILD}/subprojects/opensbi/fw_dynamic.elf > ${BUILD}/fw_dynamic.objdump
 endif
 
 # meson test
@@ -197,7 +190,7 @@ qemu-gdb: build ${GDB_INIT_FILE}
 
 # dump and decode device tree
 .PHONY: device-tree
-device-tree: DEFINES += DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
+device-tree: override DEFINES += DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
 device-tree: build
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
 	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD}/dt.hex ${BUILD}/dt.dtb ${BUILD}/dt.dts

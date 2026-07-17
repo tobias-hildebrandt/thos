@@ -4,6 +4,8 @@
 
 #include "asm.h"
 
+// TODO: CSR atomic read set or clear? csr rs / csr rc
+
 #define READ_CSR_IMPL(csr)                         \
     static inline uintptr_t csr_read_##csr(void) { \
         uintptr_t value;                           \
@@ -48,11 +50,11 @@ CSR_IMPL(timeh)
 // SSTATUS.SUM allows kernel to access user-marked pages
 #define SSTATUS_SUM 18
 
-// SIP.SSIP supervisor software interrupt pending
-#define SIP_SSIP 1
+// SIE.SSIE/SIP.SSIP supervisor software interrupt
+#define SIE_SIP_SOFTWARE_INTERRUPT 1
 
-// SIE.STIE supervisor timer interrupt enable
-#define SIE_ENABLE_TIMER_INTERRUPTS 5
+// SIE.STIE/SIP.STIP  supervisor timer interrupt
+#define SIE_SIP_TIMER_INTERRUPT 5
 
-// SIE.SSIE supervisor software interrupt enable
-#define SIE_SSIE 1
+// SIE.SEIE/SIP.SEIP  supervisor external interrupt
+#define SIE_SIP_EXTERNAL_INTERRUPT 9

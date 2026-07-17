@@ -5,12 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "board.h"
 #include "build_info.h"
 #include "flags.h"
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
-#include "sifive_test.h"
+#include "sifive_plic.h"
 #include "util.h"
 
 #if POINTER_BITS == 64
@@ -271,11 +272,32 @@ void init_kernel_page_table(void) {
     }
 
     // map device addresses
-    if (!USE_SBI_EXIT) {
-        // need to map sifive_test device
+
+    if (board.sifive_test) {
+        PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_test address: %p\n",
+                  board.sifive_test);
         map_address(kernel_page_table,
-                    (VirtualAddress){.value = SIFIVE_TEST_DEVICE_ADDR},
-                    SIFIVE_TEST_DEVICE_ADDR,
+                    (VirtualAddress){.value = board.sifive_test},
+                    board.sifive_test,
+                    (PageTableEntryFlags){.read = true, .write = true});
+    }
+    if (board.sifive_plic) {
+        PRINTF_IF(DEBUG_DEVICE_ADDRESSES,
+                  "mapping sifive_plic addresses: %p to %p\n",
+                  board.sifive_plic, board.sifive_plic + SIFIVE_PLIC_LEN);
+        for (uintptr_t page = board.sifive_plic;
+             page < (board.sifive_plic + SIFIVE_PLIC_LEN); page += PAGE_SIZE) {
+            map_address(kernel_page_table, (VirtualAddress){.value = page},
+                        page,
+                        (PageTableEntryFlags){.read = true, .write = true});
+        }
+    }
+    if (board.sifive_uart1) {
+        PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_uart1 address: %p\n",
+                  board.sifive_uart1);
+        map_address(kernel_page_table,
+                    (VirtualAddress){.value = board.sifive_uart1},
+                    board.sifive_uart1,
                     (PageTableEntryFlags){.read = true, .write = true});
     }
 
