@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "buffer.h"
 #include "paging.h"
 #include "trap.h"
 
@@ -27,6 +28,8 @@ struct Process {
     TrapFrame context;
     uintptr_t program_counter;
     PageTable page_table;
+    char out_buffer_array[BUFFER_LEN];
+    Buffer out_buffer;
 };
 typedef struct Process Process;
 

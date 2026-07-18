@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "asm.h"
+#include "buffer.h"
 #include "csr.h"
 #include "flags.h"
 #include "io.h"
@@ -118,15 +119,18 @@ Process* allocate_process(ProcessArguments args) {
         }
     }
 
+    if (process == NULL) {
+        PANIC("no more available processes");
+    }
+
     // make sure we zero out everything including kernel stack
     memset(process, 0, sizeof(Process));
 
     // set ID
     process->id = i;
 
-    if (process == NULL) {
-        PANIC("no more available processes");
-    }
+    // set up output buffer
+    process->out_buffer = Buffer_wrap(process->out_buffer_array, BUFFER_LEN);
 
     // create page table and map kernel memory
     if (args.is_user_program) {

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "buffer.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "process.h"
@@ -15,10 +16,10 @@ void handle_syscall(TrapFrame* frame) {
             break;
         }
         case SYSCALL_PUTCHAR: {
-            PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: yield\n");
+            PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: putchar\n");
             int ch = frame->a1;
-            int result = putchar(ch);
-            frame->a0 = result;
+            Buffer_output_handle_new(&current_process->out_buffer, ch);
+            frame->a0 = ch;
             break;
         }
         case SYSCALL_EXIT: {

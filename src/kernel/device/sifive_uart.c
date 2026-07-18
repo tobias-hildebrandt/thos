@@ -6,6 +6,7 @@
 
 #include "asm.h"
 #include "bits.h"
+#include "buffer.h"
 #include "device/board.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
@@ -40,6 +41,9 @@
 
 typedef uint32_t SifiveUartRegister;
 
+static Buffer uart1_buffer;
+static char uart1_buffer_array[BUFFER_LEN];
+
 // MUST read whole word, individual bytes will cause fault!
 uint32_t sifive_uart_read_register(SifiveUartRegister* uart) {
     uint32_t value;
@@ -61,6 +65,8 @@ void sifive_uart_print_regs(SifiveUartRegister* uart) {
 
 void sifive_uart_init(void) {
     SifiveUartRegister* base = GET_BOARD_DEVICE(board.sifive_uart1);
+
+    uart1_buffer = Buffer_wrap(uart1_buffer_array, BUFFER_LEN);
 
     if (DEBUG_SIFIVE_UART) {
         printf("init_uart\n");
@@ -100,8 +106,8 @@ void sifive_uart_init(void) {
     sifive_plic_set_priority(5, 1);
 }
 
-// receive all pending characters
-// TODO: do something else instead of printf-ing them?
+// read all pending characters, handle them in output buffer
+// TODO: redirectable buffer
 void sifive_uart_drain(void) {
     SifiveUartRegister* pointer = GET_BOARD_DEVICE(board.sifive_uart1);
 
@@ -129,7 +135,8 @@ void sifive_uart_drain(void) {
 
                 PRINTF_IF(DEBUG_SIFIVE_UART, "SiFiveUart got char: 0x%02x\n",
                           ch);
-                putchar(ch);
+
+                Buffer_output_handle_new(&uart1_buffer, ch);
             }
         }
     } while (pending);
