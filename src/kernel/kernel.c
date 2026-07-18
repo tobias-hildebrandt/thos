@@ -17,7 +17,7 @@
 #include "trap.h"
 #include "util.h"
 
-__attribute__((section(".text.boot"))) NAKED void boot(void) {
+SECTION(".text.boot") NAKED void boot(void) {
     // set stack pointer
     ASM("la sp, " STRINGIFY(STACK_END) "\n");
     ASM(ASM_LOAD "sp, (sp)\n");

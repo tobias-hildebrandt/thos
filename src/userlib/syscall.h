@@ -3,14 +3,14 @@
 long syscall(long arg0, long arg1, long arg2, long arg3, long arg4, long arg5,
              long arg6, long arg7);
 
-#define __SYSCALL_EXPAND(x) x
-#define __SYSCALL_GET_MACRO(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, \
-                            _arg7, name, ...)                                \
+#define _SYSCALL_EXPAND(x) x
+#define _SYSCALL_GET_MACRO(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, \
+                           _arg7, name, ...)                                \
     name
 #define SYSCALL(...)                                                   \
-    __SYSCALL_EXPAND(__SYSCALL_GET_MACRO(                              \
+    _SYSCALL_EXPAND(_SYSCALL_GET_MACRO(                                \
         __VA_ARGS__, SYSCALL8, SYSCALL7, SYSCALL6, SYSCALL5, SYSCALL4, \
-        SYSCALL3, SYSCALL2, SYSCALL1, __FILLER)(__VA_ARGS__))
+        SYSCALL3, SYSCALL2, SYSCALL1, _FILLER)(__VA_ARGS__))
 
 // clang-format off
 #define SYSCALL1(arg0) \

@@ -7,8 +7,10 @@
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 
-#define SIFIVE_TEST_SUCCESS 0x5555
-#define SIFIVE_TEST_FAILURE 0x3333
+enum {
+    SIFIVE_TEST_SUCCESS = 0x5555,
+    SIFIVE_TEST_FAILURE = 0x3333,
+};
 
 // writes exit code to board's sifive test device
 void sifive_test_exit(int exit_code) {

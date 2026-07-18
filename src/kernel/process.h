@@ -13,9 +13,9 @@ enum ProcessState {
     // never yet run, but ready
     PROCESS_READY = 1,
     // already run some, but ready
-    PROCESS_RUNNABLE,
+    PROCESS_RUNNABLE = 2,
     // currently running
-    PROCESS_RUNNING,
+    PROCESS_RUNNING = 3,
 };
 typedef enum ProcessState ProcessState;
 

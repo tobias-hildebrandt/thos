@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "align.h"
 #include "build_info.h"
 #include "paging.h"
-#include "util.h"
 
 // page alloc testing
 void debug_page_alloc(void) {
@@ -41,8 +41,7 @@ void debug_printf(void) {
 
     printf("printf %%x but pass longlong: 0x0123456789abcdef = 0x%x\n",
            0x0123456789abcdefLL);
-    printf("printf %%llx but pass int: 0x01234567 = 0x%llx\n",
-           ((int)0x01234567));
+    printf("printf %%llx but pass int: 0x01234567 = 0x%llx\n", (0x01234567));
 
     printf("printf alt# int hex 0          = %#x\n", 0x0);
     printf("printf alt# int hex 0xffffffff = %#x\n", 0xffffffff);
@@ -137,7 +136,8 @@ void debug_printf(void) {
 // TODO: assert
 #define PRINT_ATOX(func, printfmt, number, expected)                           \
     printf(#func "(" #number ") = " printfmt ", should be " printfmt ", %s\n", \
-           func(number), expected, func(number) == expected ? "OK" : "FAIL!")
+           func(number), expected,                                             \
+           func(number) == (expected) ? "OK" : "FAIL!")
 
 // integer parsing testing
 void debug_atoi(void) {
@@ -170,12 +170,12 @@ void debug_atoi(void) {
 #define PRINT_IS_ALIGNED(val, align, expected)                        \
     printf("is_aligned(%d, %d) = %s, should be %s, %s\n", val, align, \
            is_aligned(val, align) ? "true" : "false",                 \
-           expected ? "true" : "false",                               \
-           is_aligned(val, align) == expected ? "OK" : "FAIL")
+           (expected) ? "true" : "false",                             \
+           is_aligned(val, align) == (expected) ? "OK" : "FAIL")
 #define PRINT_ALIGN_UP(val, align, expected)                        \
     printf("align_up(%d, %d) = %d, should be %d, %s\n", val, align, \
            align_up(val, align), expected,                          \
-           align_up(val, align) == expected ? "OK" : "FAIL")
+           align_up(val, align) == (expected) ? "OK" : "FAIL")
 
 // alignment testing
 void debug_align(void) {

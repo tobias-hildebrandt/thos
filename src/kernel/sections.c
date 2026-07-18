@@ -36,11 +36,12 @@ const uintptr_t USER_SPECIAL_PAGE = (uintptr_t)__USER_SPECIAL_PAGE;
                   SECTION_SIZE(section))
 
 void print_section(char* name, uintptr_t start, uintptr_t end, uintptr_t size) {
-    uintptr_t kb = INT_DIV_CEIL(size, 1024);
+    uintptr_t kibibytes = INT_DIV_CEIL(size, 1024);
     uintptr_t pages = INT_DIV_CEIL(size, PAGE_SIZE);
     printf("section %s\n", name);
     printf("\taddresses:  %p - %p\n", start, end);
-    printf("\tsize:       %lu pages (~%lu kB, %lu bytes)\n", pages, kb, size);
+    printf("\tsize:       %lu pages (~%lu kB, %lu bytes)\n", pages, kibibytes,
+           size);
 }
 
 void print_all_sections(void) {

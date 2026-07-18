@@ -24,7 +24,7 @@ size_t normal_hart_s_mode_block_index(size_t normal_hart_number) {
 
 void sifive_plic_enable_smode_interrupt(size_t normal_hart_number,
                                         size_t interrupt) {
-    uintptr_t addr = (uintptr_t)GET_BOARD_DEVICE(board.sifive_plic);
+    char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 
     PRINTF_IF(DEBUG_SIFIVE_PLIC,
               "sifive_plic_enable_smode_interrupt: hart: %d, interrupt %d\n",
@@ -48,7 +48,7 @@ void sifive_plic_enable_smode_interrupt(size_t normal_hart_number,
 
 void sifive_plic_set_smode_threshold(size_t normal_hart_number,
                                      uint8_t threshold) {
-    uintptr_t addr = (uintptr_t)GET_BOARD_DEVICE(board.sifive_plic);
+    char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 
     PRINTF_IF(DEBUG_SIFIVE_PLIC,
               "sifive_plic_set_smode_threshold: hart: %d, threshold %d\n",
@@ -67,7 +67,7 @@ void sifive_plic_set_smode_threshold(size_t normal_hart_number,
 }
 
 void sifive_plic_set_priority(size_t interrupt, uint8_t priority) {
-    uintptr_t addr = (uintptr_t)GET_BOARD_DEVICE(board.sifive_plic);
+    char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 
     PRINTF_IF(DEBUG_SIFIVE_PLIC,
               "sifive_plic_set_priority: interrupt: %d, priority %d\n",
@@ -85,7 +85,7 @@ void sifive_plic_set_priority(size_t interrupt, uint8_t priority) {
 }
 
 uint32_t sifive_plic_claim(size_t normal_hart_number) {
-    uintptr_t addr = (uintptr_t)GET_BOARD_DEVICE(board.sifive_plic);
+    char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 
     addr += SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_OFFSET;
     addr += normal_hart_s_mode_block_index(normal_hart_number) *
@@ -98,14 +98,15 @@ uint32_t sifive_plic_claim(size_t normal_hart_number) {
     return *ptr;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void sifive_plic_complete(size_t normal_hart_number, uint32_t interrupt) {
-    uintptr_t addr = (uintptr_t)GET_BOARD_DEVICE(board.sifive_plic);
+    char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 
     addr += SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_OFFSET;
     addr += normal_hart_s_mode_block_index(normal_hart_number) *
             SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_BLOCK_SIZE;
 
-    // claim/completem is 2nd register in block
+    // claim/complete is 2nd register in block
     SifivePlicRegister* ptr = (void*)addr;
     ptr += 1;
 

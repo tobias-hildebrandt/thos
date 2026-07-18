@@ -17,7 +17,7 @@ void handle_syscall(TrapFrame* frame) {
         }
         case SYSCALL_PUTCHAR: {
             PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: putchar\n");
-            int ch = frame->a1;
+            int ch = (int)frame->a1;
             Buffer_output_handle_new(&current_process->out_buffer, ch);
             frame->a0 = ch;
             break;

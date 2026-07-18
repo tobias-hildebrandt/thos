@@ -6,14 +6,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "align.h"
 #include "endian.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "list.h"
 #include "panic.h"
-#include "util.h"
 
-#define DEVICE_TREE_VERSION BIG_TO_LITTLE32(17)
+enum { DEVICE_TREE_VERSION = BIG_TO_LITTLE32(17) };
 
 enum DeviceTreeStructureBlockToken {
     STRUCTURE_BEGIN_NODE = BIG_TO_LITTLE32(0x01),
@@ -30,8 +30,8 @@ struct DeviceTreeStructurePropertyRaw {
 };
 typedef struct DeviceTreeStructurePropertyRaw DeviceTreeStructurePropertyRaw;
 
-#define NUM_DEVICE_TREE_PROPERTIES 1024
-#define NUM_DEVICE_TREE_NODES 256
+enum { NUM_DEVICE_TREE_PROPERTIES = 1024 };
+enum { NUM_DEVICE_TREE_NODES = 256 };
 
 ALLOCATE_ARRAY_AND_COUNTER(nodes, DeviceTreeNode, NUM_DEVICE_TREE_NODES);
 ALLOCATE_ARRAY_AND_COUNTER(props, DeviceTreeProperty,
@@ -81,12 +81,11 @@ DeviceTreeProperty* DeviceTreeProperty_parse(const DeviceTreeHeadersRaw* header,
 
     // move past raw property
     *pointer =
-        (void*)(((uintptr_t)*pointer) + sizeof(DeviceTreeStructurePropertyRaw));
+        (void*)(((char*)*pointer) + sizeof(DeviceTreeStructurePropertyRaw));
 
     // grab name via header offset
-    parsed->name =
-        (char*)((uintptr_t)header + BIG_TO_LITTLE32(header->off_dt_strings) +
-                BIG_TO_LITTLE32(property_raw->nameoff));
+    parsed->name = ((char*)header + BIG_TO_LITTLE32(header->off_dt_strings) +
+                    BIG_TO_LITTLE32(property_raw->nameoff));
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "prop name: \"%s\"\n", parsed->name);
     PRINTF_IF(DEBUG_DEVICE_TREE, "prop name nameoff: %d\n",
@@ -107,7 +106,7 @@ DeviceTreeProperty* DeviceTreeProperty_parse(const DeviceTreeHeadersRaw* header,
     }
 
     // move past property data
-    *pointer = (void*)((uintptr_t)*pointer + parsed->value_len);
+    *pointer = (void*)((char*)*pointer + parsed->value_len);
 
     // align
     *pointer = (void*)(align_up((uintptr_t)*pointer, 4));
@@ -180,7 +179,7 @@ DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header) {
     }
 
     const uint32_t* pointer =
-        (void*)((uintptr_t)header + BIG_TO_LITTLE32(header->off_dt_struct));
+        (void*)((char*)header + BIG_TO_LITTLE32(header->off_dt_struct));
 
     DeviceTreeNode* root = DeviceTreeNode_parse(header, &pointer);
 
@@ -359,7 +358,7 @@ void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header) {
         if (i != 0 && i % 16 == 0) {
             printf("\n");
         }
-        printf("%02x ", (char)*this_ptr);
+        printf("%02x ", *this_ptr);
     }
     printf("\n");
     printf("--- end DeviceTree dump ---\n");

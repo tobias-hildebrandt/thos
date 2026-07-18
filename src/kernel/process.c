@@ -36,7 +36,16 @@ bool Process_is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
 }
 
-#define PRINT_CONTEXT_REG(context, r) printf("\t" #r ": 0x%p,\n", context.r);
+char* Process_type_str(Process* process) {
+    if (Process_is_kernel_process(process)) {
+        return "kernel";
+    } else {
+        return "user";
+    }
+}
+
+#define PRINT_CONTEXT_REG(context, reg) \
+    printf("\t" #reg ": 0x%p,\n", (context).reg);
 
 void ProcessState_print(ProcessState state) {
     printf("%d(", state);
@@ -63,9 +72,7 @@ void Process_print(Process* process) {
     printf("Process {\n");
     printf("\tpid: 0x%u,\n", process->id);
     printf("\tpage_table: (%s) %p\n",
-           process->page_table == 0             ? "NULL"
-           : Process_is_kernel_process(process) ? "KERNEL"
-                                                : "USER",
+           process->page_table == 0 ? "NULL" : Process_type_str(process),
            process->page_table);
     printf("\tstate: ");
     ProcessState_print(process->state);
@@ -111,10 +118,10 @@ void kernel_exit(void) {
 
 Process* allocate_process(ProcessArguments args) {
     Process* process = NULL;
-    int i = 0;
-    for (; i < NUM_PROCESSES; i++) {
-        if (processes[i].state == PROCESS_UNUSED) {
-            process = &processes[i];
+    int index = 0;
+    for (; index < NUM_PROCESSES; index++) {
+        if (processes[index].state == PROCESS_UNUSED) {
+            process = &processes[index];
             break;
         }
     }
@@ -127,7 +134,7 @@ Process* allocate_process(ProcessArguments args) {
     memset(process, 0, sizeof(Process));
 
     // set ID
-    process->id = i;
+    process->id = index;
 
     // set up output buffer
     process->out_buffer = Buffer_wrap(process->out_buffer_array, BUFFER_LEN);
@@ -188,8 +195,6 @@ PageTable my_page_table(void) {
     }
     return current_process->page_table;
 }
-
-#define COPY_MEMBER(DEST, SOURCE, MEMBER) DEST->MEMBER = SOURCE->MEMBER
 
 void begin_processes(void) {
     kernel_switch(NULL);

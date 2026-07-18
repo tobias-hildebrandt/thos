@@ -1,15 +1,16 @@
 #include <stddef.h>
 #include <string.h>
 
-void* memset(void* buf, char c, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        ((char*)buf)[i] = c;
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+void* memset(void* buf, char value, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        ((char*)buf)[i] = value;
     }
     return buf;
 }
 
-void* memcpy(void* dst, const void* src, size_t n) {
-    for (size_t i = 0; i < n; i++) {
+void* memcpy(void* dst, const void* src, size_t count) {
+    for (size_t i = 0; i < count; i++) {
         ((char*)dst)[i] = ((char*)src)[i];
     }
 

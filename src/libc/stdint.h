@@ -15,8 +15,10 @@ typedef short int16_t;
 typedef int int32_t;
 typedef long int64_t;
 
+// NOLINTBEGIN(misc-include-cleaner)
 typedef uint64_t uintptr_t;
 typedef int64_t intptr_t;
+// NOLINTEND(misc-include-cleaner)
 #else
 // RV32
 typedef unsigned char uint8_t;
@@ -28,16 +30,18 @@ typedef char int8_t;
 typedef short int16_t;
 typedef int int32_t;
 typedef long long int64_t;
-
+// NOLINTBEGIN(misc-include-cleaner)
 typedef uint32_t uintptr_t;
 typedef int32_t intptr_t;
+// NOLINTEND(misc-include-cleaner)
 #endif
 
-#define INT8_MIN -128
+// NOLINTBEGIN(modernize-macro-to-enum)
+#define INT8_MIN (-128)
 #define INT8_MAX 127
 #define UINT8_MAX 255
 
-#define INT16_MIN -32768
+#define INT16_MIN (-32768)
 #define INT16_MAX 32767
 #define UINT16_MAX 65535
 
@@ -49,3 +53,4 @@ typedef int32_t intptr_t;
 #define INT64_MAX ((int64_t)0x7fffffffffffffffL)
 #define INT64_MIN ((int64_t)0x8000000000000000L)
 #define UINT64_MAX ((uint64_t)0xffffffffffffffffUL)
+// NOLINTEND(modernize-macro-to-enum)

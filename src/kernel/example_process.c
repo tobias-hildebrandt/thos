@@ -128,57 +128,58 @@ void process_never_yields(void) {
 }
 
 void start_example_processes(void) {
-    Process* p0 = allocate_process((ProcessArguments){
+    Process* proc_load_a0 = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_load_a0,
         .is_user_program = false,
     });
-    ONLY64(p0->context.a0 = 0x1111111111111111LL);
-    ONLY32(p0->context.a0 = 0x11111111);
+    ONLY64(proc_load_a0->context.a0 = 0x1111111111111111LL);
+    ONLY32(proc_load_a0->context.a0 = 0x11111111);
 
-    Process* p1 = allocate_process((ProcessArguments){
+    Process* proc_load_stack = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_load_from_stack,
         .is_user_program = false,
     });
     // allocate room on process's stack so process doesn't clobber it
     // (though this data will never be popped)
-    p1->context.sp -= sizeof(SomeData);
+    proc_load_stack->context.sp -= sizeof(SomeData);
     // put data on stack
-    SomeData* p1_data = (SomeData*)(p1->context.sp);
-    p1_data->d = 0xdeaddeaddeadbeef;
-    p1_data->w = 0xfeedcafe;
-    memcpy(p1_data->b, "abcdefghijklmno", 16);
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
+    SomeData* stack_data = (SomeData*)(proc_load_stack->context.sp);
+    stack_data->d = 0xdeaddeaddeadbeef;
+    stack_data->w = 0xfeedcafe;
+    memcpy(stack_data->b, "abcdefghijklmno", 16);
     // pass address to data as a0
-    p1->context.a0 = (uintptr_t)p1_data;
+    proc_load_stack->context.a0 = (uintptr_t)stack_data;
 
-    Process* p2 = allocate_process((ProcessArguments){
+    Process* proc_returns = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_that_returns,
         .is_user_program = false,
     });
-    (void)p2;
+    (void)proc_returns;
 
-    Process* p3 = allocate_process((ProcessArguments){
+    Process* proc_mem_ops = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_mem_ops,
         .is_user_program = false,
     });
-    (void)p3;
+    (void)proc_mem_ops;
 
-    Process* p4 = allocate_process((ProcessArguments){
+    Process* proc_user_first = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)USER_first_START,
         .is_user_program = true,
         .user_program_end = (uintptr_t)USER_first_END,
     });
-    (void)p4;
+    (void)proc_user_first;
 
-    Process* p5 = allocate_process((ProcessArguments){
+    Process* proc_user_second = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)USER_second_START,
         .is_user_program = true,
         .user_program_end = (uintptr_t)USER_second_END,
     });
-    (void)p5;
+    (void)proc_user_second;
 
-    Process* p6 = allocate_process((ProcessArguments){
+    Process* proc_never_yields = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_never_yields,
         .is_user_program = false,
     });
-    (void)p6;
+    (void)proc_never_yields;
 }

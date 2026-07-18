@@ -1,0 +1,32 @@
+Checks: [
+    modernize*,
+    bugprone*,
+    readability*,
+    portability*,
+    performance*,
+    misc*,
+    clang*,
+
+    # we don't implement annex K
+    -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+
+    # not using hosted libc
+    -bugprone-reserved-identifier,
+
+    # opinion
+    -readability-else-after-return,
+
+    # rely on external linkage for lots of asm jumps
+    -misc-use-internal-linkage,
+
+    # wrong
+    -readability-implicit-bool-conversion,
+    -misc-static-assert,
+
+    # too many false positives
+    -readability-magic-numbers,
+]
+CheckOptions:
+    readability-identifier-length.IgnoredVariableNames: (ch|id|i)$
+    readability-identifier-length.IgnoredParameterNames: (ch|id)$
+    readability-function-cognitive-complexity.Threshold: 35

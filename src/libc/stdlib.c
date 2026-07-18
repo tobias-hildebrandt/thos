@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-bool whitespace(char c) {
-    return ' ' == c || '\n' == c || '\t' == c;
+bool whitespace(char ch) {
+    return (' ' == ch) || ('\n' == ch) || ('\t' == ch);
 }
 
 int64_t parse(const char* str) {

@@ -12,16 +12,9 @@
 
 #define LOGICAL_XOR(cond1, cond2) (!(cond1) != !(cond2))
 
-#include "build_info.h"
-
-#if COMPILER_IS_CLANG
-#define align_up(value, align) __builtin_align_up(value, align)
-#define is_aligned(value, align) __builtin_is_aligned(value, align)
-#else
-#define align_up(value, align) \
-    ((((value) % align) == 0) ? (value) : ((value) + align - ((value) % align)))
-#define is_aligned(value, align) (0 == value % align)
-#endif
-
 #define NAKED __attribute__((naked))
 #define UNUSED __attribute__((unused))
+#define SECTION(s) __attribute((section(s)))
+
+// number of non-nul characters in a string literal
+#define CHARS_IN_STRING_LITERAL(x) (sizeof((x)) - 1)

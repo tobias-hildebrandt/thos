@@ -83,6 +83,7 @@ c_args_proj = default_c_args + [
 # clang c arguments
 c_args_clang = [
     '-Wno-gnu-zero-variadic-macro-arguments',
+    '-Wno-empty-translation-unit',
 ]
 # gcc c arguments
 c_args_gcc = []
@@ -128,10 +129,13 @@ foreach define : option_defines.strip().split(' ')
     }
 endforeach
 foreach define : defines_other
-    if define == '' or defines_map.has_key(define)
+    if define == ''
         continue
     endif
     define_splits = define.split('=')
+    if defines_map.has_key(define_splits[0])
+        continue
+    endif
     defines_map += {
         define_splits[0]: define_splits[1],
     }
@@ -155,6 +159,7 @@ foreach define : defines_debug
 endforeach
 
 # TODO: make private subdir, copy there, -I that instead of entire builddir
+message(defines_map)
 header_flags = configure_file(
     output: 'flags.h',
     configuration: defines_map,

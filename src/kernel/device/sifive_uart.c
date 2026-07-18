@@ -14,25 +14,30 @@
 
 // registers are all 32bits and offset by number*32bits
 #define SIFIVE_UART_REG(PTR, REGISTER) (PTR + REGISTER)
-#define SIFIVE_UART_REG_TRANSMIT_DATA 0
-#define SIFIVE_UART_REG_RECEIVE_DATA 1
-#define SIFIVE_UART_REG_TRANSMIT_CONTROL 2
-#define SIFIVE_UART_REG_RECEIVE_CONTROL 3
-#define SIFIVE_UART_REG_INTERRUPT_ENABLE 4
-#define SIFIVE_UART_REG_INTERRUPT_PENDING 5
-#define SIFIVE_UART_REG_BAUD_DIVISOR 6
+
+enum {
+    SIFIVE_UART_REG_TRANSMIT_DATA = 0,
+    SIFIVE_UART_REG_RECEIVE_DATA = 1,
+    SIFIVE_UART_REG_TRANSMIT_CONTROL = 2,
+    SIFIVE_UART_REG_RECEIVE_CONTROL = 3,
+    SIFIVE_UART_REG_INTERRUPT_ENABLE = 4,
+    SIFIVE_UART_REG_INTERRUPT_PENDING = 5,
+    SIFIVE_UART_REG_BAUD_DIVISOR = 6,
+};
 
 // bitfields for control registers
 
 // enable
-#define SIFIVE_UART_CONTROL_ENABLE 0
+enum { SIFIVE_UART_CONTROL_ENABLE = 0 };
 // triggers interrupt after FIFO holds at least this many words
-#define SIFIVE_UART_CONTROL_INTERRUPT_THRESHOLD 16
-#define SIFIVE_UART_CONTROL_INTERRUPT_THRESHOLD_LEN 3
+enum { SIFIVE_UART_CONTROL_INTERRUPT_THRESHOLD = 16 };
+enum { SIFIVE_UART_CONTROL_INTERRUPT_THRESHOLD_LEN = 3 };
 
 // bitfields for interrupt registers
-#define SIFIVE_UART_INTERRUPT_TRANSMIT 0
-#define SIFIVE_UART_INTERRUPT_RECEIVE 1
+enum {
+    SIFIVE_UART_INTERRUPT_TRANSMIT = 0,
+    SIFIVE_UART_INTERRUPT_RECEIVE = 1,
+};
 
 // print register, skips "SIFIVE_UART_REG_"
 #define SIFIVE_UART_PRINT_REG(BASE, REG)                                       \
@@ -45,7 +50,7 @@ static Buffer uart1_buffer;
 static char uart1_buffer_array[BUFFER_LEN];
 
 // MUST read whole word, individual bytes will cause fault!
-uint32_t sifive_uart_read_register(SifiveUartRegister* uart) {
+uint32_t sifive_uart_read_register(const SifiveUartRegister* uart) {
     uint32_t value;
     ASM("lw %[value], (%[pointer])\n"
         //
@@ -126,12 +131,12 @@ void sifive_uart_drain(void) {
         pending = BIT_GET(sifive_uart_read_register(interrupt_pending),
                           SIFIVE_UART_INTERRUPT_RECEIVE);
         if (pending) {
-            uint32_t rx = sifive_uart_read_register(receive);
+            uint32_t read = sifive_uart_read_register(receive);
             // empty
-            if (rx & (1 << 31)) {
+            if (read & (1 << 31)) {
                 printf("SiFiveUart empty???\n");
             } else {
-                char ch = (char)(rx & 0xff);
+                char ch = (char)(read & 0xff);
 
                 PRINTF_IF(DEBUG_SIFIVE_UART, "SiFiveUart got char: 0x%02x\n",
                           ch);

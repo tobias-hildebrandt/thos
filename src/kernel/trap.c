@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "align.h"
 #include "asm.h"
 #include "bits.h"
 #include "build_info.h"
@@ -18,7 +19,6 @@
 #include "process.h"
 #include "sections.h"
 #include "syscall.h"
-#include "util.h"
 
 #define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, PTR->MEM)
 

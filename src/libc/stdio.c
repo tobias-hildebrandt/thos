@@ -38,24 +38,24 @@ bool PrintState_is_clean(PrintState* state) {
 
 // only putchar if not min_width
 // used to calculate length of real print before actually printing
-void maybe_putchar(int ch, PrintState* state) {
+void maybe_putchar(int character, PrintState* state) {
     if (state->min_width == 0) {
-        putchar(ch);
+        putchar(character);
     }
 }
 
-int print_char(int ch, PrintState* state) {
-    maybe_putchar(ch, state);
+int print_char(int character, PrintState* state) {
+    maybe_putchar(character, state);
     return 1;
 }
 
 int print_string(char* str, PrintState* state) {
-    int i = 0;
-    for (; str[i] != '\0'; i++) {
-        maybe_putchar(str[i], state);
+    int index = 0;
+    for (; str[index] != '\0'; index++) {
+        maybe_putchar(str[index], state);
     }
 
-    return i;
+    return index;
 }
 
 int print_hex(va_list* args, PrintState* state) {
@@ -96,7 +96,7 @@ int print_hex(va_list* args, PrintState* state) {
             ascii = 'a' + place_value - 10;
         }
         started = true;
-        maybe_putchar(ascii, state);
+        maybe_putchar((int)ascii, state);
         printed += 1;
     }
 
@@ -133,7 +133,7 @@ int print_binary(va_list* args, PrintState* state) {
             continue;
         }
 
-        unsigned int ascii;
+        int ascii;
         if (place_value) {
             ascii = '1';
         } else {
@@ -215,47 +215,178 @@ int print_signed(va_list* args, PrintState* state) {
 
 // TODO: handle +/- sign with zero-padding
 // TODO: handle right-align
+// TODO: make into function
 #define MIN_WIDTH_CALL(STATE, PRINTED, FAKE_CALL, REAL_CALL)       \
     do {                                                           \
-        if (STATE.min_width > 0 && !STATE.left_pad) {              \
-            int requested = STATE.min_width;                       \
+        if ((STATE)->min_width > 0 && !(STATE)->left_pad) {        \
+            int requested = (STATE)->min_width;                    \
             /* call with real min_width, doesn't actually print */ \
             int would_print = FAKE_CALL;                           \
             if (requested > would_print) {                         \
                 int to_print = requested - would_print;            \
                 for (int i = 0; i < to_print; i++) {               \
-                    if (STATE.zero_pad) {                          \
+                    if ((STATE)->zero_pad) {                       \
                         putchar('0');                              \
                     } else {                                       \
                         putchar(' ');                              \
                     }                                              \
-                    PRINTED += 1;                                  \
+                    (PRINTED) += 1;                                \
                 }                                                  \
             }                                                      \
             /* call with min_width 0, will print */                \
-            STATE.min_width = 0;                                   \
-            PRINTED += REAL_CALL;                                  \
-        } else if (STATE.min_width > 0 && STATE.left_pad) {        \
-            int requested = STATE.min_width;                       \
+            (STATE)->min_width = 0;                                \
+            (PRINTED) += (REAL_CALL);                              \
+        } else if ((STATE)->min_width > 0 && (STATE)->left_pad) {  \
+            int requested = (STATE)->min_width;                    \
             /* call with min_width 0, will print */                \
-            STATE.min_width = 0;                                   \
+            (STATE)->min_width = 0;                                \
             int did_print = REAL_CALL;                             \
-            PRINTED += did_print;                                  \
+            (PRINTED) += did_print;                                \
             if (requested > did_print) {                           \
                 int to_print = requested - did_print;              \
                 for (int i = 0; i < to_print; i++) {               \
-                    if (STATE.zero_pad) {                          \
+                    if ((STATE)->zero_pad) {                       \
                         putchar('0');                              \
                     } else {                                       \
                         putchar(' ');                              \
                     }                                              \
-                    PRINTED += 1;                                  \
+                    (PRINTED) += 1;                                \
                 }                                                  \
             }                                                      \
         } else {                                                   \
-            PRINTED += REAL_CALL;                                  \
+            (PRINTED) += (REAL_CALL);                              \
         }                                                          \
     } while (0)
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void handle_conversion_spec(char character, PrintState* state, va_list* args,
+                            const int* printed) {
+    switch (character) {
+        case '\0': {
+            // undefined behavior
+            // PANIC("end of format string inside of conversion spec");
+            break;
+        }
+        // modifiers
+        case '#': {
+            // alternative
+            state->alternative = true;
+            break;
+        }
+        case 'l': {
+            // long
+            state->long_modifiers += 1;
+            break;
+        }
+        case '*': {
+            // variable min width
+            int width = va_arg(*args, int);
+            state->min_width = width;
+            break;
+        }
+        case '-': {
+            state->left_pad = true;
+            break;
+        }
+        // conversion specifiers
+        case '%': {
+            // %%
+            // if (!PrintState_is_clean(&state)) {
+            //     PANIC(
+            //         "printf conversion specifier was %%, but had "
+            //         "modifiers");
+            // }
+            putchar('%');
+            printed += 1;
+            PrintState_reset(state);
+            break;
+        }
+        case 'c': {
+            // character
+            int character = va_arg(*args, int);
+            MIN_WIDTH_CALL(state, printed, print_char(character, state),
+                           print_char(character, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 's': {
+            // string
+            char* str = va_arg(*args, char*);
+            MIN_WIDTH_CALL(state, printed, print_string(str, state),
+                           print_string(str, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 'x': {
+            // hexadecimal
+            va_list args_copy;
+            va_copy(args_copy, *args);
+            MIN_WIDTH_CALL(state, printed, print_hex(&args_copy, state),
+                           print_hex(args, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 'b': {
+            // binary
+            va_list args_copy;
+            va_copy(args_copy, *args);
+            MIN_WIDTH_CALL(state, printed, print_binary(&args_copy, state),
+                           print_binary(args, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 'i':
+        case 'd': {
+            // signed decimal integer
+            va_list args_copy;
+            va_copy(args_copy, *args);
+            MIN_WIDTH_CALL(state, printed, print_signed(&args_copy, state),
+                           print_signed(args, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 'u': {
+            // unsigned decimal integer
+            va_list args_copy;
+            va_copy(args_copy, *args);
+            MIN_WIDTH_CALL(state, printed, print_unsigned(&args_copy, state),
+                           print_unsigned(args, state));
+            PrintState_reset(state);
+            break;
+        }
+        case 'p': {
+            // pointer
+            // implementation specific, we can do whatever we want
+
+            if (POINTER_BITS == 64) {
+                // "0x%016lx"
+                state->long_modifiers = 1;
+                state->min_width = 16;
+            } else {
+                // "0x%08x"
+                state->long_modifiers = 0;
+                state->min_width = 8;
+            }
+
+            state->zero_pad = true;
+
+            putchar('0');
+            putchar('x');
+            printed += 2;
+
+            va_list args_copy;
+            va_copy(args_copy, *args);
+            MIN_WIDTH_CALL(state, printed, print_hex(&args_copy, state),
+                           print_hex(args, state));
+            PrintState_reset(state);
+            break;
+        }
+        default: {
+            // PANIC("unknown conversion specification character: %c",
+            //       *format_str);
+        }
+    }
+}
 
 int printf(const char* format_str, ...) {
     va_list args;
@@ -305,136 +436,7 @@ int printf(const char* format_str, ...) {
             }
 
             // we are currently parsing a conversion spec
-            switch (*format_str) {
-                case '\0': {
-                    // undefined behavior
-                    // PANIC("end of format string inside of conversion spec");
-                    break;
-                }
-                // modifiers
-                case '#': {
-                    // alternative
-                    state.alternative = true;
-                    break;
-                }
-                case 'l': {
-                    // long
-                    state.long_modifiers += 1;
-                    break;
-                }
-                case '*': {
-                    // variable min width
-                    int i = va_arg(args, int);
-                    state.min_width = i;
-                    break;
-                }
-                case '-': {
-                    state.left_pad = true;
-                    break;
-                }
-                // conversion specifiers
-                case '%': {
-                    // %%
-                    // if (!PrintState_is_clean(&state)) {
-                    //     PANIC(
-                    //         "printf conversion specifier was %%, but had "
-                    //         "modifiers");
-                    // }
-                    putchar('%');
-                    printed += 1;
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'c': {
-                    // character
-                    int ch = va_arg(args, int);
-                    MIN_WIDTH_CALL(state, printed, print_char(ch, &state),
-                                   print_char(ch, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 's': {
-                    // string
-                    char* str = va_arg(args, char*);
-                    MIN_WIDTH_CALL(state, printed, print_string(str, &state),
-                                   print_string(str, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'x': {
-                    // hexadecimal
-                    va_list args_copy;
-                    va_copy(args_copy, args);
-                    MIN_WIDTH_CALL(state, printed,
-                                   print_hex(&args_copy, &state),
-                                   print_hex(&args, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'b': {
-                    // binary
-                    va_list args_copy;
-                    va_copy(args_copy, args);
-                    MIN_WIDTH_CALL(state, printed,
-                                   print_binary(&args_copy, &state),
-                                   print_binary(&args, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'i':
-                case 'd': {
-                    // signed decimal integer
-                    va_list args_copy;
-                    va_copy(args_copy, args);
-                    MIN_WIDTH_CALL(state, printed,
-                                   print_signed(&args_copy, &state),
-                                   print_signed(&args, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'u': {
-                    // unsigned decimal integer
-                    va_list args_copy;
-                    va_copy(args_copy, args);
-                    MIN_WIDTH_CALL(state, printed,
-                                   print_unsigned(&args_copy, &state),
-                                   print_unsigned(&args, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                case 'p': {
-                    // pointer
-                    // implementation specific, we can do whatever we want
-
-                    if (POINTER_BITS == 64) {
-                        // "0x%016lx"
-                        state.long_modifiers = 1;
-                        state.min_width = 16;
-                    } else {
-                        // "0x%08x"
-                        state.long_modifiers = 0;
-                        state.min_width = 8;
-                    }
-
-                    state.zero_pad = true;
-
-                    putchar('0');
-                    putchar('x');
-                    printed += 2;
-
-                    va_list args_copy;
-                    va_copy(args_copy, args);
-                    MIN_WIDTH_CALL(state, printed,
-                                   print_hex(&args_copy, &state),
-                                   print_hex(&args, &state));
-                    PrintState_reset(&state);
-                    break;
-                }
-                default: {
-                    // PANIC("unknown conversion specification character: %c",
-                    //       *format_str);
-                }
-            }
+            handle_conversion_spec(*format_str, &state, &args, &printed);
         }
 
         // go to next character

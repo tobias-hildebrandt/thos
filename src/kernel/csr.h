@@ -38,23 +38,36 @@ CSR_IMPL(timeh)
 
 // CSR bits
 
-// SSTATUS.SIE supervisor interrupt (in general) enable
-#define SSTATUS_TRAPS_NOW 2
+// Bits in the SSTATUS register
+enum {
+    // SSTATUS.SIE
+    // supervisor interrupt (in general) enable
+    SSTATUS_TRAPS_NOW = 2,
 
-// SSTATUS.SPIE supervisor traps will be enabled after sret (1) or disabled (0)
-#define SSTATUS_TRAPS_AFTER_SRET 5
+    // SSTATUS.SPIE
+    // supervisor traps will be enabled after sret (1) or disabled (0)
+    SSTATUS_TRAPS_AFTER_SRET = 5,
 
-// SSTATUS.SPP privilege level to sret into, kernel mode (1) or user mode (0)
-#define SSTATUS_PRIVILEGE 8
+    // SSTATUS.SPP
+    // privilege level to sret into, kernel mode (1) or user mode (0)
+    SSTATUS_PRIVILEGE = 8,
 
-// SSTATUS.SUM allows kernel to access user-marked pages
-#define SSTATUS_SUM 18
+    // SSTATUS.SUM
+    // allows kernel to access user-marked pages
+    SSTATUS_SUM = 18,
+};
 
-// SIE.SSIE/SIP.SSIP supervisor software interrupt
-#define SIE_SIP_SOFTWARE_INTERRUPT 1
+// Bits in the SIE/SIP registers
+enum {
+    // SIE.SSIE/SIP.SSIP
+    // supervisor software interrupt
+    SIE_SIP_SOFTWARE_INTERRUPT = 1,
 
-// SIE.STIE/SIP.STIP  supervisor timer interrupt
-#define SIE_SIP_TIMER_INTERRUPT 5
+    // SIE.STIE/SIP.STIP
+    // supervisor timer interrupt
+    SIE_SIP_TIMER_INTERRUPT = 5,
 
-// SIE.SEIE/SIP.SEIP  supervisor external interrupt
-#define SIE_SIP_EXTERNAL_INTERRUPT 9
+    // SIE.SEIE/SIP.SEIP
+    // supervisor external interrupt
+    SIE_SIP_EXTERNAL_INTERRUPT = 9,
+};

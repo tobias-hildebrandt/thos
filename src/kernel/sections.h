@@ -26,11 +26,11 @@ SECTION_DECLARE(USER_first);
 SECTION_DECLARE(USER_second);
 
 // places symbol in the global special page
-#define IN_GLOBAL_SPECIAL __attribute__((section(".global_special")))
+#define IN_GLOBAL_SPECIAL SECTION(".global_special")
 // global special page physical address
 extern const uintptr_t GLOBAL_SPECIAL_PAGE;
 
-#define IN_USER_SPECIAL __attribute__((section(".user_special")))
+#define IN_USER_SPECIAL SECTION(".user_special")
 extern const uintptr_t USER_SPECIAL_PAGE;
 
 void print_all_sections(void);

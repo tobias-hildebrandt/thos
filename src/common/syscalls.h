@@ -1,5 +1,7 @@
 #pragma once
 
-#define SYSCALL_EXIT 0x0FL
-#define SYSCALL_YIELD 0x10L
-#define SYSCALL_PUTCHAR 0xAAL
+enum SyscallNumber {
+    SYSCALL_EXIT = 0x0F,
+    SYSCALL_YIELD = 0x10,
+    SYSCALL_PUTCHAR = 0xAA,
+};

@@ -34,17 +34,19 @@
     REGISTER = init;
 
 #if COMPILER_IS_CLANG
+// clang-format off
 #define REGS_START                   \
     _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wuninitialized\"")
+    _Pragma("clang diagnostic ignored \"-Wuninitialized\"")
 #define REGS_END _Pragma("clang diagnostic pop")
+// clang-format on
 #else
 #define REGS_START
 #define REGS_END
 #endif
 
 // atomically OR a word in memory
-static inline void atomic_or_memory_word(uint32_t* ptr, uint32_t value) {
+static inline void atomic_or_memory_word(const uint32_t* ptr, uint32_t value) {
     ASM("amoor.w x0, %[source], (%[store])" ::[source] "r"(value),
         [store] "r"(ptr) : "memory");
 }

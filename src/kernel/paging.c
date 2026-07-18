@@ -1,10 +1,12 @@
 #include "paging.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "align.h"
 #include "build_info.h"
 #include "device/board.h"
 #include "device/sifive_plic.h"
@@ -12,7 +14,6 @@
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
-#include "util.h"
 
 #if POINTER_BITS == 64
 #define PAGE_TABLE_TOP_LEVEL 2
@@ -31,27 +32,28 @@
     }
 #endif
 
-static uintptr_t next_page_address = 0;
+static void* next_page = NULL;
 
 IN_GLOBAL_SPECIAL PageTable kernel_page_table = NULL;
 IN_GLOBAL_SPECIAL SatpRegister kernel_page_satp = {0};
 
 void* alloc_page(void) {
-    if (next_page_address == 0) {
-        next_page_address = (uintptr_t)PAGES_START;
+    if (next_page == 0) {
+        // NOLINTNEXTLINE(performance-no-int-to-ptr)
+        next_page = (void*)PAGES_START;
     }
 
-    if (next_page_address > (uintptr_t)PAGES_END - PAGE_SIZE) {
+    if ((uintptr_t)next_page > (PAGES_END - PAGE_SIZE)) {
         PANIC("page allocation would overflow page memory!");
     }
 
-    uintptr_t this_page = next_page_address;
-    next_page_address += PAGE_SIZE;
+    void* this_page = next_page;
+    next_page = (char*)next_page + PAGE_SIZE;
 
     // wipe page
-    memset((void*)this_page, 0, PAGE_SIZE);
+    memset(this_page, 0, PAGE_SIZE);
 
-    return (void*)this_page;
+    return this_page;
 }
 
 bool is_leaf_node(PageTableEntryFlags flags) {
@@ -63,9 +65,10 @@ PageTable get_linked_table(PageTableEntry entry) {
         PANIC("passed invalid entry to get_linked_table");
     }
     uintptr_t page_num = entry.physical_page_num;
-    uintptr_t next_table_addr = page_num * PAGE_SIZE;
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
+    void* next_table = (void*)(page_num * PAGE_SIZE);
 
-    return (PageTable)next_table_addr;
+    return (PageTable)next_table;
 }
 
 void VirtualAddress_print(VirtualAddress virtual_address) {
@@ -79,6 +82,7 @@ void VirtualAddress_print(VirtualAddress virtual_address) {
     printf("}\n");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void PageTableEntryFlags_print(PageTableEntryFlags flags,
                                bool print_leafiness) {
     if (PAGE_TABLE_PRINT_ALL_FLAGS) {
@@ -164,8 +168,8 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
         if (false == entry->flags.valid) {
             // if next level table has not been created
             // create it
-            uintptr_t new_page_addr = (uintptr_t)alloc_page();
-            uintptr_t new_page_number = new_page_addr / PAGE_SIZE;
+            void* new_page_addr = alloc_page();
+            uintptr_t new_page_number = ((uintptr_t)new_page_addr) / PAGE_SIZE;
 
             PRINTF_IF(DEBUG_MAP_ADDRESS, "(alloc) ");
 
@@ -277,16 +281,17 @@ void init_kernel_page_table(void) {
         PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_test address: %p\n",
                   board.sifive_test);
         map_address(kernel_page_table,
-                    (VirtualAddress){.value = board.sifive_test},
-                    board.sifive_test,
+                    (VirtualAddress){.value = (uintptr_t)board.sifive_test},
+                    (uintptr_t)board.sifive_test,
                     (PageTableEntryFlags){.read = true, .write = true});
     }
     if (board.sifive_plic) {
-        PRINTF_IF(DEBUG_DEVICE_ADDRESSES,
-                  "mapping sifive_plic addresses: %p to %p\n",
-                  board.sifive_plic, board.sifive_plic + SIFIVE_PLIC_LEN);
-        for (uintptr_t page = board.sifive_plic;
-             page < (board.sifive_plic + SIFIVE_PLIC_LEN); page += PAGE_SIZE) {
+        PRINTF_IF(
+            DEBUG_DEVICE_ADDRESSES, "mapping sifive_plic addresses: %p to %p\n",
+            board.sifive_plic, (char*)board.sifive_plic + SIFIVE_PLIC_LEN);
+        for (uintptr_t page = (uintptr_t)board.sifive_plic;
+             page < ((uintptr_t)board.sifive_plic + SIFIVE_PLIC_LEN);
+             page += PAGE_SIZE) {
             map_address(kernel_page_table, (VirtualAddress){.value = page},
                         page,
                         (PageTableEntryFlags){.read = true, .write = true});
@@ -296,8 +301,8 @@ void init_kernel_page_table(void) {
         PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_uart1 address: %p\n",
                   board.sifive_uart1);
         map_address(kernel_page_table,
-                    (VirtualAddress){.value = board.sifive_uart1},
-                    board.sifive_uart1,
+                    (VirtualAddress){.value = (uintptr_t)board.sifive_uart1},
+                    (uintptr_t)board.sifive_uart1,
                     (PageTableEntryFlags){.read = true, .write = true});
     }
 
@@ -308,9 +313,11 @@ void init_kernel_page_table(void) {
 
 // TODO: deduplicate with init_kernel_page_table
 // map program address space
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
                                   uintptr_t start_physical,
                                   uintptr_t end_physical) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     // virtual address starts at zero
     VirtualAddress virtual_address = {.value = start_virtual};
 

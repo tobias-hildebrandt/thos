@@ -5,11 +5,14 @@
 #include "asm.h"
 #include "build_info.h"
 
-SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
-                     long arg5, long fid, long eid) {
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+SbiReturn _sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
+                    long arg5, long fid, long eid) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
     // load the data into registers,
     // even though they should already be in the right place
     REGS_START
+    // NOLINTBEGIN(readability-identifier-length)
     REGISTER_INIT(a0, arg0);
     REGISTER_INIT(a1, arg1);
     REGISTER_INIT(a2, arg2);
@@ -18,6 +21,7 @@ SbiReturn __sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
     REGISTER_INIT(a5, arg5);
     REGISTER_INIT(a6, fid);
     REGISTER_INIT(a7, eid);
+    // NOLINTEND(readability-identifier-length)
 
     // environment call
     ASM("ecall"
