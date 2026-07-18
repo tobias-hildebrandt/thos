@@ -37,14 +37,14 @@ ALLOCATE_ARRAY_AND_COUNTER(nodes, DeviceTreeNode, NUM_DEVICE_TREE_NODES);
 ALLOCATE_ARRAY_AND_COUNTER(props, DeviceTreeProperty,
                            NUM_DEVICE_TREE_PROPERTIES);
 
-void skip_nops(const uint32_t** pointer) {
+static void skip_nops(const uint32_t** pointer) {
     while (**pointer == STRUCTURE_NOP) {
         PRINTF_IF(DEBUG_DEVICE_TREE, "skipping NOP\n");
         *pointer += 1;
     }
 }
 
-char* parse_node_name(char** pointer) {
+static char* parse_node_name(char** pointer) {
     char* node_name = *pointer;
     char* node_name_end = *pointer;
     while (*node_name_end != 0) {
@@ -61,8 +61,8 @@ char* parse_node_name(char** pointer) {
     return node_name;
 }
 
-DeviceTreeProperty* DeviceTreeProperty_parse(const DeviceTreeHeadersRaw* header,
-                                             const uint32_t** pointer) {
+static DeviceTreeProperty* DeviceTreeProperty_parse(
+    const DeviceTreeHeadersRaw* header, const uint32_t** pointer) {
     skip_nops(pointer);
 
     if (**pointer != STRUCTURE_PROP) {
@@ -116,8 +116,8 @@ DeviceTreeProperty* DeviceTreeProperty_parse(const DeviceTreeHeadersRaw* header,
     return parsed;
 }
 
-DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
-                                     const uint32_t** pointer) {
+static DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
+                                            const uint32_t** pointer) {
     skip_nops(pointer);
 
     if (**pointer != STRUCTURE_BEGIN_NODE) {
@@ -222,9 +222,9 @@ DeviceTreeProperty* DeviceTreeNode_find_property(DeviceTreeNode* node,
 // path should start with DEVICE_TREE_ROOT_PATH if starting at root
 // path must end with a NULL
 // depth should be 0 if starting at root
-DeviceTreeNode* DeviceTreeNode_find_child_recursive(DeviceTreeNode* node,
-                                                    DeviceTreePath path,
-                                                    uint8_t depth) {
+static DeviceTreeNode* DeviceTreeNode_find_child_recursive(DeviceTreeNode* node,
+                                                           DeviceTreePath path,
+                                                           uint8_t depth) {
     DeviceTreeNode* check = NULL;
 
     if (DEBUG_DEVICE_TREE_SEARCH) {
@@ -276,7 +276,7 @@ DeviceTreeNode* DeviceTreeNode_find_child(DeviceTreeNode* node,
     return DeviceTreeNode_find_child_recursive(node, path, 0);
 }
 
-void DeviceTreeNode_print(DeviceTreeNode* node, uint8_t depth) {
+static void DeviceTreeNode_print(DeviceTreeNode* node, uint8_t depth) {
     printf("DeviceTreeNode {\n");
     D(depth + 1) printf("name: \"%s\",\n", node->name);
 
@@ -354,7 +354,7 @@ void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header) {
     printf("--- start DeviceTree dump ---\n");
 
     for (uintptr_t i = 0; i < BIG_TO_LITTLE32(header->totalsize); i++) {
-        char* this_ptr = (void*)((uintptr_t)header + i);
+        char* this_ptr = (char*)header + i;
         if (i != 0 && i % 16 == 0) {
             printf("\n");
         }

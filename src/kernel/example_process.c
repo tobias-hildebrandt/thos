@@ -20,27 +20,27 @@ struct SomeData {
 };
 typedef struct SomeData SomeData;
 
-void SomeData_print(SomeData* data) {
+static void SomeData_print(SomeData* data) {
     printf("SomeData { d: 0x%llx, w: 0x%x, b: %s }\n", data->d, data->w,
            data->b);
 }
 
-void spin(int loops) {
+static void spin(int loops) {
     for (int i = 0; i < loops; i++) {
         ASM("nop");
     }
 }
 
 // prints ID and some value (only if enabled)
-void loop_print(uint64_t val) {
+static void loop_print(uint64_t val) {
     PRINTF_IF(DEBUG_EXAMPLE_PROCESSES, "%u.%llx\n", my_pid(), val);
 }
 
-void print_process_start(const char* name) {
+static void print_process_start(const char* name) {
     printf("%s %u start\n", name, my_pid());
 }
 
-void process_loop(uint64_t start) {
+static void process_loop(uint64_t start) {
     uint64_t counter = start;
     while (1) {
         counter += 1;
@@ -51,7 +51,7 @@ void process_loop(uint64_t start) {
 }
 
 // process that gets data from a0
-void process_load_a0(uint64_t data) {
+static void process_load_a0(uint64_t data) {
     print_process_start(__func__);
     printf("s1 data: 0x%llx\n", data);
 
@@ -61,7 +61,7 @@ void process_load_a0(uint64_t data) {
 }
 
 // process that gets data from its stack, using a0 as the data pointer
-void process_load_from_stack(SomeData* data) {
+static void process_load_from_stack(SomeData* data) {
     print_process_start(__func__);
 
     printf("%p = ", (uintptr_t)data);
@@ -74,7 +74,7 @@ void process_load_from_stack(SomeData* data) {
 }
 
 // process that returns
-void process_that_returns(void) {
+static void process_that_returns(void) {
     print_process_start(__func__);
     yield();
 
@@ -86,7 +86,7 @@ void process_that_returns(void) {
 }
 
 // process that allocates its own page and read or writes memory each loop
-void process_mem_ops(void) {
+static void process_mem_ops(void) {
     print_process_start(__func__);
 
     uint8_t* page = (uint8_t*)alloc_page();
@@ -119,7 +119,7 @@ void process_mem_ops(void) {
 }
 
 // process that never yields or SBI ecalls, to test timer interrupts
-void process_never_yields(void) {
+static void process_never_yields(void) {
     print_process_start(__func__);
 
     while (1) {

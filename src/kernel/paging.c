@@ -56,11 +56,11 @@ void* alloc_page(void) {
     return this_page;
 }
 
-bool is_leaf_node(PageTableEntryFlags flags) {
+static bool is_leaf_node(PageTableEntryFlags flags) {
     return (flags.read || flags.write || flags.execute);
 }
 
-PageTable get_linked_table(PageTableEntry entry) {
+static PageTable get_linked_table(PageTableEntry entry) {
     if (false == entry.flags.valid) {
         PANIC("passed invalid entry to get_linked_table");
     }
@@ -71,7 +71,7 @@ PageTable get_linked_table(PageTableEntry entry) {
     return (PageTable)next_table;
 }
 
-void VirtualAddress_print(VirtualAddress virtual_address) {
+static void VirtualAddress_print(VirtualAddress virtual_address) {
     printf("VirtualAddress(%p){ ", virtual_address.value);
 #if POINTER_BITS == 64
     printf("L2: %u, ", virtual_address.level2_entry_number);
@@ -83,8 +83,8 @@ void VirtualAddress_print(VirtualAddress virtual_address) {
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-void PageTableEntryFlags_print(PageTableEntryFlags flags,
-                               bool print_leafiness) {
+static void PageTableEntryFlags_print(PageTableEntryFlags flags,
+                                      bool print_leafiness) {
     if (PAGE_TABLE_PRINT_ALL_FLAGS) {
         printf("v%ur%uw%ux%uu%ug%ua%ud%u", flags.valid, flags.read, flags.write,
                flags.execute, flags.user, flags.global, flags.accessed,
@@ -118,8 +118,8 @@ void PageTableEntryFlags_print(PageTableEntryFlags flags,
 //
 // guarantees creation of all 3 levels of pages (no mega/giga pages)
 // TODO: investigate qemu `info mem` some pages not accessed
-void map_address(PageTable first_table, VirtualAddress virtual_address,
-                 uintptr_t physical_address, PageTableEntryFlags flags) {
+static void map_address(PageTable first_table, VirtualAddress virtual_address,
+                        uintptr_t physical_address, PageTableEntryFlags flags) {
     if (DEBUG_MAP_ADDRESS) {
         printf("map_address(table @ %p, v:%p, p:%p, f:", (uintptr_t)first_table,
                virtual_address.value, physical_address, flags);
@@ -198,7 +198,7 @@ void map_address(PageTable first_table, VirtualAddress virtual_address,
     entry->flags.read = true;  // all leaf pages are readable
 }
 
-void PageTableEntry_print(PageTableEntry entry) {
+static void PageTableEntry_print(PageTableEntry entry) {
     printf("Entry { flags: ");
     PageTableEntryFlags_print(entry.flags, true);
     printf(", physical_page_num: 0x%llx }\n", entry.physical_page_num);
@@ -210,8 +210,8 @@ struct PrintPageTableRecurse {
 };
 typedef struct PrintPageTableRecurse PrintPageTableRecurse;
 
-void PageTable_print(PageTable table, bool only_valid_entries,
-                     PrintPageTableRecurse recurse) {
+static void PageTable_print(PageTable table, bool only_valid_entries,
+                            PrintPageTableRecurse recurse) {
     for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
         PageTableEntry entry = table[i];
 
@@ -246,7 +246,8 @@ SatpRegister satp_from_page_table(PageTable table) {
 
 // adds the global special page, which is outside of normal memory, to the page
 // table at its physical address
-void map_global_special_page(PageTable page_table, PageTableEntryFlags flags) {
+static void map_global_special_page(PageTable page_table,
+                                    PageTableEntryFlags flags) {
     map_address(page_table, (VirtualAddress){.value = GLOBAL_SPECIAL_PAGE},
                 GLOBAL_SPECIAL_PAGE, flags);
 }
@@ -309,6 +310,11 @@ void init_kernel_page_table(void) {
     map_global_special_page(
         kernel_page_table,
         (PageTableEntryFlags){.read = true, .write = true, .execute = true});
+
+    if (DEBUG_MAP_ADDRESS) {
+        PageTable_print(kernel_page_table, true,
+                        (PrintPageTableRecurse){.recurse = true, .level = 0});
+    }
 }
 
 // TODO: deduplicate with init_kernel_page_table

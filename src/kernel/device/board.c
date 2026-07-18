@@ -19,13 +19,13 @@
 #define BOARD() BOARD_(MACHINE)
 #define BOARD_(m) CONCAT_(board, m)
 
-const Board board_unknown = {
+static UNUSED const Board board_unknown = {
     .name = "unknown",
     .num_monitor_harts = 0,
     .num_normal_harts = 1,
 };
 
-const Board board_virt = {
+static UNUSED const Board board_virt = {
     .name = "virt",
     .num_monitor_harts = 0,
     .num_normal_harts = 1,
@@ -35,7 +35,7 @@ const Board board_virt = {
     .csr_stimecmp = true,
     .csr_time = true,
 };
-const Board board_sifive_u = {
+static UNUSED const Board board_sifive_u = {
     .name = "sifive_u",
     .num_monitor_harts = 1,
     .num_normal_harts = 4,

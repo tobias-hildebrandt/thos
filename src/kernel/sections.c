@@ -35,7 +35,8 @@ const uintptr_t USER_SPECIAL_PAGE = (uintptr_t)__USER_SPECIAL_PAGE;
     print_section(#section, CONCAT_(section, START), CONCAT_(section, END), \
                   SECTION_SIZE(section))
 
-void print_section(char* name, uintptr_t start, uintptr_t end, uintptr_t size) {
+static void print_section(char* name, uintptr_t start, uintptr_t end,
+                          uintptr_t size) {
     uintptr_t kibibytes = INT_DIV_CEIL(size, 1024);
     uintptr_t pages = INT_DIV_CEIL(size, PAGE_SIZE);
     printf("section %s\n", name);

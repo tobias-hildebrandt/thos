@@ -6,6 +6,7 @@
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "sbi.h"
+#include "util.h"
 
 // TODO: detect in qemu wrapper, shutdown qemu externally
 #define SHUTDOWN_FAIL_STRING "---UNABLE TO SHUTDOWN---"
@@ -21,7 +22,7 @@ void exit(int exit_code) {
         PRINTF_IF(DEBUG_EXIT, "sifive_test_exit fail\n");
     }
 
-    SbiReturn ret;
+    UNUSED SbiReturn ret;
 
     printf("---EXITCODE %d---\n", exit_code);
 

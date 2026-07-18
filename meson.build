@@ -120,12 +120,12 @@ foreach define : option_defines.strip().split(' ')
         continue
     endif
     define_splits = define.split('=')
-    if define_splits[0] == 'DEBUG' and define_splits[1].to_int() > 0
+    if define_splits[0] == 'DEBUG' and define_splits.get(1, '1').to_int() > 0
         define_debug_all = true
         continue
     endif
     defines_map += {
-        define_splits[0]: define_splits[1],
+        define_splits[0]: define_splits.get(1, '1'),
     }
 endforeach
 foreach define : defines_other
@@ -146,7 +146,7 @@ foreach define : defines_debug
     endif
     if define_debug_all
         defines_map += {
-            define: 1,
+            define: '1',
         }
         continue
     endif
@@ -154,7 +154,7 @@ foreach define : defines_debug
         continue
     endif
     defines_map += {
-        define: 0,
+        define: '0',
     }
 endforeach
 

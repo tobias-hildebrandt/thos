@@ -37,7 +37,7 @@ bool Process_is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
 }
 
-char* Process_type_str(Process* process) {
+static char* Process_type_str(Process* process) {
     if (Process_is_kernel_process(process)) {
         return "kernel";
     } else {
@@ -48,7 +48,7 @@ char* Process_type_str(Process* process) {
 #define PRINT_CONTEXT_REG(context, reg) \
     printf("\t" #reg ": 0x%p,\n", (context).reg);
 
-void ProcessState_print(ProcessState state) {
+static void ProcessState_print(ProcessState state) {
     printf("%d(", state);
     switch (state) {
         case PROCESS_UNUSED:
@@ -93,7 +93,7 @@ void Process_print(Process* process) {
 // user exit function
 // located in user special function
 // automatically set as return address when user process first switched on
-IN_USER_SPECIAL NAKED void user_exit(void) {
+static IN_USER_SPECIAL NAKED void user_exit(void) {
     ASM(
         // just do SYSCALL_EXIT and let kernel handle it
         "li a0, %0\n"
@@ -104,11 +104,11 @@ IN_USER_SPECIAL NAKED void user_exit(void) {
 
 // kernel process exit
 // automatically set as return address when kernel process first switched on
-void kernel_exit(void) {
+static void kernel_exit(void) {
     // switch to process's kernel stack
     // "poor man's trap_vector"
     // but already in kernel page table and no need to save trapframe
-    ASM(ASM_LOAD "sp, " STRINGIFY(current_process_stack_top) "\n");
+    ASM(ASM_LOAD "sp, %0\n" ::"i"(&current_process_stack_top));
 
     // wipe current process (except kernel stack)
     clean_process();
@@ -219,11 +219,11 @@ void clean_process(void) {
     current_process = NULL;
 }
 
-uint8_t next_id(uint8_t id) {
+static uint8_t next_id(uint8_t id) {
     return (id + 1) % NUM_PROCESSES;
 }
 
-Process* find_next_process(void) {
+static Process* find_next_process(void) {
     // start at current id or 0
     uint8_t id = 0;
     if (current_process != NULL) {

@@ -16,9 +16,6 @@ Checks: [
     # opinion
     -readability-else-after-return,
 
-    # rely on external linkage for lots of asm jumps
-    -misc-use-internal-linkage,
-
     # wrong
     -readability-implicit-bool-conversion,
     -misc-static-assert,

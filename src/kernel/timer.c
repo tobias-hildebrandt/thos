@@ -8,7 +8,7 @@
 #include "device/board.h"
 #include "sbi.h"
 
-uint64_t read_time(void) {
+static uint64_t read_time(void) {
     uint64_t time;
     if (POINTER_BITS == 64) {
         if (board.csr_time) {
@@ -33,7 +33,7 @@ uint64_t read_time(void) {
     return time;
 }
 
-void write_time(uint64_t time) {
+static void write_time(uint64_t time) {
     if (board.csr_stimecmp) {
         if (POINTER_BITS == 64) {
             csr_write_stimecmp(time);

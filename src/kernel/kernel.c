@@ -1,3 +1,5 @@
+#include "kernel.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,17 +19,8 @@
 #include "trap.h"
 #include "util.h"
 
-SECTION(".text.boot") NAKED void boot(void) {
-    // set stack pointer
-    ASM("la sp, " STRINGIFY(STACK_END) "\n");
-    ASM(ASM_LOAD "sp, (sp)\n");
-
-    // jump to kernel function
-    ASM("j " STRINGIFY(kernel_main) "\n");
-}
-
-void kernel_main(uintptr_t hart_id,
-                 const DeviceTreeHeadersRaw* device_tree_headers) {
+static void kernel_main(uintptr_t hart_id,
+                        const DeviceTreeHeadersRaw* device_tree_headers) {
     enable_trap_vector();
 
     init_kernel_page_table();
@@ -88,4 +81,18 @@ void kernel_main(uintptr_t hart_id,
 
     // TODO: set return address in .boot?
     exit(0);
+}
+
+SECTION(".text.boot") UNUSED NAKED void boot(void) {
+    // clang-format off
+    ASM(
+        // set stack pointer
+        ASM_LOAD "sp, %[stack]\n"
+
+        // jump to kernel function
+        "j %[func]\n"
+        ::
+        [stack] "i"(&STACK_END),
+        [func] "i"(kernel_main));
+    // clang-format on
 }

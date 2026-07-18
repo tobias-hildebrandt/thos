@@ -35,7 +35,7 @@
 #define SUPERVISOR_TIMER_INTERRUPT SCAUSE(1, 5)
 #define SUPERVISOR_EXTERNAL_INTERRUPT SCAUSE(1, 9)
 
-const char* decode_scause(uint64_t scause) {
+static const char* decode_scause(uint64_t scause) {
     switch (scause) {
             // clang-format off
         case SUPERVISOR_SOFTWARE_INTERRUPT: return "Supervisor software interrupt";
@@ -102,7 +102,7 @@ void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, s11);
 }
 
-void handle_trap(TrapFrame* frame) {
+static void handle_trap(TrapFrame* frame) {
     uintptr_t scause = csr_read_scause();
     uintptr_t stval = csr_read_stval();
     uintptr_t sepc = csr_read_sepc();
@@ -117,7 +117,7 @@ void handle_trap(TrapFrame* frame) {
 
     bool fatal =
         ((was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
-         (!was_in_kernel_mode && !(ecall))) &&
+         (!was_in_kernel_mode && !ecall)) &&
         !external_interrupt;
 
     int pid = current_process == NULL ? -1 : my_pid();
@@ -203,7 +203,9 @@ void handle_trap(TrapFrame* frame) {
 // "the address must be 4-byte aligned"
 // TODO: __attribute__(interrupt)?
 // https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
-IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
+static IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(
+    void) {
+    // clang-format off
     ASM(
         // need to swap to kernel page table NOW, before touching stack
 
@@ -213,8 +215,7 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         // load kernel page satp into t0
         // located in global special page
         // which is mapped for both kernel and user processes
-        "la t0, " STRINGIFY(kernel_page_satp) "\n"
-        ASM_LOAD "t0, (t0)\n"
+        ASM_LOAD "t0, %[satp_addr]\n"
 
         // swap page table to t0
         "sfence.vma\n"
@@ -228,11 +229,11 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         "csrw sscratch, sp\n"
 
         // change stack pointer to process's kernel stack
-        // sp = (uintptr_t) current_process_stack_top;
-        ASM_LOAD "sp, " STRINGIFY(current_process_stack_top) "\n"
+        // sp = (void*) current_process_stack_top;
+        ASM_LOAD "sp, %[stack_top]\n"
 
         // if sp is not zero (trap before processes begin), jump ahead
-        "bnez sp, "TRAP_STACK_OK"\n"
+        "bnez sp, " TRAP_STACK_OK"\n"
         // reload from scratch
         "csrr sp, sscratch\n"
 
@@ -240,10 +241,12 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         // add space on stack
         "addi sp, sp, -%[frame_size]\n"
 
-        ::[frame_size]"i"(
-            // make sure we keep stack aligned to 16
-            align_up(sizeof(TrapFrame), 16)
-        ));
+        ::
+        // make sure we keep stack aligned to 16
+        [frame_size] "i"(align_up(sizeof(TrapFrame), 16)),
+        [satp_addr] "i"(&kernel_page_satp),
+        [stack_top] "i"(&current_process_stack_top));
+    // clang-format on
 
     // store registers in stack's trap frame
     // starting registers
@@ -302,8 +305,10 @@ IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(void) {
         // point a0 (first function argument) to TrapFrame on stack
         "mv a0, sp\n"
         // call handle_trap
-        "la t0, " STRINGIFY(handle_trap) "\n"
-        "jr t0 \n");
+        "la t0, %[trap_addr]\n"
+        "jr t0\n"
+        //
+        ::[trap_addr] "i"(handle_trap));
 }
 
 // restores current_process context

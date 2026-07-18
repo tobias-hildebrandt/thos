@@ -41,7 +41,7 @@ void debug_printf(void) {
 
     printf("printf %%x but pass longlong: 0x0123456789abcdef = 0x%x\n",
            0x0123456789abcdefLL);
-    printf("printf %%llx but pass int: 0x01234567 = 0x%llx\n", (0x01234567));
+    printf("printf %%llx but pass int: 0x01234567 = 0x%llx\n", 0x01234567);
 
     printf("printf alt# int hex 0          = %#x\n", 0x0);
     printf("printf alt# int hex 0xffffffff = %#x\n", 0xffffffff);
@@ -64,7 +64,7 @@ void debug_printf(void) {
     }
 
     for (long shift = 0; shift < POINTER_BITS; shift += 4) {
-        uintptr_t value = (1L) << shift;
+        uintptr_t value = 1L << shift;
         printf("0x%p = signed=%p unsigned=%p\n", value, value, value);
     }
 

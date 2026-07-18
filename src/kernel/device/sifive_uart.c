@@ -50,7 +50,7 @@ static Buffer uart1_buffer;
 static char uart1_buffer_array[BUFFER_LEN];
 
 // MUST read whole word, individual bytes will cause fault!
-uint32_t sifive_uart_read_register(const SifiveUartRegister* uart) {
+static uint32_t sifive_uart_read_register(const SifiveUartRegister* uart) {
     uint32_t value;
     ASM("lw %[value], (%[pointer])\n"
         //
@@ -60,7 +60,7 @@ uint32_t sifive_uart_read_register(const SifiveUartRegister* uart) {
     return value;
 }
 
-void sifive_uart_print_regs(SifiveUartRegister* uart) {
+static void sifive_uart_print_regs(SifiveUartRegister* uart) {
     SIFIVE_UART_PRINT_REG(uart, SIFIVE_UART_REG_TRANSMIT_CONTROL);
     SIFIVE_UART_PRINT_REG(uart, SIFIVE_UART_REG_RECEIVE_CONTROL);
     SIFIVE_UART_PRINT_REG(uart, SIFIVE_UART_REG_INTERRUPT_ENABLE);

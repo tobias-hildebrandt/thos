@@ -10,8 +10,10 @@
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
 #include "panic.h"
+#include "util.h"
 
-const Test* get_test(char* name, const Test* tests, const size_t num_tests) {
+static UNUSED const Test* get_test(char* name, const Test* tests,
+                                   const size_t num_tests) {
     PRINTF_IF(DEBUG_TESTS, "looking for %s\n", name);
     for (size_t i = 0; i < num_tests; i++) {
         const Test* test = tests + i;

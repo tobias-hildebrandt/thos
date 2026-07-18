@@ -12,7 +12,7 @@
 typedef uint32_t SifivePlicRegister;
 
 // return the block index of the s-mode block for a given normal hart
-size_t normal_hart_s_mode_block_index(size_t normal_hart_number) {
+static size_t normal_hart_s_mode_block_index(size_t normal_hart_number) {
     return
         // navigate past monitor hart blocks
         board.num_monitor_harts +
