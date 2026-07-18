@@ -141,6 +141,7 @@ void debug_printf(void) {
 
 // integer parsing testing
 void debug_atoi(void) {
+    // NOLINTBEGIN(bugprone-unchecked-string-to-number-conversion)
     PRINT_ATOX(atoi, "%d", "0", 0);
     PRINT_ATOX(atoi, "%d", "10", 10);
     PRINT_ATOX(atoi, "%d", "999999", 999999);
@@ -165,6 +166,7 @@ void debug_atoi(void) {
     PRINT_ATOX(atoi, "%d", "+aaaaa", 0);
     PRINT_ATOX(atoi, "%d", "++++111", 0);
     PRINT_ATOX(atoi, "%d", "    \t\n\t\n       ", 0);
+    // NOLINTEND(bugprone-unchecked-string-to-number-conversion)
 }
 
 #define PRINT_IS_ALIGNED(val, align, expected)                        \

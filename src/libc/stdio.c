@@ -12,9 +12,9 @@
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 
-#define SHOULD_USE_32(STATE)                             \
-    (POINTER_BITS == 32 && STATE->long_modifiers < 2) || \
-        (POINTER_BITS == 64 && STATE->long_modifiers == 0)
+#define SHOULD_USE_32(STATE)                               \
+    (POINTER_BITS == 32 && (STATE)->long_modifiers < 2) || \
+        (POINTER_BITS == 64 && (STATE)->long_modifiers == 0)
 
 struct PrintState {
     bool in_conversion_spec;
@@ -230,18 +230,18 @@ int print_signed(va_list* args, PrintState* state) {
                     } else {                                       \
                         putchar(' ');                              \
                     }                                              \
-                    (PRINTED) += 1;                                \
+                    *(PRINTED) += 1;                               \
                 }                                                  \
             }                                                      \
             /* call with min_width 0, will print */                \
             (STATE)->min_width = 0;                                \
-            (PRINTED) += (REAL_CALL);                              \
+            *(PRINTED) += (REAL_CALL);                             \
         } else if ((STATE)->min_width > 0 && (STATE)->left_pad) {  \
             int requested = (STATE)->min_width;                    \
             /* call with min_width 0, will print */                \
             (STATE)->min_width = 0;                                \
             int did_print = REAL_CALL;                             \
-            (PRINTED) += did_print;                                \
+            *(PRINTED) += did_print;                               \
             if (requested > did_print) {                           \
                 int to_print = requested - did_print;              \
                 for (int i = 0; i < to_print; i++) {               \
@@ -250,17 +250,17 @@ int print_signed(va_list* args, PrintState* state) {
                     } else {                                       \
                         putchar(' ');                              \
                     }                                              \
-                    (PRINTED) += 1;                                \
+                    *(PRINTED) += 1;                               \
                 }                                                  \
             }                                                      \
         } else {                                                   \
-            (PRINTED) += (REAL_CALL);                              \
+            *(PRINTED) += (REAL_CALL);                             \
         }                                                          \
     } while (0)
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void handle_conversion_spec(char character, PrintState* state, va_list* args,
-                            const int* printed) {
+                            int* const printed) {
     switch (character) {
         case '\0': {
             // undefined behavior
@@ -297,7 +297,7 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
             //         "modifiers");
             // }
             putchar('%');
-            printed += 1;
+            *printed += 1;
             PrintState_reset(state);
             break;
         }
@@ -324,6 +324,7 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
             MIN_WIDTH_CALL(state, printed, print_hex(&args_copy, state),
                            print_hex(args, state));
             PrintState_reset(state);
+            va_end(args_copy);
             break;
         }
         case 'b': {
@@ -333,6 +334,7 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
             MIN_WIDTH_CALL(state, printed, print_binary(&args_copy, state),
                            print_binary(args, state));
             PrintState_reset(state);
+            va_end(args_copy);
             break;
         }
         case 'i':
@@ -343,6 +345,7 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
             MIN_WIDTH_CALL(state, printed, print_signed(&args_copy, state),
                            print_signed(args, state));
             PrintState_reset(state);
+            va_end(args_copy);
             break;
         }
         case 'u': {
@@ -352,6 +355,7 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
             MIN_WIDTH_CALL(state, printed, print_unsigned(&args_copy, state),
                            print_unsigned(args, state));
             PrintState_reset(state);
+            va_end(args_copy);
             break;
         }
         case 'p': {
@@ -372,12 +376,13 @@ void handle_conversion_spec(char character, PrintState* state, va_list* args,
 
             putchar('0');
             putchar('x');
-            printed += 2;
+            *printed += 2;
 
             va_list args_copy;
             va_copy(args_copy, *args);
             MIN_WIDTH_CALL(state, printed, print_hex(&args_copy, state),
                            print_hex(args, state));
+            va_end(args_copy);
             PrintState_reset(state);
             break;
         }

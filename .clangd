@@ -7,3 +7,5 @@ If:
 Diagnostics:
   UnusedIncludes: Strict
   MissingIncludes: Strict
+  ClangTidy:
+    FastCheckFilter: None

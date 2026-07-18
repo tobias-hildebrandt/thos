@@ -19,10 +19,12 @@
 #endif
 
 #if __SIZEOF_POINTER__ == 8
+// NOLINTNEXTLINE(modernize-macro-to-enum)
 #define POINTER_BITS 64
 #define ONLY64(expr) expr
 #define ONLY32(expr)
 #elif __SIZEOF_POINTER__ == 4
+// NOLINTNEXTLINE(modernize-macro-to-enum)
 #define POINTER_BITS 32
 #define ONLY64(expr)
 #define ONLY32(expr) expr

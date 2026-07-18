@@ -17,12 +17,13 @@
 #include "syscalls.h"
 #include "timer.h"
 #include "trap.h"
+#include "util.h"
 
 // entry user-memory address
 // must match what's defined in user program ld script
-#define USER_PROGRAM_BASE 0x1000000
+#define USER_PROGRAM_BASE 0x1000000UL
 
-#define NUM_PROCESSES 16
+enum { NUM_PROCESSES = 16 };
 
 static Process processes[NUM_PROCESSES];
 Process* current_process = NULL;

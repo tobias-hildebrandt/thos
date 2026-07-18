@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 #define SIFIVE_PLIC_ADDRESS 0x0C000000UL
-#define SIFIVE_PLIC_LEN 0x4000000
+#define SIFIVE_PLIC_LEN 0x4000000UL
 
-#define SIFIVE_PLIC_PRIORITY_OFFSET 0x0
+#define SIFIVE_PLIC_PRIORITY_OFFSET 0x0UL
 
 /*
 TODO: organize into struct? maybe generic device struct?
@@ -23,7 +23,7 @@ struct SifivePlicRegisterSection {
 // block of M mode enables
 // block of S mode enables
 #define SIFIVE_PLIC_INTERRUPT_ENABLE_OFFSET 0x00002000UL
-#define SIFIVE_PLIC_INTERRUPT_ENABLE_BLOCK_SIZE 0x80
+#define SIFIVE_PLIC_INTERRUPT_ENABLE_BLOCK_SIZE 0x80UL
 
 // each block 0x1000
 // for hart 0
@@ -32,7 +32,7 @@ struct SifivePlicRegisterSection {
 // block of m-mode prio + claim/complete
 // block of s-mode prio + claim/complete
 #define SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_OFFSET 0x00200000UL
-#define SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_BLOCK_SIZE 0x1000
+#define SIFIVE_PLIC_THRESHOLD_CLAIM_COMPLETE_BLOCK_SIZE 0x1000UL
 
 void sifive_plic_enable_smode_interrupt(size_t normal_hart_number,
                                         size_t interrupt);

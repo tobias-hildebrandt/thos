@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define NUM_MESSAGES 8
+enum { NUM_MESSAGES = 8 };
 char* messages[NUM_MESSAGES] = {
     // clang-format off
     "hello world",

@@ -13,7 +13,7 @@
 #include "sifive_plic.h"
 
 // registers are all 32bits and offset by number*32bits
-#define SIFIVE_UART_REG(PTR, REGISTER) (PTR + REGISTER)
+#define SIFIVE_UART_REG(PTR, REGISTER) ((PTR) + (REGISTER))
 
 enum {
     SIFIVE_UART_REG_TRANSMIT_DATA = 0,

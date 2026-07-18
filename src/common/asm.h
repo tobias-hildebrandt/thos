@@ -20,18 +20,20 @@
 #endif
 
 // asm string generation to load/store registers in memory
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define REGISTER_MEM(instr, base, reg, type) \
     ASM(instr #reg ", %[offset](" #base      \
                    ")\n" : : [offset] "i"(offsetof(type, reg)))
+// NOLINTEND(bugprone-macro-parentheses)
 
 // TODO: determine if register macros are even useful
 
 // declare a register variable
-#define NAMED_REGISTER(NAME, REGISTER) register long NAME __asm__(#REGISTER)
-#define REGISTER(REGISTER) NAMED_REGISTER(REGISTER, REGISTER)
+#define NAMED_REGISTER(NAME, REGISTER) register long(NAME) __asm__(#REGISTER)
+#define REGISTER(REGISTER) NAMED_REGISTER((REGISTER), (REGISTER))
 #define REGISTER_INIT(REGISTER, init)   \
     NAMED_REGISTER(REGISTER, REGISTER); \
-    REGISTER = init;
+    (REGISTER) = init;
 
 #if COMPILER_IS_CLANG
 // clang-format off

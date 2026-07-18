@@ -19,7 +19,7 @@ enum ProcessState {
 };
 typedef enum ProcessState ProcessState;
 
-#define KERNEL_STACK_SIZE 8192
+enum { KERNEL_STACK_SIZE = 8192 };
 
 struct Process {
     uint8_t id;

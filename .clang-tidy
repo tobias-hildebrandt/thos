@@ -25,6 +25,9 @@ Checks: [
 
     # too many false positives
     -readability-magic-numbers,
+
+    # we are using gnu dialect anyway
+    -clang-diagnostic-gnu-zero-variadic-macro-arguments,
 ]
 CheckOptions:
     readability-identifier-length.IgnoredVariableNames: (ch|id|i)$

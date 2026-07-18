@@ -19,8 +19,9 @@
 #include "process.h"
 #include "sections.h"
 #include "syscall.h"
+#include "util.h"
 
-#define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, PTR->MEM)
+#define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, (PTR)->MEM)
 
 // 12.1.1.8. Supervisor Cause (scause) Register
 #define SCAUSE(INTERRUPT, EXCEPTION) \
@@ -101,16 +102,13 @@ void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, s11);
 }
 
-// SPP privilege level before interrupt (1 is supervisor, 0 is user)
-#define SSTATUS_SPP 8
-
 void handle_trap(TrapFrame* frame) {
     uintptr_t scause = csr_read_scause();
     uintptr_t stval = csr_read_stval();
     uintptr_t sepc = csr_read_sepc();
     uintptr_t sstatus = csr_read_sstatus();
 
-    bool was_in_kernel_mode = BIT_GET(sstatus, SSTATUS_SPP);
+    bool was_in_kernel_mode = BIT_GET(sstatus, SSTATUS_PRIVILEGE);
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
     bool timer_interrupt = (scause == SUPERVISOR_TIMER_INTERRUPT);
@@ -406,8 +404,8 @@ void disable_traps_now(void) {
 // enable SIE's supervisor software, timer, and external interrupt enable bits
 void enable_interrupts(void) {
     uintptr_t sie = csr_read_sie();
-    sie = BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT) |
-          BIT_TO_INT(SIE_SIP_TIMER_INTERRUPT) |
-          BIT_TO_INT(SIE_SIP_EXTERNAL_INTERRUPT);
+    sie |= BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT) |
+           BIT_TO_INT(SIE_SIP_TIMER_INTERRUPT) |
+           BIT_TO_INT(SIE_SIP_EXTERNAL_INTERRUPT);
     csr_write_sie(sie);
 }

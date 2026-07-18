@@ -16,19 +16,19 @@
 #include "sections.h"
 
 #if POINTER_BITS == 64
-#define PAGE_TABLE_TOP_LEVEL 2
+enum { PAGE_TABLE_TOP_LEVEL = 2 };
 #define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
     {                                                   \
-        ADDR.level0_entry_number,                       \
-        ADDR.level1_entry_number,                       \
-        ADDR.level2_entry_number,                       \
+        (ADDR).level0_entry_number,                     \
+        (ADDR).level1_entry_number,                     \
+        (ADDR).level2_entry_number,                     \
     }
 #else
-#define PAGE_TABLE_TOP_LEVEL 1
+enum { PAGE_TABLE_TOP_LEVEL = 1 };
 #define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
     {                                                   \
-        ADDR.level0_entry_number,                       \
-        ADDR.level1_entry_number,                       \
+        (ADDR).level0_entry_number,                     \
+        (ADDR).level1_entry_number,                     \
     }
 #endif
 

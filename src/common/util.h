@@ -8,7 +8,7 @@
 #define CONCAT3_(a, b, c) a##_##b##_##c
 
 // integer division but rounds up
-#define INT_DIV_CEIL(num, denom) ((num + (denom - 1)) / denom)
+#define INT_DIV_CEIL(num, denom) (((num) + ((denom) - 1)) / (denom))
 
 #define LOGICAL_XOR(cond1, cond2) (!(cond1) != !(cond2))
 
