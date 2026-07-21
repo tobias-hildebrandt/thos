@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,7 +11,9 @@
 #include "buffer.h"
 #include "csr.h"
 #include "flags.h"
+#include "hart.h"
 #include "io.h"
+#include "lock.h"
 #include "paging.h"
 #include "panic.h"
 #include "sections.h"
@@ -23,15 +26,11 @@
 // must match what's defined in user program ld script
 #define USER_PROGRAM_BASE 0x1000000UL
 
-enum { NUM_PROCESSES = 16 };
+// TODO: move to flags.h
+enum { NUM_PROCESSES = 64 };
 
 static Process processes[NUM_PROCESSES];
-Process* current_process = NULL;
-
-// pointer to top of current_process's kernel stack
-// kept up to date on switch
-// makes trap_vector simpler
-void* current_process_stack_top;
+static SpinLock processes_lock;
 
 bool Process_is_kernel_process(Process* process) {
     return process->page_table == kernel_page_table;
@@ -78,22 +77,22 @@ void Process_print(Process* process) {
     printf("\tstate: ");
     ProcessState_print(process->state);
     printf(",\n");
-    PRINT_CONTEXT_REG(process->context, ra);
+    PRINT_CONTEXT_REG(process->frame, ra);
     if (process->page_table != NULL) {
-        printf("\tra vaddr = paddr %p,\n",
-               get_physical_address(
-                   process->page_table,
-                   (VirtualAddress){.value = process->context.ra}));
+        printf(
+            "\tra vaddr = paddr %p,\n",
+            get_physical_address(process->page_table,
+                                 (VirtualAddress){.value = process->frame.ra}));
     }
-    PRINT_CONTEXT_REG(process->context, sp);
-    PRINT_CONTEXT_REG(process->context, pc);
+    PRINT_CONTEXT_REG(process->frame, sp);
+    PRINT_CONTEXT_REG(process->frame, pc);
     printf("}\n");
 }
 
 // user exit function
 // located in user special function
 // automatically set as return address when user process first switched on
-static IN_USER_SPECIAL NAKED void user_exit(void) {
+static NORETURN IN_USER_SPECIAL NAKED void user_exit(void) {
     ASM(
         // just do SYSCALL_EXIT and let kernel handle it
         "li a0, %0\n"
@@ -104,17 +103,14 @@ static IN_USER_SPECIAL NAKED void user_exit(void) {
 
 // kernel process exit
 // automatically set as return address when kernel process first switched on
-static void kernel_exit(void) {
-    // switch to process's kernel stack
-    // "poor man's trap_vector"
-    // but already in kernel page table and no need to save trapframe
-    ASM(ASM_LOAD "sp, %0\n" ::"i"(&current_process_stack_top));
+static NORETURN void kernel_exit(void) {
+    disable_traps_now();
 
     // wipe current process (except kernel stack)
     clean_process();
 
     // switch into a new process
-    begin_processes();
+    reset_stack_begin_processes();
 }
 
 Process* allocate_process(ProcessArguments args) {
@@ -138,9 +134,9 @@ Process* allocate_process(ProcessArguments args) {
     process->id = index;
 
     // set up output buffer
-    process->out_buffer = Buffer_wrap(process->out_buffer_array, BUFFER_LEN);
+    process->output_buffer = Buffer_wrap(process->out_buffer_array, BUFFER_LEN);
 
-    // create page table and map kernel memory
+    // create page table and map memory
     if (args.is_user_program) {
         // needs page for page_table
         PageTable page_table = (PageTable)alloc_page();
@@ -154,22 +150,23 @@ Process* allocate_process(ProcessArguments args) {
 
         // when switched into, "returns" to the virtual address base
         // of all user programs
-        process->context.ra = USER_PROGRAM_BASE;
+        process->frame.ra = USER_PROGRAM_BASE;
 
         // set stack pointer to user_program_end
         // TODO: maybe just leave it up to the user program?
-        process->context.sp = args.user_program_end;
+        process->frame.sp = args.user_program_end;
     } else {
         // uses normal kernel page table
         process->page_table = kernel_page_table;
 
+        // TODO: more stack space?
         // needs room for stack
         uintptr_t stack_page = (uintptr_t)alloc_page();
         // points at top(!) of page
-        process->context.sp = stack_page + PAGE_SIZE;
+        process->frame.sp = stack_page + PAGE_SIZE;
 
         // when switched into, "returns" to the entry address like normal
-        process->context.ra = args.entry_address;
+        process->frame.ra = args.entry_address;
     }
 
     process->state = PROCESS_READY;
@@ -184,55 +181,67 @@ Process* allocate_process(ProcessArguments args) {
 }
 
 uint8_t my_pid(void) {
+    Process* current_process = my_hart_current_process();
+    // TODO: lock?
     if (current_process == NULL) {
         PANIC("my_pid called while no current process");
     }
     return current_process->id;
 }
 
-PageTable my_page_table(void) {
-    if (current_process == NULL) {
-        PANIC("my_page_table called while no current process");
-    }
-    return current_process->page_table;
-}
+// Entry point into processes from kernel main and kernel_exit
+// Precondition: traps disabled
+void NAKED NORETURN reset_stack_begin_processes(void) {
+    // clang-format off
+    ASM(
+        // reset (clobber) stack to top of work stack
+        "csrr sp, sscratch\n"
+        "li a0, %[offset]\n"
+        "add sp, sp, a0\n"
 
-void begin_processes(void) {
-    kernel_switch(NULL);
+        // switch into a new process
+        "mv a0, x0\n"
+        "j %[jump]\n"
+        ::
+        [offset]"i"(offsetof(HartScratch, work_stack)+ WORK_STACK_SIZE),
+        [jump]"i"(kernel_switch));
+    // clang-format on
 }
 
 // wipes the current process
 // TODO: de-alloc user page table once alloc/de-alloc is implemented
+// Precondition: traps disabled
 void clean_process(void) {
+    HartScratch* hart_scratch = my_hart_scratch();
+
+    Process* old_process = hart_scratch->current_process;
+
+    hart_scratch->current_process = NULL;
+
     PRINTF_IF(DEBUG_CLEAN_PROCESS, "clean_process: pid %d\n", my_pid());
-    if (current_process == NULL) {
+    if (old_process == NULL) {
         PANIC("clean_process called but no current_process");
     }
 
     // set process to unused
-    // do NOT wipe the kernel stack, we are currently on it!
-    current_process->id = -1;
-    current_process->state = PROCESS_UNUSED;
+    old_process->id = -1;
+    old_process->state = PROCESS_UNUSED;
+
+    // TODO: de-alloc page table, memory, etc
 
     PRINTF_IF(DEBUG_CLEAN_PROCESS, "clean_process: wiped\n");
-
-    current_process = NULL;
 }
 
 static uint8_t next_id(uint8_t id) {
     return (id + 1) % NUM_PROCESSES;
 }
 
-static Process* find_next_process(void) {
-    // start at current id or 0
-    uint8_t id = 0;
-    if (current_process != NULL) {
-        id = next_id(current_process->id);
-    }
+// Precondition: process list locked
+static Process* find_next_process(uint8_t start_id) {
+    uint8_t id = start_id;
 
-    int num_checked = 0;
     Process* process;
-    while (1) {
+    for (int num_checked = 0; num_checked < NUM_PROCESSES; num_checked++) {
         process = &processes[id];
 
         if (process->state == PROCESS_RUNNABLE ||
@@ -242,111 +251,141 @@ static Process* find_next_process(void) {
         }
 
         id = next_id(id);
-        num_checked += 1;
-
-        // only loop around once
-        if (num_checked >= NUM_PROCESSES) {
-            PANIC("no runnable or ready processes found after %d checks!",
-                  num_checked);
-        }
     }
-
-    return process;
+    return NULL;
 }
 
 // switch to a different process
 // TODO: scheduling algorithm
-void kernel_switch(TrapFrame* frame) {
-    PRINTF_IF(DEBUG_SWITCH, "kernel_switch: framepointer %p\n", frame);
+// TODO: pass boolean, pull frame directly from hart scratch?
+// Precondition: traps disabled
+NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
+    HartScratch* scratch = my_hart_scratch();
+    uintptr_t hart_id = my_hart_id();
+
+    uint8_t start_search_id = 0;
 
     // back up previous process
     // can only happen if we started in trap_vector and didn't clean_up_process
-    if (current_process != NULL && frame != NULL) {
-        TrapFrame* context = &(current_process->context);
+    if (scratch->current_process != NULL && scratch_trap_frame != NULL) {
+        TrapFrame* process_frame = &(scratch->current_process->frame);
         // copy frame into old context
-        memcpy(context, frame, sizeof(TrapFrame));
-
-        current_process->state = PROCESS_RUNNABLE;
+        memcpy(process_frame, scratch_trap_frame, sizeof(TrapFrame));
 
         // if user process, we have to add 4 to PC
-        if (!Process_is_kernel_process(current_process)) {
-            current_process->context.pc += 4;
+        if (!Process_is_kernel_process(scratch->current_process)) {
+            scratch->current_process->frame.pc += 4;
         }
-        PRINTF_IF(
-            DEBUG_SWITCH, "kernel_switch: switch off pid %2d, %s, c.pc %p\n",
-            current_process->id,
-            Process_is_kernel_process(current_process) ? "kernel" : "user  ",
-            context->pc);
+        PRINTF_IF(DEBUG_SWITCH,
+                  "kernel_switch: hart 0x%x switch off pid %2d "
+                  "(%-6s process), pc %p\n",
+                  hart_id, scratch->current_process->id,
+                  Process_is_kernel_process(scratch->current_process) ? "kernel"
+                                                                      : "user",
+                  process_frame->pc);
         if (DEBUG_SWITCH == 2) {
-            printf("kernel_switch: old context:\n");
-            TrapFrame_print(context);
+            printf("kernel_switch: hart 0x%x old context:\n", hart_id);
+            TrapFrame_print(process_frame);
+        }
+
+        ASM("fence\n");
+
+        start_search_id = next_id(scratch->current_process->id);
+
+        // other harts can now choose this process
+        scratch->current_process->state = PROCESS_RUNNABLE;
+
+        scratch->current_process = NULL;
+    }
+
+    assert(scratch->current_process == NULL);
+
+    bool process_first_run;
+
+    while (1) {
+        SpinLock_acquire(&processes_lock);
+
+        Process* next_process = find_next_process(start_search_id);
+
+        if (next_process == NULL) {
+            SpinLock_release(&processes_lock);
+            continue;
+            // PANIC("next_process NULL");
+        } else {
+            scratch->current_process = next_process;
+
+            process_first_run =
+                (scratch->current_process->state == PROCESS_READY);
+
+            // process now running, other harts will not try to choose this
+            scratch->current_process->state = PROCESS_RUNNING;
+
+            SpinLock_release(&processes_lock);
+            break;
         }
     }
 
-    Process* next_process = find_next_process();
+    // PC to sret into
+    uintptr_t new_pc;
 
-    if (next_process == NULL) {
-        PANIC("next_process NULL");
-    }
-
-    current_process = next_process;
-    current_process_stack_top =
-        &current_process->kernel_stack[KERNEL_STACK_SIZE];
-
-    if (current_process->state == PROCESS_READY) {
+    if (process_first_run) {
         // first time this process is going to run
 
         // set sepc to return address (which is actually the entry point)
-        csr_write_sepc(current_process->context.ra);
+        new_pc = scratch->current_process->frame.ra;
 
         // set up new return address
-        if (Process_is_kernel_process(current_process)) {
-            current_process->context.ra = (uintptr_t)kernel_exit;
+        if (Process_is_kernel_process(scratch->current_process)) {
+            scratch->current_process->frame.ra = (uintptr_t)kernel_exit;
         } else {
-            current_process->context.ra = (uintptr_t)user_exit;
+            scratch->current_process->frame.ra = (uintptr_t)user_exit;
         }
-
     } else {
-        // go back to restored counter
-        csr_write_sepc(current_process->context.pc);
+        // go back to stored frame's PC
+        new_pc = scratch->current_process->frame.pc;
     }
-
-    // process now running
-    current_process->state = PROCESS_RUNNING;
 
     if (DEBUG_SWITCH) {
-        uintptr_t sepc = csr_read_sepc();
-        printf("kernel_switch: switch on  pid %2d, %s, sepc %p\n",
-               current_process->id,
-               Process_is_kernel_process(current_process) ? "kernel" : "user  ",
-               sepc);
+        printf(
+            "kernel_switch: hart 0x%x switch on  pid %2d "
+            "(%-6s process), pc %p\n",
+            hart_id, scratch->current_process->id,
+            Process_is_kernel_process(scratch->current_process) ? "kernel"
+                                                                : "user",
+            new_pc);
     }
 
-    // make sure kernel traps are active
-    prepare_sstatus_for_return(Process_is_kernel_process(current_process));
+    csr_write_sepc(new_pc);
+
+    // make sure kernel traps are active post-sret
+    prepare_sstatus_for_return(
+        Process_is_kernel_process(scratch->current_process));
 
     // enable necessary supervisor interrupts (will only actually be active
     // after return)
     enable_interrupts();
 
-    SatpRegister new_satp = satp_from_page_table(current_process->page_table);
+    SatpRegister new_satp =
+        satp_from_page_table(scratch->current_process->page_table);
 
-    if (DEBUG_SWITCH) {
-        printf("kernel_switch: new page table %p, new satp: %p\n",
-               current_process->page_table, new_satp.value);
+    if (DEBUG_SWITCH == 2) {
+        printf("kernel_switch: hart 0x%x new page table %p, new satp: %p\n",
+               hart_id, scratch->current_process->page_table, new_satp.value);
     }
     if (DEBUG_SWITCH == 2) {
-        printf("kernel_switch: new context:\n");
-        TrapFrame_print(&current_process->context);
-    }
-    if (DEBUG_SWITCH) {
-        printf("kernel_switch: switching now!\n");
+        printf("kernel_switch: hart 0x%x new context:\n", hart_id);
+        TrapFrame_print(&scratch->current_process->frame);
     }
 
-    current_process->context.satp = new_satp.value;
+    // TODO: just set it in allocate_process?
+    scratch->current_process->frame.satp = new_satp.value;
+
+    // copy process's trapframe into hart scratch's frame
+    memcpy(&scratch->frame, &scratch->current_process->frame,
+           sizeof(TrapFrame));
 
     // set interrupt timer
     set_timer(TIMER_INTERRUPT_DELAY);
 
-    restore_after_trap(&current_process->context);
+    restore_after_trap(&scratch->frame);
 }

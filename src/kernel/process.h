@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "paging.h"
 #include "trap.h"
+#include "util.h"
 
 enum ProcessState {
     // not actually a process
@@ -19,17 +20,13 @@ enum ProcessState {
 };
 typedef enum ProcessState ProcessState;
 
-enum { KERNEL_STACK_SIZE = 8192 };
-
 struct Process {
     uint8_t id;
     ProcessState state;
-    uint8_t kernel_stack[KERNEL_STACK_SIZE];
-    TrapFrame context;
-    uintptr_t program_counter;
+    TrapFrame frame;
     PageTable page_table;
     char out_buffer_array[BUFFER_LEN];
-    Buffer out_buffer;
+    Buffer output_buffer;
 };
 typedef struct Process Process;
 
@@ -40,15 +37,11 @@ struct ProcessArguments {
 };
 typedef struct ProcessArguments ProcessArguments;
 
-extern void* current_process_stack_top;
-extern Process* current_process;
-
-void begin_processes(void);
-void kernel_switch(TrapFrame* frame);
+void NORETURN reset_stack_begin_processes(void);
+void NORETURN kernel_switch(TrapFrame* frame);
 #define yield() KERNEL_SOFTWARE_INTERRUPT()
 Process* allocate_process(ProcessArguments args);
 uint8_t my_pid(void);
-PageTable my_page_table(void);
 void Process_print(Process* process);
 void print_user_progs(void);
 bool Process_is_kernel_process(Process* process);

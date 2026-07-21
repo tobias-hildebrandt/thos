@@ -6,25 +6,48 @@
 
 // TODO: CSR atomic read set or clear? csr rs / csr rc
 
-#define READ_CSR_IMPL(csr)                         \
-    static inline uintptr_t csr_read_##csr(void) { \
-        uintptr_t value;                           \
-        ASM("csrr %0, " #csr "\n" : "=r"(value));  \
-        return value;                              \
+#define CSR_READ_IMPL(csr)                                  \
+    static inline uintptr_t csr_read_##csr(void) {          \
+        uintptr_t value;                                    \
+        ASM("csrr %[out], " #csr "\n" : [out] "=r"(value)); \
+        return value;                                       \
     }
-#define WRITE_CSR_IMPL(csr)                               \
-    static inline void csr_write_##csr(uintptr_t value) { \
-        ASM("csrw " #csr ", %0\n" ::"r"(value));          \
+#define CSR_WRITE_IMPL(csr)                                  \
+    static inline uintptr_t csr_write_##csr(uintptr_t set) { \
+        uintptr_t out;                                       \
+        ASM("csrrw %[out]," #csr ", %[set]\n" /*         */  \
+            : [out] "=r"(out)                 /*         */  \
+            : [set] "r"(set));                               \
+        return out;                                          \
     }
-#define CSR_IMPL(csr)  \
-    READ_CSR_IMPL(csr) \
-    WRITE_CSR_IMPL(csr)
+#define CSR_SET_IMPL(csr)                                         \
+    static inline uintptr_t csr_set_mask_##csr(uintptr_t mask) {  \
+        uintptr_t out;                                            \
+        ASM("csrrs %[out]," #csr ", %[mask]\n" /*              */ \
+            : [out] "=r"(out)                  /*              */ \
+            : [mask] "r"(mask));                                  \
+        return out;                                               \
+    }
+#define CSR_UNSET_IMPL(csr)                                        \
+    static inline uintptr_t csr_clear_mask_##csr(uintptr_t mask) { \
+        uintptr_t out;                                             \
+        ASM("csrrc %[out]," #csr ", %[mask]\n" /*              */  \
+            : [out] "=r"(out)                  /*              */  \
+            : [mask] "r"(mask));                                   \
+        return out;                                                \
+    }
+#define CSR_IMPL(csr)   \
+    CSR_READ_IMPL(csr)  \
+    CSR_WRITE_IMPL(csr) \
+    CSR_SET_IMPL(csr)   \
+    CSR_UNSET_IMPL(csr)
 
 // 12.1.1. Supervisor CSRs
 CSR_IMPL(sstatus)
 CSR_IMPL(stvec)
 CSR_IMPL(sip)
 CSR_IMPL(sie)
+CSR_IMPL(sscratch)
 CSR_IMPL(sepc)
 CSR_IMPL(scause)
 CSR_IMPL(stval)
@@ -42,7 +65,7 @@ CSR_IMPL(timeh)
 enum {
     // SSTATUS.SIE
     // supervisor interrupt (in general) enable
-    SSTATUS_TRAPS_NOW = 2,
+    SSTATUS_TRAPS_NOW = 1,
 
     // SSTATUS.SPIE
     // supervisor traps will be enabled after sret (1) or disabled (0)

@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "asm.h"
-#include "build_info.h"
 #include "flags.h"
 #include "io.h"
 #include "paging.h"
@@ -92,9 +91,6 @@ static void process_mem_ops(void) {
     uint8_t* page = (uint8_t*)alloc_page();
 
     printf("alloc'd page vaddr: %p\n", page);
-    printf("alloc'd page paddr: %p\n",
-           get_physical_address(my_page_table(),
-                                (VirtualAddress){.value = (uintptr_t)page}));
 
     yield();
 
@@ -128,12 +124,15 @@ static void process_never_yields(void) {
 }
 
 void start_example_processes(void) {
-    Process* proc_load_a0 = allocate_process((ProcessArguments){
-        .entry_address = (uintptr_t)process_load_a0,
-        .is_user_program = false,
-    });
-    ONLY64(proc_load_a0->context.a0 = 0x1111111111111111LL);
-    ONLY32(proc_load_a0->context.a0 = 0x11111111);
+    // TODO: make a variety of processes up to NUM_PROCESSES
+
+    for (int i = 0; i < 10; i++) {
+        Process* proc_load_a0 = allocate_process((ProcessArguments){
+            .entry_address = (uintptr_t)process_load_a0,
+            .is_user_program = false,
+        });
+        proc_load_a0->frame.a0 = i;
+    }
 
     Process* proc_load_stack = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_load_from_stack,
@@ -141,15 +140,15 @@ void start_example_processes(void) {
     });
     // allocate room on process's stack so process doesn't clobber it
     // (though this data will never be popped)
-    proc_load_stack->context.sp -= sizeof(SomeData);
+    proc_load_stack->frame.sp -= sizeof(SomeData);
     // put data on stack
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
-    SomeData* stack_data = (SomeData*)(proc_load_stack->context.sp);
+    SomeData* stack_data = (SomeData*)(proc_load_stack->frame.sp);
     stack_data->d = 0xdeaddeaddeadbeef;
     stack_data->w = 0xfeedcafe;
     memcpy(stack_data->b, "abcdefghijklmno", 16);
     // pass address to data as a0
-    proc_load_stack->context.a0 = (uintptr_t)stack_data;
+    proc_load_stack->frame.a0 = (uintptr_t)stack_data;
 
     Process* proc_returns = allocate_process((ProcessArguments){
         .entry_address = (uintptr_t)process_that_returns,

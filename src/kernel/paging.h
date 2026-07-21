@@ -88,3 +88,6 @@ void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
                                   uintptr_t start_physical,
                                   uintptr_t end_physical);
 uintptr_t get_physical_address(PageTable table, VirtualAddress address);
+
+// TODO: call before jumping into switching code?
+void activate_kernel_page_table(void);

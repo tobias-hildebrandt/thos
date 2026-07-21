@@ -26,7 +26,7 @@ static UNUSED const Test* get_test(char* name, const Test* tests,
     return NULL;
 }
 
-void run_test_from_bootargs(DeviceTree* device_tree) {
+void NORETURN run_test_from_bootargs(DeviceTree* device_tree) {
     if (!TESTS_ENABLED) {
         PANIC("run_test_from_bootargs but TEST_ENABLED is false");
         (void)device_tree;

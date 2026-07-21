@@ -11,9 +11,10 @@
     name
 #define SBI_CALL(...)                                                          \
     __SBI_EXPAND(__SBI_GET_MACRO(__VA_ARGS__, SBI_CALL6, SBI_CALL5, SBI_CALL4, \
-                                 SBI_CALL3, SBI_CALL2, SBI_CALL1,              \
-                                 SBI_CALL0)(__VA_ARGS__))
+                                 SBI_CALL3, SBI_CALL2, SBI_CALL1, SBI_CALL0,   \
+                                 SBI_CALLERROR)(__VA_ARGS__))
 
+#define SBI_CALLERROR _Pragma(error "invalid SBI_CALL macro call")
 #define SBI_CALL0(eid, fid) _sbi_call(0, 0, 0, 0, 0, 0, fid, eid)
 #define SBI_CALL1(eid, fid, arg0) _sbi_call(arg0, 0, 0, 0, 0, 0, fid, eid)
 #define SBI_CALL2(eid, fid, arg0, arg1) \
@@ -110,4 +111,25 @@ SbiReturn sbi_set_timer(uint64_t time) {
             // time value (high bits)
             (uint32_t)((time >> 32) & 0xffffffff));
     }
+}
+
+// start other hart
+// https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-hsm.adoc
+SbiReturn sbi_hart_start(unsigned long hart_id, unsigned long start_addr,
+                         unsigned long opaque) {
+    return SBI_CALL(
+        // Hart State Management Extension
+        0x48534D,
+        // Function: Hart start
+        0x0, hart_id, start_addr, opaque);
+}
+
+// stop current hart
+// https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-hsm.adoc
+SbiReturn sbi_hart_stop(void) {
+    return SBI_CALL(
+        // Hart State Management Extension
+        0x48534D,
+        // Function: Hart stop
+        0x1);
 }

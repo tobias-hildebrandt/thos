@@ -5,6 +5,7 @@
 
 #include "bits.h"  // IWYU pragma: keep
 #include "csr.h"   // IWYU pragma: keep
+#include "util.h"
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
@@ -19,19 +20,21 @@ struct TrapFrame {
     uintptr_t sp;
     // program counter, stored from sepc
     uintptr_t pc;
+    // TODO: just pass a separate argument instead of storing space here?
     // used to transfer satp from switch_process to restore_after_trap
     uintptr_t satp;
 } __attribute__((packed));
 typedef struct TrapFrame TrapFrame;
 
-void enable_trap_vector(void);
+void set_trap_vector(void);
 void prepare_sstatus_for_return(bool return_to_kernel_mode);
 void enable_interrupts(void);
 void disable_traps_now(void);
-void restore_after_trap(TrapFrame* context);
+void enable_traps_now(void);
+void NORETURN restore_after_trap(TrapFrame* context);
 void TrapFrame_print(TrapFrame* frame);
 
 // 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
 // trigger supervisor software interrupt
 #define KERNEL_SOFTWARE_INTERRUPT() \
-    csr_write_sip(BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT))
+    csr_set_mask_sip(BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT))

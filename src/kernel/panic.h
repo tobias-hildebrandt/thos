@@ -1,36 +1,37 @@
 #pragma once
 
-#include <stdio.h>   // IWYU pragma: keep, needed for printf
-#include <stdlib.h>  // IWYU pragma: keep, needed for exit
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>  // IWYU pragma: keep, printf
 
-#include "flags.h"  // IWYU pragma: keep, needed for PANIC_LOOP
-#include "trap.h"   // IWYU pragma: keep, needed for disable_traps_now
+#include "flags.h"
+#include "util.h"
 
 // TODO: extract to function, simplify macros?
 
-#if PANIC_LOOP == 0
+// TODO: panic-safe printf (via some variant of printf: s/sn/f?)
+
+#if PANIC_SAFE_PRINT
+#define PANIC(...)                                 \
+    do {                                           \
+        _panic_unused(0, __VA_ARGS__);             \
+        _panic_safe(__FILE__, __LINE__, __func__); \
+    } while (0)
+#else
 #define PANIC(format_str, ...)                            \
     do {                                                  \
-        disable_traps_now();                              \
+        _panic_start();                                   \
         printf(                                           \
             "!!!\n"                                       \
             "Kernel panic!\n"                             \
             "%s:%u (%s)\n"                                \
             "Reason: " format_str "\n!!!\n",              \
             __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        exit(1);                                          \
-    } while (0)
-#else
-#define PANIC(format_str, ...)                            \
-    do {                                                  \
-        disable_traps_now();                              \
-        printf(                                           \
-            "!!!\n"                                       \
-            "Kernel panic!\n"                             \
-            "%s:%u %s()\n"                                \
-            "Reason: " format_str "\n!!!\n",              \
-            __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        while (1) {                                       \
-        };                                                \
+        _panic_end();                                     \
     } while (0)
 #endif
+
+void _panic_start(void);
+NORETURN void _panic_end(void);
+void _panic_unused(UNUSED int unused, ...);
+NORETURN void _panic_safe(const char* file, uint64_t line, const char* func);

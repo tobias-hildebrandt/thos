@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "align.h"
 #include "asm.h"
 #include "bits.h"
 #include "build_info.h"
@@ -14,6 +13,8 @@
 #include "device/sifive_plic.h"
 #include "device/sifive_uart.h"
 #include "flags.h"
+#include "hart.h"
+#include "lock.h"
 #include "paging.h"  // IWYU pragma: keep
 #include "panic.h"
 #include "process.h"
@@ -102,26 +103,34 @@ void TrapFrame_print(TrapFrame* frame) {
     PRINT_MEMBER(frame, s11);
 }
 
-static void handle_trap(TrapFrame* frame) {
+static SpinLock trap_print_lock;
+
+static NORETURN void handle_trap(TrapFrame* frame) {
     uintptr_t scause = csr_read_scause();
     uintptr_t stval = csr_read_stval();
     uintptr_t sepc = csr_read_sepc();
     uintptr_t sstatus = csr_read_sstatus();
+    uintptr_t sscratch = csr_read_sscratch();
+    uintptr_t hart_id = my_hart_id();
+
+    HartScratch* hart_scratch = my_hart_scratch();
 
     bool was_in_kernel_mode = BIT_GET(sstatus, SSTATUS_PRIVILEGE);
     bool software_interrupt = (scause == SUPERVISOR_SOFTWARE_INTERRUPT);
     bool ecall = (scause == ECALL_U_MODE);
     bool timer_interrupt = (scause == SUPERVISOR_TIMER_INTERRUPT);
     bool external_interrupt = (scause == SUPERVISOR_EXTERNAL_INTERRUPT);
-    bool before_processes = current_process_stack_top == NULL;
+    bool not_in_process = hart_scratch->current_process == NULL;
 
     bool fatal =
-        ((was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
-         (!was_in_kernel_mode && !ecall)) &&
-        !external_interrupt;
+        (((was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
+          (!was_in_kernel_mode && !ecall)) &&
+         !external_interrupt) ||
+        not_in_process;
 
-    int pid = current_process == NULL ? -1 : my_pid();
+    int pid = not_in_process ? -1 : my_pid();
 
+    SpinLock_acquire(&trap_print_lock);
     // TODO: debug flag for external interrupts
     if ((was_in_kernel_mode && fatal) ||
         (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
@@ -130,19 +139,19 @@ static void handle_trap(TrapFrame* frame) {
         printf(
             "\n***\ntrap: %s\n"
             "scause:  %p, stval: %p, sepc: %p\n"
-            "sstatus: %p\n"
-            "pid: %d, before_processes: %s\n"
+            "sstatus: %p, sscratch: %p\n"
+            "hart: %#x, pid: %d, not_in_process: %s\n"
             "(was in %s mode)\n",
-            decode_scause(scause), scause, stval, sepc, sstatus, pid,
-            before_processes ? "yes" : "no",
+            decode_scause(scause), scause, stval, sepc, sstatus, sscratch,
+            hart_id, pid, not_in_process ? "yes" : "no",
             was_in_kernel_mode ? "kernel" : "user");
 
-        if (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
+        if (fatal ||
+            ((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
             (timer_interrupt && DEBUG_TIMER_INTERRUPTS == 2) ||
             (external_interrupt && DEBUG_EXTERNAL_INTERRUPTS == 2)) {
             TrapFrame_print(frame);
         }
-
         printf("***\n");
     }
     // TODO: determine which other exceptions are recoverable?
@@ -165,12 +174,14 @@ static void handle_trap(TrapFrame* frame) {
             if (interrupt == SIFIVE_UART1_INTERRUPT) {
                 sifive_uart_drain();
             } else {
+                SpinLock_release(&trap_print_lock);
                 PANIC("claimed unknown external interrupt: %d\n", interrupt);
             }
 
             sifive_plic_complete(1, interrupt);
         }
 
+        SpinLock_release(&trap_print_lock);
         // run switch
         kernel_switch(frame);
     } else if (!was_in_kernel_mode) {
@@ -186,67 +197,32 @@ static void handle_trap(TrapFrame* frame) {
             printf("killing pid %d: %s\n", pid, decode_scause(scause));
         }
 
+        SpinLock_release(&trap_print_lock);
         clean_process();
         kernel_switch(NULL);
     } else {
         // handle fatal kernel trap
-        printf("fatal trap\n");
-        TrapFrame_print(frame);
-        printf("***\n");
+        SpinLock_release(&trap_print_lock);
         PANIC("fatal trap");
-    };
+    }
 }
 
-#define TRAP_STACK_OK "trap_vector_stack_ok"
+#define TRAP_VECTOR_STACK_OK "trap_vector_stack_ok"
 
 // 12.1.2. Supervisor Trap Vector Base Address (stvec) Register
 // "the address must be 4-byte aligned"
 // TODO: __attribute__(interrupt)?
 // https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Attributes.html#index-interrupt_002c-RISC-V
-static IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(
-    void) {
-    // clang-format off
-    ASM(
-        // need to swap to kernel page table NOW, before touching stack
+static NORETURN IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void
+trap_vector(void) {
+    // hart scratch pointer currently in sscratch
+    // hart scratch spaces are in global special, mapped for all processes
 
-        // store t0 in scratch to free it for page table
-        "csrw sscratch, t0\n"
+    // swap sp and scratch
+    ASM("csrrw sp, sscratch, sp\n");
 
-        // load kernel page satp into t0
-        // located in global special page
-        // which is mapped for both kernel and user processes
-        ASM_LOAD "t0, %[satp_addr]\n"
-
-        // swap page table to t0
-        "sfence.vma\n"
-        "csrw satp, t0\n"
-        "sfence.vma\n"
-
-        // restore t0 from scratch
-        "csrr t0, sscratch\n"
-
-        // store process's stack pointer in scratch
-        "csrw sscratch, sp\n"
-
-        // change stack pointer to process's kernel stack
-        // sp = (void*) current_process_stack_top;
-        ASM_LOAD "sp, %[stack_top]\n"
-
-        // if sp is not zero (trap before processes begin), jump ahead
-        "bnez sp, " TRAP_STACK_OK"\n"
-        // reload from scratch
-        "csrr sp, sscratch\n"
-
-        ASM_SET_LABEL(TRAP_STACK_OK)
-        // add space on stack
-        "addi sp, sp, -%[frame_size]\n"
-
-        ::
-        // make sure we keep stack aligned to 16
-        [frame_size] "i"(align_up(sizeof(TrapFrame), 16)),
-        [satp_addr] "i"(&kernel_page_satp),
-        [stack_top] "i"(&current_process_stack_top));
-    // clang-format on
+    // point SP to hart scratch's trap frame
+    ASM("addi sp, sp, %0\n" ::"i"(offsetof(HartScratch, frame)));
 
     // store registers in stack's trap frame
     // starting registers
@@ -289,33 +265,80 @@ static IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(
     ASM(
         // read back old stack pointer from scratch
         "csrr t0, sscratch\n"
-        // store in stack's trapframe
+        // store in trapframe
         ASM_STORE "t0, %[offset](sp)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, sp)));
 
-    // store sepc in stack's trapframe
-    ASM("csrr t0, sepc\n"
-        //
+    ASM(
+        // read pre-exception PC
+        "csrr t0, sepc\n"
+        // store in trapframe
         ASM_STORE "t0, %[offset](sp)\n"
         //
         ::[offset] "i"(offsetof(TrapFrame, pc)));
 
-    ASM(
-        // point a0 (first function argument) to TrapFrame on stack
-        "mv a0, sp\n"
-        // call handle_trap
-        "la t0, %[trap_addr]\n"
-        "jr t0\n"
+    // point SP to back to hart scratch space
+    ASM("addi sp, sp, -%0\n" ::"i"(offsetof(HartScratch, frame)));
+
+    // write hart scratch pointer back to scratch register
+    ASM("csrw sscratch, sp\n");
+
+    // need to swap to kernel page table before switching to kernel's stack
+
+    // load kernel page satp into t0
+    // located in global special page
+    // which is mapped for both kernel and user processes
+    ASM(ASM_LOAD "t0, %[satp_addr]\n" ::[satp_addr] "A"(kernel_page_satp));
+
+    ASM("sfence.vma\n"
+        "csrw satp, t0\n"
+        "sfence.vma\n");
+
+    // check if hart was in process or not
+    ASM(ASM_LOAD "t0, %0(sp)\n" ::"i"(offsetof(HartScratch, current_process)));
+
+    // if process was NULL, stay on current stack
+    ASM("beqz t0, " TRAP_VECTOR_STACK_OK "\n");
+
+    // if process was not NULL, switch to work stack
+    ASM("li t0, %0\n"
         //
-        ::[trap_addr] "i"(handle_trap));
+        ::"i"(offsetof(HartScratch, work_stack) + WORK_STACK_SIZE));
+    ASM("add sp, sp, t0\n");
+
+    // fall through to OK
+
+    ASM(ASM_SET_LABEL(TRAP_VECTOR_STACK_OK));
+
+    // point a0 (first function argument) to TrapFrame on stack
+    ASM("csrr a0, sscratch\n"
+        "addi a0, a0, %0\n" ::"i"(offsetof(HartScratch, frame)));
+
+    // call handle_trap
+    ASM("j %[trap_addr]\n" ::[trap_addr] "i"(handle_trap));
 }
 
-// restores current_process context
+// restores context
 // sepc should be set before jumping here!
-// stack should be clean!
-IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
-    // start still in kernel page table
+NORETURN IN_GLOBAL_SPECIAL NAKED void restore_after_trap(
+    UNUSED TrapFrame* frame) {
+    // hart scratch pointer currently in sscratch
+    // hart scratch spaces are in global special, mapped for all processes
+
+    // start in kernel page table
+
+    // load process's page table
+    ASM(
+        // load satp into t0
+        ASM_LOAD "t0, %[offset](a0)\n"
+        //
+        ::[offset] "i"(offsetof(TrapFrame, satp)));
+
+    // restore given page table
+    ASM("sfence.vma\n"
+        "csrw satp, t0\n"
+        "sfence.vma\n");
 
     // load context
     // starting registers
@@ -356,30 +379,15 @@ IN_GLOBAL_SPECIAL NAKED void restore_after_trap(UNUSED TrapFrame* context) {
     REGISTER_MEM(ASM_LOAD, a0, s11, TrapFrame);
     // sepc NOT restored here, it is handled beforehand
 
-    ASM(
-        // store real t0 in scratch
-        "csrw sscratch, t0\n"
-        // load satp into t0
-        ASM_LOAD "t0, %[offset](a0)\n"
-        //
-        ::[offset] "i"(offsetof(TrapFrame, satp)));
-
+    // finally restore a0
     REGISTER_MEM(ASM_LOAD, a0, a0, TrapFrame);
-
-    // restore given page table
-    ASM("sfence.vma\n"
-        "csrw satp, t0\n"
-        "sfence.vma\n");
-
-    // restore real t0
-    ASM("csrr t0, sscratch\n");
 
     // return to whatever is in sepc
     ASM("sret\n");
 }
 
 // set up exception handler
-void enable_trap_vector(void) {
+void set_trap_vector(void) {
     // located in global special page
     // which is mapped for both kernel and user processes
     csr_write_stvec((uintptr_t)trap_vector);
@@ -401,9 +409,12 @@ void prepare_sstatus_for_return(bool return_to_kernel_mode) {
 
 // disable supervisor traps right now
 void disable_traps_now(void) {
-    uintptr_t sstatus = csr_read_sstatus();
-    BIT_UNSET(sstatus, SSTATUS_TRAPS_NOW);
-    csr_write_sstatus(sstatus);
+    csr_clear_mask_sstatus(BIT_TO_INT(SSTATUS_TRAPS_NOW));
+}
+
+// enable supervisor traps right now
+void enable_traps_now(void) {
+    csr_set_mask_sstatus(BIT_TO_INT(SSTATUS_TRAPS_NOW));
 }
 
 // enable SIE's supervisor software, timer, and external interrupt enable bits

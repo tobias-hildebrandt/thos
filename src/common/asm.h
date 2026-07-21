@@ -48,7 +48,16 @@
 #endif
 
 // atomically OR a word in memory
-static inline void atomic_or_memory_word(const uint32_t* ptr, uint32_t value) {
-    ASM("amoor.w x0, %[source], (%[store])" ::[source] "r"(value),
-        [store] "r"(ptr) : "memory");
+static inline uint32_t atomic_or_memory_word(const uint32_t* ptr,
+                                             uint32_t value) {
+    uint32_t out;
+    ASM("amoor.w %[out], %[source], (%[store])"
+        //
+        : [out] "=r"(out)
+        //
+        : [source] "r"(value),
+        [store] "r"(ptr)
+        //
+        : "memory");
+    return out;
 }

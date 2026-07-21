@@ -12,7 +12,7 @@
 #define SHUTDOWN_FAIL_STRING "---UNABLE TO SHUTDOWN---"
 
 // implement's stdlib.h's exit
-void exit(int exit_code) {
+void NORETURN exit(int exit_code) {
     PRINTF_IF(DEBUG_EXIT, "shutting down via %s\n",
               board.sifive_test ? "sifive_test" : "sbi");
 

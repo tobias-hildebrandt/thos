@@ -2,8 +2,11 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "sbi.h"
 
 Buffer Buffer_wrap(char* backing_array, size_t capacity) {
     memset(backing_array, 0, capacity);
@@ -36,20 +39,19 @@ void Buffer_clear(Buffer* buffer) {
     buffer->count = 0;
 }
 
-// flush and clear buffer
+// flush via sbi_putchar and clear buffer
 void Buffer_output_flush(Buffer* buffer) {
     for (size_t i = 0; i < buffer->count; i++) {
-        putchar(buffer->array[i]);
+        sbi_putchar(buffer->array[i]);
     }
     Buffer_clear(buffer);
 }
 
-// if buffer if full or new character is a newline, putchar() everything in
-// buffer
+// if buffer if full or new character is a newline, flush via sbi_putchar
 void Buffer_output_handle_new(Buffer* buffer, char new) {
     if (new == '\n') {
         Buffer_output_flush(buffer);
-        putchar(new);
+        sbi_putchar(new);
     } else {
         bool pushed = Buffer_try_push(buffer, new);
 

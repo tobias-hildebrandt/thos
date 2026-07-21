@@ -14,7 +14,8 @@
 
 #define NAKED __attribute__((naked))
 #define UNUSED __attribute__((unused))
-#define SECTION(s) __attribute((section(s)))
+#define SECTION(s) __attribute__((section(s)))
+#define NORETURN __attribute__((noreturn))
 
 // number of non-nul characters in a string literal
 #define CHARS_IN_STRING_LITERAL(x) (sizeof((x)) - 1)

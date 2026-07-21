@@ -130,9 +130,9 @@ build: setup
 # objdump kernels
 # TODO: move into meson?
 ifneq ($(strip ${DUMP}),)
-	${OBJDUMP} -D ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
-	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -D ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
-	${OBJDUMP} -D ${BUILD}/subprojects/opensbi/fw_dynamic.elf > ${BUILD}/fw_dynamic.objdump
+	${OBJDUMP} -DS ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
+	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -DS ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
+# 	${OBJDUMP} -D ${BUILD}/subprojects/opensbi/fw_dynamic.elf > ${BUILD}/fw_dynamic.objdump
 endif
 
 # meson test

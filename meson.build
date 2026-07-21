@@ -76,8 +76,9 @@ link_args_proj = default_link_args
 c_args_proj = default_c_args + [
     # warning args
     '-Wformat=2',
-    # fix path in __FILE__ macro
-    '-ffile-prefix-map=../../=',
+    # fix path in __FILE__ macro, debug source info, etc
+    '-ffile-prefix-map=../../../=',
+    '-fmacro-prefix-map=../../=',
 ]
 
 # clang c arguments
@@ -123,6 +124,9 @@ foreach define : option_defines.strip().split(' ')
     if define_splits[0] == 'DEBUG' and define_splits.get(1, '1').to_int() > 0
         define_debug_all = true
         continue
+    endif
+    if not defines_debug.contains(define_splits[0]) and defines_other.contains(define_splits[0])
+        error('unknown define: ', define_splits[0])
     endif
     defines_map += {
         define_splits[0]: define_splits.get(1, '1'),

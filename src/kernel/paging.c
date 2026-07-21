@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "align.h"
+#include "asm.h"
 #include "build_info.h"
 #include "device/board.h"
 #include "device/sifive_plic.h"
@@ -246,10 +247,20 @@ SatpRegister satp_from_page_table(PageTable table) {
 
 // adds the global special page, which is outside of normal memory, to the page
 // table at its physical address
-static void map_global_special_page(PageTable page_table,
-                                    PageTableEntryFlags flags) {
-    map_address(page_table, (VirtualAddress){.value = GLOBAL_SPECIAL_PAGE},
-                GLOBAL_SPECIAL_PAGE, flags);
+static void map_global_special(PageTable page_table) {
+    // TODO: add global flag as optimization
+
+    // RWX but no user flag!
+    PageTableEntryFlags flags = {
+        .read = true,
+        .write = true,
+        .execute = true,
+    };
+
+    for (uintptr_t addr = GLOBAL_SPECIAL_START; addr <= GLOBAL_SPECIAL_END;
+         addr += PAGE_SIZE) {
+        map_address(page_table, (VirtualAddress){.value = addr}, addr, flags);
+    }
 }
 
 // map entire kernel address space
@@ -307,9 +318,7 @@ void init_kernel_page_table(void) {
                     (PageTableEntryFlags){.read = true, .write = true});
     }
 
-    map_global_special_page(
-        kernel_page_table,
-        (PageTableEntryFlags){.read = true, .write = true, .execute = true});
+    map_global_special(kernel_page_table);
 
     if (DEBUG_MAP_ADDRESS) {
         PageTable_print(kernel_page_table, true,
@@ -341,17 +350,18 @@ void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
         virtual_address.value += PAGE_SIZE;
     }
 
-    map_global_special_page(
-        page_table, (PageTableEntryFlags){.read = true, .execute = true});
+    map_global_special(page_table);
 
-    // map user_special page
-    map_address(page_table, (VirtualAddress){.value = USER_SPECIAL_PAGE},
-                USER_SPECIAL_PAGE,
-                (PageTableEntryFlags){
-                    .read = true,
-                    .execute = true,
-                    .user = true,
-                });
+    // map user_special
+    for (uintptr_t addr = USER_SPECIAL_START; addr <= USER_SPECIAL_END;
+         addr += PAGE_SIZE) {
+        PageTableEntryFlags flags = (PageTableEntryFlags){
+            .read = true,
+            .execute = true,
+            .user = true,
+        };
+        map_address(page_table, (VirtualAddress){.value = addr}, addr, flags);
+    }
 }
 
 // walks page tables until leaf, then returns physical address at entry
@@ -386,4 +396,10 @@ uintptr_t get_physical_address(PageTable table,
 
     return ((entry.physical_page_num * PAGE_SIZE) +
             virtual_address.page_offset);
+}
+
+void activate_kernel_page_table(void) {
+    ASM("sfence.vma\n"
+        "csrw satp, %[satp]\n"
+        "sfence.vma\n" ::[satp] "r"(kernel_page_satp.value));
 }

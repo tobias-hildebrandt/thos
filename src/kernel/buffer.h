@@ -19,5 +19,6 @@ bool Buffer_is_full(Buffer* buffer);
 bool Buffer_try_push(Buffer* buffer, char byte);
 void Buffer_clear(Buffer* buffer);
 
+// TODO: return value from these functions?
 void Buffer_output_handle_new(Buffer* buffer, char new);
 void Buffer_output_flush(Buffer* buffer);

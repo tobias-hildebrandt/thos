@@ -25,12 +25,13 @@ SECTION_DECLARE(PAGES);
 SECTION_DECLARE(USER_first);
 SECTION_DECLARE(USER_second);
 
+// special sections
+SECTION_DECLARE(GLOBAL_SPECIAL);
+SECTION_DECLARE(USER_SPECIAL);
+
 // places symbol in the global special page
 #define IN_GLOBAL_SPECIAL SECTION(".global_special")
-// global special page physical address
-extern const uintptr_t GLOBAL_SPECIAL_PAGE;
-
+// places symbol in the user special page
 #define IN_USER_SPECIAL SECTION(".user_special")
-extern const uintptr_t USER_SPECIAL_PAGE;
 
 void print_all_sections(void);

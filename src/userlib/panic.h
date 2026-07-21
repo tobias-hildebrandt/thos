@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdio.h>  // IWYU pragma: keep
+
 // TODO: make exit program
 
 #define PANIC(format_str, ...)                            \

@@ -5,6 +5,8 @@ OUTPUT_ARCH("riscv")
 /* entrypoint is boot() function */
 ENTRY(boot)
 
+/* TODO: guard pages */
+
 SECTIONS {
     /* normal memory starts at this address */
     . = 0x80200000;
@@ -41,19 +43,23 @@ SECTIONS {
     } = 0x0
     __BSS_END = .;
 
-    /* global special page */
+    /* global special section */
+    . = ALIGN(4096);
+    __GLOBAL_SPECIAL_START = .;
     .global_special : ALIGN(4096) {
-        __GLOBAL_SPECIAL_PAGE = .;
         *(.global_special);
-        . += 4096;
     } = 0x0
+    . = ALIGN(4096);
+    __GLOBAL_SPECIAL_END = .;
 
-    /* user special page */
+    /* user special section */
+    . = ALIGN(4096);
+    __USER_SPECIAL_START = .;
     .user_special : ALIGN(4096) {
-        __USER_SPECIAL_PAGE = .;
         *(.user_special);
-        . += 4096;
     }
+    . = ALIGN(4096);
+    __USER_SPECIAL_END = .;
 
     /* stack (grows down) */
     . = ALIGN(16);

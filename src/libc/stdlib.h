@@ -9,4 +9,4 @@ long long atoll(const char* str);
 #define EXIT_FAILURE 1
 // NOLINTEND(modernize-macro-to-enum)
 
-extern void exit(int exit_code);
+extern void __attribute__((noreturn)) exit(int exit_code);

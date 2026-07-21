@@ -28,7 +28,9 @@ static UNUSED const Board board_unknown = {
 static UNUSED const Board board_virt = {
     .name = "virt",
     .num_monitor_harts = 0,
-    .num_normal_harts = 1,
+    // technically supports up to 512
+    // TODO: MIN(HART_NUM_MAX, 512)
+    .num_normal_harts = 16,
     .sifive_test = (void*)SIFIVE_TEST_ADDRESS,
     .sifive_plic = (void*)SIFIVE_PLIC_ADDRESS,
     .sifive_uart1 = 0,
