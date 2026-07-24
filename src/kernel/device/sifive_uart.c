@@ -9,7 +9,7 @@
 #include "buffer.h"
 #include "device/board.h"
 #include "device/sifive_plic.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 
 // registers are all 32bits and offset by number*32bits

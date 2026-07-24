@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "buffer.h"
+#include "flags.h"
 #include "trap/frame.h"
 #include "virtual_memory/page_table.h"
 

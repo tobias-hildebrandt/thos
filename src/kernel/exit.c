@@ -3,7 +3,7 @@
 
 #include "device/board.h"
 #include "device/sifive_test.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 #include "sbi.h"
 #include "util.h"

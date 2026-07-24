@@ -4,14 +4,10 @@
 #include <stdint.h>
 
 #include "buffer.h"
+#include "flags.h"
 #include "process/process.h"
 #include "sections.h"
 #include "trap/frame.h"
-
-enum { WORK_STACK_SIZE = 8192 };
-
-// TODO: move to flags.h
-enum { HART_NUM_MAX = 16 };
 
 // scratch space dedicated to a hart
 // the CSR sscratch holds a pointer to this at all times

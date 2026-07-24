@@ -1,8 +1,7 @@
 #pragma once
 
-#include <assert.h>  // IWYU pragma: keep
-#include <stdio.h>   // IWYU pragma: keep
-#include <stdlib.h>  // IWYU pragma: keep
+#include <stdio.h>   // IWYU pragma: keep, printf
+#include <stdlib.h>  // IWYU pragma: keep, exit
 
 #include "device/device_tree.h"
 #include "util.h"

@@ -1,9 +1,5 @@
 #pragma once
 
-#include <stdint.h>  // IWYU pragma: keep
-
-#include "flags.h"  // IWYU pragma: keep
-
 // TODO: parse from device tree
 
 #define SIFIVE_UART1_ADDRESS 0x10011000UL

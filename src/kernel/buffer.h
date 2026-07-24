@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { BUFFER_LEN = 1024 };
-
 struct Buffer {
     size_t count;
     size_t capacity;

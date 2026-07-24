@@ -6,7 +6,7 @@
 #include "asm.h"
 #include "bits.h"
 #include "device/board.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 
 typedef uint32_t SifivePlicRegister;

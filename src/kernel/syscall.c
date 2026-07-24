@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "hart.h"
 #include "io.h"
 #include "process/lifecycle.h"

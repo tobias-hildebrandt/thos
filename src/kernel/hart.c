@@ -7,6 +7,7 @@
 #include "bits.h"
 #include "buffer.h"
 #include "csr.h"
+#include "flags.h"
 #include "panic.h"
 #include "process/process.h"
 #include "sections.h"
@@ -14,7 +15,7 @@
 
 // TODO:
 // set up dynamically, first hart uses a dedicated space before starting others
-IN_GLOBAL_SPECIAL HartScratch hart_scratches[HART_NUM_MAX];
+IN_GLOBAL_SPECIAL HartScratch hart_scratches[HART_MAXIMUM];
 
 uintptr_t my_hart_id(void) {
     uintptr_t sscratch = csr_read_sscratch();
@@ -41,7 +42,7 @@ Buffer* my_hart_or_process_output_buffer(bool were_interrupts_enabled) {
 }
 
 void HartScratch_init_all(void) {
-    for (size_t i = 0; i < HART_NUM_MAX; i++) {
+    for (size_t i = 0; i < HART_MAXIMUM; i++) {
         HartScratch* hart_scratch = &hart_scratches[i];
         hart_scratch->output_buffer =
             Buffer_wrap(hart_scratch->output_array, BUFFER_LEN);

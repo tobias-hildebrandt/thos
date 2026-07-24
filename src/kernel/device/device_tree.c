@@ -8,7 +8,7 @@
 
 #include "align.h"
 #include "endian.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 #include "list.h"
 #include "panic.h"

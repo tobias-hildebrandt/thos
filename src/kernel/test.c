@@ -2,12 +2,12 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>  // IWYU pragma: keep
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>  // IWYU pragma: keep
 
 #include "device/device_tree.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 #include "panic.h"
 #include "util.h"

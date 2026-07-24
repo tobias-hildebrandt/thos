@@ -2,9 +2,6 @@
 
 #include <stdbool.h>
 
-#include "bits.h"  // IWYU pragma: keep
-#include "csr.h"   // IWYU pragma: keep
-
 void set_trap_vector(void);
 void prepare_sstatus_for_return(bool return_to_kernel_mode);
 void enable_interrupts(void);

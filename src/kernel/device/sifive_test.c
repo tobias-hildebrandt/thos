@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "device/board.h"
-#include "flags.h"  // IWYU pragma: keep
+#include "flags.h"
 #include "io.h"
 
 enum {
