@@ -65,7 +65,7 @@ void debug_printf(void) {
 
     for (long shift = 0; shift < POINTER_BITS; shift += 4) {
         uintptr_t value = 1L << shift;
-        printf("0x%p = signed=%p unsigned=%p\n", value, value, value);
+        printf("%p = signed=%p unsigned=%p\n", value, value, value);
     }
 
     printf("zero int        0x%x = %d\n", 0, 0);

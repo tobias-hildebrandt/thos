@@ -48,6 +48,6 @@ void enable_interrupts(void) {
 }
 
 // trigger supervisor software interrupt on current hart
-void trigger_supervisor_software_interrupt(void) {
+inline void trigger_supervisor_software_interrupt(void) {
     csr_set_mask_sip(BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT));
 }

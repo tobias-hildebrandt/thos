@@ -2,62 +2,32 @@
 
 #include <stdint.h>
 
-#include "asm.h"
-
-// TODO: CSR atomic read set or clear? csr rs / csr rc
-
-#define CSR_READ_IMPL(csr)                                  \
-    static inline uintptr_t csr_read_##csr(void) {          \
-        uintptr_t value;                                    \
-        ASM("csrr %[out], " #csr "\n" : [out] "=r"(value)); \
-        return value;                                       \
-    }
-#define CSR_WRITE_IMPL(csr)                                  \
-    static inline uintptr_t csr_write_##csr(uintptr_t set) { \
-        uintptr_t out;                                       \
-        ASM("csrrw %[out]," #csr ", %[set]\n" /*         */  \
-            : [out] "=r"(out)                 /*         */  \
-            : [set] "r"(set));                               \
-        return out;                                          \
-    }
-#define CSR_SET_IMPL(csr)                                         \
-    static inline uintptr_t csr_set_mask_##csr(uintptr_t mask) {  \
-        uintptr_t out;                                            \
-        ASM("csrrs %[out]," #csr ", %[mask]\n" /*              */ \
-            : [out] "=r"(out)                  /*              */ \
-            : [mask] "r"(mask));                                  \
-        return out;                                               \
-    }
-#define CSR_UNSET_IMPL(csr)                                        \
-    static inline uintptr_t csr_clear_mask_##csr(uintptr_t mask) { \
-        uintptr_t out;                                             \
-        ASM("csrrc %[out]," #csr ", %[mask]\n" /*              */  \
-            : [out] "=r"(out)                  /*              */  \
-            : [mask] "r"(mask));                                   \
-        return out;                                                \
-    }
-#define CSR_IMPL(csr)   \
-    CSR_READ_IMPL(csr)  \
-    CSR_WRITE_IMPL(csr) \
-    CSR_SET_IMPL(csr)   \
-    CSR_UNSET_IMPL(csr)
+#define CSR_READ_DECL(csr) uintptr_t csr_read_##csr(void)
+#define CSR_WRITE_DECL(csr) uintptr_t csr_write_##csr(uintptr_t set)
+#define CSR_SET_DECL(csr) uintptr_t csr_set_mask_##csr(uintptr_t mask)
+#define CSR_UNSET_DECL(csr) uintptr_t csr_clear_mask_##csr(uintptr_t mask)
+#define CSR_DECL(csr)    \
+    CSR_READ_DECL(csr);  \
+    CSR_WRITE_DECL(csr); \
+    CSR_SET_DECL(csr);   \
+    CSR_UNSET_DECL(csr);
 
 // 12.1.1. Supervisor CSRs
-CSR_IMPL(sstatus)
-CSR_IMPL(stvec)
-CSR_IMPL(sip)
-CSR_IMPL(sie)
-CSR_IMPL(sscratch)
-CSR_IMPL(sepc)
-CSR_IMPL(scause)
-CSR_IMPL(stval)
-CSR_IMPL(satp)
-CSR_IMPL(stimecmp)
-CSR_IMPL(time)
+CSR_DECL(sstatus)
+CSR_DECL(stvec)
+CSR_DECL(sip)
+CSR_DECL(sie)
+CSR_DECL(sscratch)
+CSR_DECL(sepc)
+CSR_DECL(scause)
+CSR_DECL(stval)
+CSR_DECL(satp)
+CSR_DECL(stimecmp)
+CSR_DECL(time)
 
 // should only be used in 32bit
-CSR_IMPL(stimecmph)
-CSR_IMPL(timeh)
+CSR_DECL(stimecmph)
+CSR_DECL(timeh)
 
 // CSR bits
 

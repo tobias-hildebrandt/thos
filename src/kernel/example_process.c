@@ -177,9 +177,11 @@ void start_example_processes(void) {
     });
     (void)proc_user_second;
 
-    Process* proc_never_yields = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)process_never_yields,
-        .is_user_program = false,
-    });
-    (void)proc_never_yields;
+    for (int i = 0; i <= 10; i++) {
+        Process* proc_never_yields = Process_create((ProcessArguments){
+            .entry_address = (uintptr_t)process_never_yields,
+            .is_user_program = false,
+        });
+        (void)proc_never_yields;
+    }
 }

@@ -43,7 +43,7 @@ NORETURN void handle_trap(TrapFrame* frame) {
 
     bool fatal =
         (((was_in_kernel_mode && !(software_interrupt || timer_interrupt)) ||
-          (!was_in_kernel_mode && !ecall)) &&
+          (!was_in_kernel_mode && !(ecall || timer_interrupt))) &&
          !external_interrupt) ||
         not_in_process;
 

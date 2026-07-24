@@ -8,9 +8,8 @@
 #include "buffer.h"
 #include "hart.h"
 #include "lock.h"
-#include "sbi.h"
 
-static SpinLock sbi_putchar_spinlock;
+static SpinLock io_spinlock;
 
 // TODO: lock at each printf instead of putchar
 
@@ -18,7 +17,7 @@ int putchar_buffer(int character, Buffer* buffer) {
     // may enter with interrupts enabled OR disabled, so we first acquire a
     // spinlock, which disables interrupts
 
-    bool were_interrupts_enabled = SpinLock_acquire(&sbi_putchar_spinlock);
+    bool were_interrupts_enabled = SpinLock_acquire(&io_spinlock);
 
     if (buffer == NULL) {
         // direct to hart's buffer or process buffer
@@ -27,28 +26,24 @@ int putchar_buffer(int character, Buffer* buffer) {
 
     Buffer_output_handle_new(buffer, character);
 
-    SpinLock_release(&sbi_putchar_spinlock);
+    SpinLock_release(&io_spinlock);
 
     return character;
-}
-
-int putchar(int character) {
-    return putchar_buffer(character, NULL);
 }
 
 // TODO: deduplicate from stdio
 
 void put_direct_str(const char* str) {
     while (*str != 0) {
-        sbi_putchar(*str);
+        putchar(*str);
         str += 1;
     }
 }
 void put_direct_hex32(uint32_t val) {
     int shift = 8 - 1;
 
-    sbi_putchar('0');
-    sbi_putchar('x');
+    putchar('0');
+    putchar('x');
 
     bool started = false;
 
@@ -66,13 +61,13 @@ void put_direct_hex32(uint32_t val) {
             ascii = 'a' + place_value - 10;
         }
         started = true;
-        sbi_putchar((int)ascii);
+        putchar((int)ascii);
     }
 }
 
 void put_direct_u32(uint32_t val) {
     if (val == 0) {
-        sbi_putchar('0');
+        putchar('0');
         return;
     }
     uint32_t div = 1000000000U;
@@ -87,10 +82,10 @@ void put_direct_u32(uint32_t val) {
             }
 
             val -= digit * div;
-            sbi_putchar('0' + (int)digit);
+            putchar('0' + (int)digit);
         } else {
             if (started) {
-                sbi_putchar('0');
+                putchar('0');
             }
         };
 

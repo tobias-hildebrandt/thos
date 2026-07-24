@@ -76,6 +76,6 @@ Pid my_pid(void) {
     return current_process->id;
 }
 
-void yield(void) {
+inline void yield(void) {
     trigger_supervisor_software_interrupt();
 }

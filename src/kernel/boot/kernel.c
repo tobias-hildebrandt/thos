@@ -133,6 +133,8 @@ static void NORETURN primary_main(
     if (!EXAMPLE_PROCESSES_DISABLE) {
         start_example_processes();
 
+        set_trap_vector();
+
         jump_into_processes();
     }
 
@@ -152,6 +154,8 @@ static void NORETURN secondary_main(const uintptr_t hart_id) {
     SpinLock_release(&stdout_lock);
 
     if (!EXAMPLE_PROCESSES_DISABLE) {
+        set_trap_vector();
+
         jump_into_processes();
     }
 
@@ -168,8 +172,6 @@ static void NORETURN secondary_main(const uintptr_t hart_id) {
 void NORETURN kernel_main(const uintptr_t hart_id,
                           const DeviceTreeHeadersRaw* device_tree_headers) {
     uint32_t my_claim = atomic_or_memory_word(&claim, SECONDARY_CLAIM);
-
-    set_trap_vector();
 
     // not the first hart to run
     if (my_claim == 0) {

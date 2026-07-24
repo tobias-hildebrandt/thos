@@ -75,6 +75,12 @@ SbiReturn sbi_putchar(int ch) {
                     ch /* character */);
 }
 
+// console getchar (legacy)
+// https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-legacy.adoc
+SbiReturn sbi_getchar(void) {
+    return SBI_CALL(0x2 /* Extension: Console Getchar */, 0x0 /* (ignored) */);
+}
+
 // system reset shutdown
 // https://github.com/riscv-non-isa/riscv-sbi-doc/blob/master/src/ext-sys-reset.adoc
 SbiReturn sbi_shutdown(long type) {
