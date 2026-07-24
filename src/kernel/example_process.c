@@ -11,7 +11,6 @@
 #include "process/lifecycle.h"
 #include "process/process.h"
 #include "sections.h"
-#include "trap/registers.h"
 #include "virtual_memory/page.h"
 
 struct SomeData {

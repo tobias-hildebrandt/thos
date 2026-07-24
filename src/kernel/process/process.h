@@ -35,7 +35,7 @@ typedef struct Process Process;
 
 typedef uint8_t Pid;
 
-#define yield() KERNEL_SOFTWARE_INTERRUPT()
+void yield(void);
 Pid my_pid(void);
 void Process_print(Process* process);
 bool Process_is_kernel_process(Process* process);

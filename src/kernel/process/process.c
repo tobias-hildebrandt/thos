@@ -6,6 +6,7 @@
 
 #include "hart.h"
 #include "panic.h"
+#include "trap/registers.h"
 #include "virtual_memory/page_table.h"
 #include "virtual_memory/virtual_address.h"
 
@@ -73,4 +74,8 @@ Pid my_pid(void) {
         PANIC("my_pid called while no current process");
     }
     return current_process->id;
+}
+
+void yield(void) {
+    trigger_supervisor_software_interrupt();
 }
