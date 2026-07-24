@@ -6,7 +6,7 @@
 #include "buffer.h"
 #include "trap/trap.h"
 #include "util.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page_table.h"
 
 enum ProcessState {
     // not actually a process

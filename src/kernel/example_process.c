@@ -10,7 +10,7 @@
 #include "io.h"
 #include "process/process.h"
 #include "sections.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page.h"
 
 struct SomeData {
     uint64_t d;
@@ -88,7 +88,7 @@ static void process_that_returns(void) {
 static void process_mem_ops(void) {
     print_process_start(__func__);
 
-    uint8_t* page = (uint8_t*)alloc_page();
+    uint8_t* page = (uint8_t*)Page_alloc();
 
     printf("alloc'd page vaddr: %p\n", page);
 

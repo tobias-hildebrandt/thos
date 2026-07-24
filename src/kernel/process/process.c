@@ -20,7 +20,9 @@
 #include "timer.h"
 #include "trap/trap.h"
 #include "util.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page.h"
+#include "virtual_memory/page_table.h"
+#include "virtual_memory/satp.h"
 
 // entry user-memory address
 // must match what's defined in user program ld script
@@ -79,10 +81,10 @@ void Process_print(Process* process) {
     printf(",\n");
     PRINT_CONTEXT_REG(process->frame, ra);
     if (process->page_table != NULL) {
-        printf(
-            "\tra vaddr = paddr %p,\n",
-            get_physical_address(process->page_table,
-                                 (VirtualAddress){.value = process->frame.ra}));
+        printf("\tra vaddr = paddr %p,\n",
+               PageTable_get_physical_address(
+                   process->page_table,
+                   (VirtualAddress){.value = process->frame.ra}));
     }
     PRINT_CONTEXT_REG(process->frame, sp);
     PRINT_CONTEXT_REG(process->frame, pc);
@@ -138,13 +140,10 @@ Process* allocate_process(ProcessArguments args) {
 
     // create page table and map memory
     if (args.is_user_program) {
-        // needs page for page_table
-        PageTable page_table = (PageTable)alloc_page();
-
         // TODO: copy into owned version
         // map process memory
-        init_user_program_page_table(page_table, USER_PROGRAM_BASE,
-                                     args.entry_address, args.user_program_end);
+        PageTable page_table = PageTable_user_init(
+            USER_PROGRAM_BASE, args.entry_address, args.user_program_end);
 
         process->page_table = page_table;
 
@@ -161,7 +160,7 @@ Process* allocate_process(ProcessArguments args) {
 
         // TODO: more stack space?
         // needs room for stack
-        uintptr_t stack_page = (uintptr_t)alloc_page();
+        uintptr_t stack_page = (uintptr_t)Page_alloc();
         // points at top(!) of page
         process->frame.sp = stack_page + PAGE_SIZE;
 
@@ -366,7 +365,7 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
     enable_interrupts();
 
     SatpRegister new_satp =
-        satp_from_page_table(scratch->current_process->page_table);
+        SatpRegister_from_PageTable(scratch->current_process->page_table);
 
     if (DEBUG_SWITCH == 2) {
         printf("kernel_switch: hart 0x%x new page table %p, new satp: %p\n",

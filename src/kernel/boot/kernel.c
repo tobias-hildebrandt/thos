@@ -23,7 +23,7 @@
 #include "test.h"
 #include "trap/trap.h"
 #include "util.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page_table.h"
 
 // TODO: clean up
 
@@ -57,7 +57,7 @@ static void NORETURN primary_main(
     const uintptr_t hart_id, const DeviceTreeHeadersRaw* device_tree_headers) {
     HartScratch_init_all();
 
-    init_kernel_page_table();
+    PageTable_kernel_init();
 
     DeviceTree device_tree = DeviceTree_parse(device_tree_headers);
 

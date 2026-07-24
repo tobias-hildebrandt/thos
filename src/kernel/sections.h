@@ -2,8 +2,7 @@
 
 #include <stdint.h>
 
-#include "util.h"                   // IWYU pragma: keep
-#include "virtual_memory/paging.h"  // IWYU pragma: keep
+#include "util.h"  // IWYU pragma: keep, SECTION
 
 // declares <section>_START and <section>_END as extern uintptr_t's
 #define SECTION_DECLARE(section)                    \

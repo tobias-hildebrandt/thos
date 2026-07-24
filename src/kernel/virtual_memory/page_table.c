@@ -1,4 +1,4 @@
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page_table.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -15,6 +15,11 @@
 #include "io.h"
 #include "panic.h"
 #include "sections.h"
+#include "virtual_memory/page.h"
+#include "virtual_memory/satp.h"
+#include "virtual_memory/virtual_address.h"
+
+IN_GLOBAL_SPECIAL PageTable kernel_page_table = NULL;
 
 #if POINTER_BITS == 64
 enum { PAGE_TABLE_TOP_LEVEL = 2 };
@@ -33,35 +38,11 @@ enum { PAGE_TABLE_TOP_LEVEL = 1 };
     }
 #endif
 
-static void* next_page = NULL;
-
-IN_GLOBAL_SPECIAL PageTable kernel_page_table = NULL;
-IN_GLOBAL_SPECIAL SatpRegister kernel_page_satp = {0};
-
-void* alloc_page(void) {
-    if (next_page == 0) {
-        // NOLINTNEXTLINE(performance-no-int-to-ptr)
-        next_page = (void*)PAGES_START;
-    }
-
-    if ((uintptr_t)next_page > (PAGES_END - PAGE_SIZE)) {
-        PANIC("page allocation would overflow page memory!");
-    }
-
-    void* this_page = next_page;
-    next_page = (char*)next_page + PAGE_SIZE;
-
-    // wipe page
-    memset(this_page, 0, PAGE_SIZE);
-
-    return this_page;
-}
-
-static bool is_leaf_node(PageTableEntryFlags flags) {
+static bool PageTableEntryFlags_is_leaf(PageTableEntryFlags flags) {
     return (flags.read || flags.write || flags.execute);
 }
 
-static PageTable get_linked_table(PageTableEntry entry) {
+static PageTable PageTableEntry_get_linked(PageTableEntry entry) {
     if (false == entry.flags.valid) {
         PANIC("passed invalid entry to get_linked_table");
     }
@@ -70,17 +51,6 @@ static PageTable get_linked_table(PageTableEntry entry) {
     void* next_table = (void*)(page_num * PAGE_SIZE);
 
     return (PageTable)next_table;
-}
-
-static void VirtualAddress_print(VirtualAddress virtual_address) {
-    printf("VirtualAddress(%p){ ", virtual_address.value);
-#if POINTER_BITS == 64
-    printf("L2: %u, ", virtual_address.level2_entry_number);
-#endif
-    printf("L1: %u, ", virtual_address.level1_entry_number);
-    printf("L0: %u, ", virtual_address.level0_entry_number);
-    printf("offset: %u ", virtual_address.page_offset);
-    printf("}\n");
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -103,7 +73,7 @@ static void PageTableEntryFlags_print(PageTableEntryFlags flags,
     }
 
     if (print_leafiness) {
-        if (is_leaf_node(flags)) {
+        if (PageTableEntryFlags_is_leaf(flags)) {
             printf(" (leaf)");
         } else {
             printf(" (inner)");
@@ -119,8 +89,10 @@ static void PageTableEntryFlags_print(PageTableEntryFlags flags,
 //
 // guarantees creation of all 3 levels of pages (no mega/giga pages)
 // TODO: investigate qemu `info mem` some pages not accessed
-static void map_address(PageTable first_table, VirtualAddress virtual_address,
-                        uintptr_t physical_address, PageTableEntryFlags flags) {
+static void PageTable_map_address(PageTable first_table,
+                                  VirtualAddress virtual_address,
+                                  uintptr_t physical_address,
+                                  PageTableEntryFlags flags) {
     if (DEBUG_MAP_ADDRESS) {
         printf("map_address(table @ %p, v:%p, p:%p, f:", (uintptr_t)first_table,
                virtual_address.value, physical_address, flags);
@@ -169,8 +141,8 @@ static void map_address(PageTable first_table, VirtualAddress virtual_address,
         if (false == entry->flags.valid) {
             // if next level table has not been created
             // create it
-            void* new_page_addr = alloc_page();
-            uintptr_t new_page_number = ((uintptr_t)new_page_addr) / PAGE_SIZE;
+            Page new_page = Page_alloc();
+            uintptr_t new_page_number = ((uintptr_t)new_page) / PAGE_SIZE;
 
             PRINTF_IF(DEBUG_MAP_ADDRESS, "(alloc) ");
 
@@ -179,11 +151,11 @@ static void map_address(PageTable first_table, VirtualAddress virtual_address,
             entry->flags.valid = true;
 
             // navigate to it
-            current_table = (PageTable)new_page_addr;
+            current_table = (PageTable)new_page;
         } else {
             PRINTF_IF(DEBUG_MAP_ADDRESS, "(found) ");
             // next level table already exists
-            current_table = get_linked_table(*entry);
+            current_table = PageTableEntry_get_linked(*entry);
         }
     }
 
@@ -227,27 +199,18 @@ static void PageTable_print(PageTable table, bool only_valid_entries,
         printf("PageTable %p entry[%u] = ", table, i);
         PageTableEntry_print(entry);
 
-        if (recurse.recurse && !is_leaf_node(entry.flags)) {
+        if (recurse.recurse && !PageTableEntryFlags_is_leaf(entry.flags)) {
             PrintPageTableRecurse next_recurse = recurse;
             next_recurse.level -= 1;
-            PageTable_print(get_linked_table(entry), only_valid_entries,
-                            next_recurse);
+            PageTable_print(PageTableEntry_get_linked(entry),
+                            only_valid_entries, next_recurse);
         }
     }
 }
 
-SatpRegister satp_from_page_table(PageTable table) {
-    SatpRegister satp_register = {0};
-
-    satp_register.mode = SATP_MODE;
-    satp_register.physical_page_num = (uintptr_t)table / PAGE_SIZE;
-
-    return satp_register;
-}
-
 // adds the global special page, which is outside of normal memory, to the page
 // table at its physical address
-static void map_global_special(PageTable page_table) {
+static void PageTable_map_global_special(PageTable page_table) {
     // TODO: add global flag as optimization
 
     // RWX but no user flag!
@@ -259,18 +222,23 @@ static void map_global_special(PageTable page_table) {
 
     for (uintptr_t addr = GLOBAL_SPECIAL_START; addr <= GLOBAL_SPECIAL_END;
          addr += PAGE_SIZE) {
-        map_address(page_table, (VirtualAddress){.value = addr}, addr, flags);
+        PageTable_map_address(page_table, (VirtualAddress){.value = addr}, addr,
+                              flags);
     }
 }
 
 // map entire kernel address space
-void init_kernel_page_table(void) {
+PageTable PageTable_kernel_init(void) {
     // TODO: mega/giga pages for different sections?
 
-    kernel_page_table = alloc_page();
+    if (kernel_page_table != NULL) {
+        return kernel_page_table;
+    }
+
+    kernel_page_table = Page_alloc();
 
     // prepare kernel_page_satp
-    kernel_page_satp = satp_from_page_table(kernel_page_table);
+    kernel_page_satp = SatpRegister_from_PageTable(kernel_page_table);
 
     for (uintptr_t physical_address = MEMORY_START;
          physical_address < MEMORY_END; physical_address += PAGE_SIZE) {
@@ -283,8 +251,8 @@ void init_kernel_page_table(void) {
         flags.read = true;
         flags.write = true;
 
-        map_address(kernel_page_table, virtual_address, physical_address,
-                    flags);
+        PageTable_map_address(kernel_page_table, virtual_address,
+                              physical_address, flags);
     }
 
     // map device addresses
@@ -292,10 +260,11 @@ void init_kernel_page_table(void) {
     if (board.sifive_test) {
         PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_test address: %p\n",
                   board.sifive_test);
-        map_address(kernel_page_table,
-                    (VirtualAddress){.value = (uintptr_t)board.sifive_test},
-                    (uintptr_t)board.sifive_test,
-                    (PageTableEntryFlags){.read = true, .write = true});
+        PageTable_map_address(
+            kernel_page_table,
+            (VirtualAddress){.value = (uintptr_t)board.sifive_test},
+            (uintptr_t)board.sifive_test,
+            (PageTableEntryFlags){.read = true, .write = true});
     }
     if (board.sifive_plic) {
         PRINTF_IF(
@@ -304,35 +273,41 @@ void init_kernel_page_table(void) {
         for (uintptr_t page = (uintptr_t)board.sifive_plic;
              page < ((uintptr_t)board.sifive_plic + SIFIVE_PLIC_LEN);
              page += PAGE_SIZE) {
-            map_address(kernel_page_table, (VirtualAddress){.value = page},
-                        page,
-                        (PageTableEntryFlags){.read = true, .write = true});
+            PageTable_map_address(
+                kernel_page_table, (VirtualAddress){.value = page}, page,
+                (PageTableEntryFlags){.read = true, .write = true});
         }
     }
     if (board.sifive_uart1) {
         PRINTF_IF(DEBUG_DEVICE_ADDRESSES, "mapping sifive_uart1 address: %p\n",
                   board.sifive_uart1);
-        map_address(kernel_page_table,
-                    (VirtualAddress){.value = (uintptr_t)board.sifive_uart1},
-                    (uintptr_t)board.sifive_uart1,
-                    (PageTableEntryFlags){.read = true, .write = true});
+        PageTable_map_address(
+            kernel_page_table,
+            (VirtualAddress){.value = (uintptr_t)board.sifive_uart1},
+            (uintptr_t)board.sifive_uart1,
+            (PageTableEntryFlags){.read = true, .write = true});
     }
 
-    map_global_special(kernel_page_table);
+    PageTable_map_global_special(kernel_page_table);
 
     if (DEBUG_MAP_ADDRESS) {
         PageTable_print(kernel_page_table, true,
                         (PrintPageTableRecurse){.recurse = true, .level = 0});
     }
+
+    return kernel_page_table;
 }
 
 // TODO: deduplicate with init_kernel_page_table
 // map program address space
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
-                                  uintptr_t start_physical,
-                                  uintptr_t end_physical) {
+PageTable PageTable_user_init(uintptr_t start_virtual, uintptr_t start_physical,
+                              uintptr_t end_physical) {
     // NOLINTEND(bugprone-easily-swappable-parameters)
+
+    // needs page for page_table
+    PageTable page_table = (PageTable)Page_alloc();
+
     // virtual address starts at zero
     VirtualAddress virtual_address = {.value = start_virtual};
 
@@ -345,12 +320,13 @@ void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
         flags.write = true;
         flags.user = true;
 
-        map_address(page_table, virtual_address, physical_address, flags);
+        PageTable_map_address(page_table, virtual_address, physical_address,
+                              flags);
 
         virtual_address.value += PAGE_SIZE;
     }
 
-    map_global_special(page_table);
+    PageTable_map_global_special(page_table);
 
     // map user_special
     for (uintptr_t addr = USER_SPECIAL_START; addr <= USER_SPECIAL_END;
@@ -360,14 +336,17 @@ void init_user_program_page_table(PageTable page_table, uintptr_t start_virtual,
             .execute = true,
             .user = true,
         };
-        map_address(page_table, (VirtualAddress){.value = addr}, addr, flags);
+        PageTable_map_address(page_table, (VirtualAddress){.value = addr}, addr,
+                              flags);
     }
+
+    return page_table;
 }
 
 // walks page tables until leaf, then returns physical address at entry
 // TODO: refactor into macro/function? deduplicate from map_address
-uintptr_t get_physical_address(PageTable table,
-                               VirtualAddress virtual_address) {
+uintptr_t PageTable_get_physical_address(PageTable table,
+                                         VirtualAddress virtual_address) {
     uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
         VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(virtual_address);
 
@@ -391,14 +370,14 @@ uintptr_t get_physical_address(PageTable table,
             PANIC("Invalid inner table at level %u", level);
         }
 
-        current_table = get_linked_table(entry);
+        current_table = PageTableEntry_get_linked(entry);
     }
 
     return ((entry.physical_page_num * PAGE_SIZE) +
             virtual_address.page_offset);
 }
 
-void activate_kernel_page_table(void) {
+void PageTable_activate_kernel(void) {
     ASM("sfence.vma\n"
         "csrw satp, %[satp]\n"
         "sfence.vma\n" ::[satp] "r"(kernel_page_satp.value));

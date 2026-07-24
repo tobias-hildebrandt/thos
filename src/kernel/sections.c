@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "util.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page.h"
 
 // grabs the actual __<section>_START and __<section>_END defs, which are set in
 // the linker script

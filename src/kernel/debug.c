@@ -9,12 +9,12 @@
 
 #include "align.h"
 #include "build_info.h"
-#include "virtual_memory/paging.h"
+#include "virtual_memory/page.h"
 
 // page alloc testing
 void debug_page_alloc(void) {
     for (int page_num = 0; page_num < 8; page_num++) {
-        char* page = (char*)alloc_page();
+        char* page = (char*)Page_alloc();
 
         // individually write each byte in page
         const size_t num_values = PAGE_SIZE / sizeof(char);

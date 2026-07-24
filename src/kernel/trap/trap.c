@@ -20,7 +20,7 @@
 #include "sections.h"
 #include "syscall.h"
 #include "util.h"
-#include "virtual_memory/paging.h"  // IWYU pragma: keep
+#include "virtual_memory/satp.h"
 
 #define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, (PTR)->MEM)
 
