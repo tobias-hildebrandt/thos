@@ -17,7 +17,7 @@
 #include "flags.h"
 #include "hart.h"
 #include "lock.h"
-#include "process/process.h"
+#include "process/switch.h"
 #include "sbi.h"
 #include "sections.h"
 #include "test.h"

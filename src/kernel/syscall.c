@@ -5,6 +5,7 @@
 #include "flags.h"  // IWYU pragma: keep
 #include "hart.h"
 #include "io.h"
+#include "process/lifecycle.h"
 #include "process/process.h"
 #include "syscalls.h"
 #include "trap/trap.h"
@@ -25,7 +26,7 @@ void handle_syscall(TrapFrame* frame) {
         case SYSCALL_EXIT: {
             PRINTF_IF(DEBUG_SYSCALL, "handle_syscall: exit\n");
             // TODO: handle exit code in a1
-            clean_process();
+            Process_destroy_current();
             break;
         }
         default: {

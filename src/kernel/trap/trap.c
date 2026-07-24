@@ -16,7 +16,9 @@
 #include "hart.h"
 #include "lock.h"
 #include "panic.h"
+#include "process/lifecycle.h"
 #include "process/process.h"
+#include "process/switch.h"
 #include "sections.h"
 #include "syscall.h"
 #include "util.h"
@@ -198,7 +200,7 @@ static NORETURN void handle_trap(TrapFrame* frame) {
         }
 
         SpinLock_release(&trap_print_lock);
-        clean_process();
+        Process_destroy_current();
         kernel_switch(NULL);
     } else {
         // handle fatal kernel trap

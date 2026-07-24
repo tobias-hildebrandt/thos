@@ -8,6 +8,7 @@
 #include "asm.h"
 #include "flags.h"
 #include "io.h"
+#include "process/lifecycle.h"
 #include "process/process.h"
 #include "sections.h"
 #include "virtual_memory/page.h"
@@ -124,17 +125,17 @@ static void process_never_yields(void) {
 }
 
 void start_example_processes(void) {
-    // TODO: make a variety of processes up to NUM_PROCESSES
+    // TODO: make a variety of processes up to PROCESSES_MAXIMUM
 
     for (int i = 0; i < 10; i++) {
-        Process* proc_load_a0 = allocate_process((ProcessArguments){
+        Process* proc_load_a0 = Process_create((ProcessArguments){
             .entry_address = (uintptr_t)process_load_a0,
             .is_user_program = false,
         });
         proc_load_a0->frame.a0 = i;
     }
 
-    Process* proc_load_stack = allocate_process((ProcessArguments){
+    Process* proc_load_stack = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)process_load_from_stack,
         .is_user_program = false,
     });
@@ -150,33 +151,33 @@ void start_example_processes(void) {
     // pass address to data as a0
     proc_load_stack->frame.a0 = (uintptr_t)stack_data;
 
-    Process* proc_returns = allocate_process((ProcessArguments){
+    Process* proc_returns = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)process_that_returns,
         .is_user_program = false,
     });
     (void)proc_returns;
 
-    Process* proc_mem_ops = allocate_process((ProcessArguments){
+    Process* proc_mem_ops = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)process_mem_ops,
         .is_user_program = false,
     });
     (void)proc_mem_ops;
 
-    Process* proc_user_first = allocate_process((ProcessArguments){
+    Process* proc_user_first = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)USER_first_START,
         .is_user_program = true,
         .user_program_end = (uintptr_t)USER_first_END,
     });
     (void)proc_user_first;
 
-    Process* proc_user_second = allocate_process((ProcessArguments){
+    Process* proc_user_second = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)USER_second_START,
         .is_user_program = true,
         .user_program_end = (uintptr_t)USER_second_END,
     });
     (void)proc_user_second;
 
-    Process* proc_never_yields = allocate_process((ProcessArguments){
+    Process* proc_never_yields = Process_create((ProcessArguments){
         .entry_address = (uintptr_t)process_never_yields,
         .is_user_program = false,
     });

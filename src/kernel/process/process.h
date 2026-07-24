@@ -5,8 +5,11 @@
 
 #include "buffer.h"
 #include "trap/trap.h"
-#include "util.h"
 #include "virtual_memory/page_table.h"
+
+// entry user-memory address
+// must match what's defined in user program ld script
+#define USER_PROGRAM_BASE 0x1000000UL
 
 enum ProcessState {
     // not actually a process
@@ -30,19 +33,9 @@ struct Process {
 };
 typedef struct Process Process;
 
-struct ProcessArguments {
-    uintptr_t entry_address;
-    bool is_user_program;
-    uintptr_t user_program_end;
-};
-typedef struct ProcessArguments ProcessArguments;
+typedef uint8_t Pid;
 
-void NORETURN reset_stack_begin_processes(void);
-void NORETURN kernel_switch(TrapFrame* frame);
 #define yield() KERNEL_SOFTWARE_INTERRUPT()
-Process* allocate_process(ProcessArguments args);
-uint8_t my_pid(void);
+Pid my_pid(void);
 void Process_print(Process* process);
-void print_user_progs(void);
 bool Process_is_kernel_process(Process* process);
-void clean_process(void);
