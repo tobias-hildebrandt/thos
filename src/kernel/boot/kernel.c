@@ -47,7 +47,7 @@ static void print_startup(const uintptr_t hart_id, const bool is_primary) {
     printf("my_hart_id: %d\n", my_hart_id());
     printf("main type:  %s\n", is_primary == 0 ? "primary" : "secondary");
 
-    if (is_primary == 0) {
+    if (is_primary) {
         printf("(compiled with %s)\n", COMPILER_STRING);
     }
     printf("\n");
@@ -133,7 +133,7 @@ static void NORETURN primary_main(
     if (!EXAMPLE_PROCESSES_DISABLE) {
         start_example_processes();
 
-        reset_stack_begin_processes();
+        jump_into_processes();
     }
 
     SpinLock_acquire(&stdout_lock);
@@ -152,7 +152,7 @@ static void NORETURN secondary_main(const uintptr_t hart_id) {
     SpinLock_release(&stdout_lock);
 
     if (!EXAMPLE_PROCESSES_DISABLE) {
-        reset_stack_begin_processes();
+        jump_into_processes();
     }
 
     SpinLock_acquire(&stdout_lock);
