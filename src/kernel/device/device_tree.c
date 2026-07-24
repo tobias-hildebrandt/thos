@@ -1,4 +1,4 @@
-#include "device_tree.h"
+#include "device/device_tree.h"
 
 #include <stdbool.h>
 #include <stddef.h>

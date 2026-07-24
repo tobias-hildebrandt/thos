@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 #include "buffer.h"
-#include "paging.h"
-#include "trap.h"
+#include "trap/trap.h"
 #include "util.h"
+#include "virtual_memory/paging.h"
 
 enum ProcessState {
     // not actually a process

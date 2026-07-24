@@ -1,4 +1,4 @@
-#include "sifive_uart.h"
+#include "device/sifive_uart.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,9 +8,9 @@
 #include "bits.h"
 #include "buffer.h"
 #include "device/board.h"
+#include "device/sifive_plic.h"
 #include "flags.h"  // IWYU pragma: keep
 #include "io.h"
-#include "sifive_plic.h"
 
 // registers are all 32bits and offset by number*32bits
 #define SIFIVE_UART_REG(PTR, REGISTER) ((PTR) + (REGISTER))

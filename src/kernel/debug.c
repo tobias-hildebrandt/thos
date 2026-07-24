@@ -9,7 +9,7 @@
 
 #include "align.h"
 #include "build_info.h"
-#include "paging.h"
+#include "virtual_memory/paging.h"
 
 // page alloc testing
 void debug_page_alloc(void) {

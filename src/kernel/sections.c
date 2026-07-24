@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "paging.h"
 #include "util.h"
+#include "virtual_memory/paging.h"
 
 // grabs the actual __<section>_START and __<section>_END defs, which are set in
 // the linker script

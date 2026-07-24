@@ -8,9 +8,9 @@
 #include "asm.h"
 #include "flags.h"
 #include "io.h"
-#include "paging.h"
-#include "process.h"
+#include "process/process.h"
 #include "sections.h"
+#include "virtual_memory/paging.h"
 
 struct SomeData {
     uint64_t d;

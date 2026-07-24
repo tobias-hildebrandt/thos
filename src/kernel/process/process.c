@@ -1,4 +1,4 @@
-#include "process.h"
+#include "process/process.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -14,13 +14,13 @@
 #include "hart.h"
 #include "io.h"
 #include "lock.h"
-#include "paging.h"
 #include "panic.h"
 #include "sections.h"
 #include "syscalls.h"
 #include "timer.h"
-#include "trap.h"
+#include "trap/trap.h"
 #include "util.h"
+#include "virtual_memory/paging.h"
 
 // entry user-memory address
 // must match what's defined in user program ld script

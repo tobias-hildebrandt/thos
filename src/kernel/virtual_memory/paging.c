@@ -1,4 +1,4 @@
-#include "paging.h"
+#include "virtual_memory/paging.h"
 
 #include <stdbool.h>
 #include <stddef.h>

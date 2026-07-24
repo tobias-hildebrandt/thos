@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 #include "buffer.h"
-#include "process.h"
+#include "process/process.h"
 #include "sections.h"
-#include "trap.h"
+#include "trap/trap.h"
 
 enum { WORK_STACK_SIZE = 8192 };
 

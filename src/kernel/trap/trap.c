@@ -1,4 +1,4 @@
-#include "trap.h"
+#include "trap/trap.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -15,12 +15,12 @@
 #include "flags.h"
 #include "hart.h"
 #include "lock.h"
-#include "paging.h"  // IWYU pragma: keep
 #include "panic.h"
-#include "process.h"
+#include "process/process.h"
 #include "sections.h"
 #include "syscall.h"
 #include "util.h"
+#include "virtual_memory/paging.h"  // IWYU pragma: keep
 
 #define PRINT_MEMBER(PTR, MEM) printf("%3s:\t%p\n", #MEM, (PTR)->MEM)
 

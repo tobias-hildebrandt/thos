@@ -1,4 +1,4 @@
-#include "kernel.h"
+#include "boot/kernel.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -17,13 +17,13 @@
 #include "flags.h"
 #include "hart.h"
 #include "lock.h"
-#include "paging.h"
-#include "process.h"
+#include "process/process.h"
 #include "sbi.h"
 #include "sections.h"
 #include "test.h"
-#include "trap.h"
+#include "trap/trap.h"
 #include "util.h"
+#include "virtual_memory/paging.h"
 
 // TODO: clean up
 

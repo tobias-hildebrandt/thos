@@ -8,9 +8,9 @@
 #include "buffer.h"
 #include "csr.h"
 #include "panic.h"
-#include "process.h"
+#include "process/process.h"
 #include "sections.h"
-#include "trap.h"
+#include "trap/trap.h"
 
 // TODO:
 // set up dynamically, first hart uses a dedicated space before starting others

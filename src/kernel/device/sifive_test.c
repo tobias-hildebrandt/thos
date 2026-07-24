@@ -1,4 +1,4 @@
-#include "sifive_test.h"
+#include "device/sifive_test.h"
 
 #include <stdint.h>
 #include <stdlib.h>

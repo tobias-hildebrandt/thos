@@ -1,4 +1,4 @@
-#include "sifive_plic.h"
+#include "device/sifive_plic.h"
 
 #include <stddef.h>
 #include <stdint.h>

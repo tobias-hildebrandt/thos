@@ -5,9 +5,9 @@
 #include "flags.h"  // IWYU pragma: keep
 #include "hart.h"
 #include "io.h"
-#include "process.h"
+#include "process/process.h"
 #include "syscalls.h"
-#include "trap.h"
+#include "trap/trap.h"
 
 void handle_syscall(TrapFrame* frame) {
     switch (frame->a0) {
