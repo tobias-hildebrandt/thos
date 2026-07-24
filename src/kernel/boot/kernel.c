@@ -45,7 +45,7 @@ static void print_startup(const uintptr_t hart_id, const bool is_primary) {
     printf("sscratch:   %p\n", csr_read_sscratch());
     printf("a0 hartid:  %d\n", hart_id);
     printf("my_hart_id: %d\n", my_hart_id());
-    printf("main type:  %s\n", is_primary == 0 ? "primary" : "secondary");
+    printf("main type:  %s\n", is_primary ? "primary" : "secondary");
 
     if (is_primary) {
         printf("(compiled with %s)\n", COMPILER_STRING);
