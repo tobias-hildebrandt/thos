@@ -5,7 +5,7 @@
 #include "process/switch.h"
 #include "sections.h"
 #include "syscalls.h"
-#include "trap/trap.h"
+#include "trap/registers.h"
 #include "util.h"
 
 // user exit function

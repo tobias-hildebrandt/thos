@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "buffer.h"
-#include "trap/trap.h"
+#include "trap/frame.h"
 #include "virtual_memory/page_table.h"
 
 // entry user-memory address

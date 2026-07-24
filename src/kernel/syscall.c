@@ -8,7 +8,7 @@
 #include "process/lifecycle.h"
 #include "process/process.h"
 #include "syscalls.h"
-#include "trap/trap.h"
+#include "trap/frame.h"
 
 void handle_syscall(TrapFrame* frame) {
     switch (frame->a0) {

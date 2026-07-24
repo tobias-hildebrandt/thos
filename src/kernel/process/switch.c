@@ -16,7 +16,9 @@
 #include "process/exits.h"
 #include "process/process.h"
 #include "timer.h"
-#include "trap/trap.h"
+#include "trap/frame.h"
+#include "trap/registers.h"
+#include "trap/routines.h"
 #include "util.h"
 #include "virtual_memory/satp.h"
 

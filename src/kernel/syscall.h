@@ -1,5 +1,5 @@
 #pragma once
 
-#include "trap/trap.h"
+#include "trap/frame.h"
 
 void handle_syscall(TrapFrame* frame);

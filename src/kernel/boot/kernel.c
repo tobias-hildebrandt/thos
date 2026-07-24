@@ -21,7 +21,7 @@
 #include "sbi.h"
 #include "sections.h"
 #include "test.h"
-#include "trap/trap.h"
+#include "trap/registers.h"
 #include "util.h"
 #include "virtual_memory/page_table.h"
 

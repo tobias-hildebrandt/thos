@@ -10,7 +10,7 @@
 #include "panic.h"
 #include "process/process.h"
 #include "sections.h"
-#include "trap/trap.h"
+#include "trap/registers.h"
 
 // TODO:
 // set up dynamically, first hart uses a dedicated space before starting others

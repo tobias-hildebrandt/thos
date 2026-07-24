@@ -6,7 +6,7 @@
 #include "buffer.h"
 #include "process/process.h"
 #include "sections.h"
-#include "trap/trap.h"
+#include "trap/frame.h"
 
 enum { WORK_STACK_SIZE = 8192 };
 

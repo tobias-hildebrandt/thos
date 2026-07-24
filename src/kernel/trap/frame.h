@@ -1,11 +1,6 @@
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
-
-#include "bits.h"  // IWYU pragma: keep
-#include "csr.h"   // IWYU pragma: keep
-#include "util.h"
 
 struct TrapFrame {
     // return address, global pointer, thread pointer
@@ -26,15 +21,4 @@ struct TrapFrame {
 } __attribute__((packed));
 typedef struct TrapFrame TrapFrame;
 
-void set_trap_vector(void);
-void prepare_sstatus_for_return(bool return_to_kernel_mode);
-void enable_interrupts(void);
-void disable_traps_now(void);
-void enable_traps_now(void);
-void NORETURN restore_after_trap(TrapFrame* context);
 void TrapFrame_print(TrapFrame* frame);
-
-// 12.1.1.3 Supervisor Interrupt (sip and sie) Registers
-// trigger supervisor software interrupt
-#define KERNEL_SOFTWARE_INTERRUPT() \
-    csr_set_mask_sip(BIT_TO_INT(SIE_SIP_SOFTWARE_INTERRUPT))

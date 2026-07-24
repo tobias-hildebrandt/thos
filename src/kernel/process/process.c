@@ -6,7 +6,6 @@
 
 #include "hart.h"
 #include "panic.h"
-#include "trap/trap.h"
 #include "virtual_memory/page_table.h"
 #include "virtual_memory/virtual_address.h"
 

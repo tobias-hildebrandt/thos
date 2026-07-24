@@ -6,7 +6,7 @@
 #include "flags.h"
 #include "hart.h"
 #include "io.h"
-#include "trap/trap.h"
+#include "trap/registers.h"
 #include "util.h"
 
 void _panic_start(void) {
