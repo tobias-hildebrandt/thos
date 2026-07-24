@@ -1,12 +1,12 @@
 #include "boot/kernel.h"
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "asm.h"
+#include "boot/boot.h"
 #include "build_info.h"
 #include "csr.h"
 #include "debug.h"
@@ -27,56 +27,34 @@
 
 // TODO: clean up
 
-// the first hart sets this to true, then wakes other harts
-// other harts read this as true and don't touch it
-static uint32_t first_claim = 0;
+enum Claim {
+    FIRST_CLAIM = 0,
+    SECONDARY_CLAIM = INT32_MAX,
+};
+typedef enum Claim Claim;
+
+static Claim claim = FIRST_CLAIM;
 
 // initial printf lock, only used during kernel_main
 static SpinLock stdout_lock;
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-static void print_startup(const uintptr_t hart_id, uint32_t claim) {
+static void print_startup(const uintptr_t hart_id, const bool is_primary) {
     printf("Hello kernel_main\n");
 
     printf("sscratch:   %p\n", csr_read_sscratch());
     printf("a0 hartid:  %d\n", hart_id);
     printf("my_hart_id: %d\n", my_hart_id());
-    printf("claim:      0x%x (%s)\n", claim,
-           claim == 0 ? "first" : "not first");
+    printf("main type:  %s\n", is_primary == 0 ? "primary" : "secondary");
 
-    if (claim == 0) {
+    if (is_primary == 0) {
         printf("(compiled with %s)\n", COMPILER_STRING);
     }
     printf("\n");
 }
 
-static void kernel_main(const uintptr_t hart_id,
-                        const DeviceTreeHeadersRaw* device_tree_headers) {
-    uint32_t my_claim = atomic_or_memory_word(&first_claim, 0xffffffff);
-
-    set_trap_vector();
-
-    // not the first hart to run
-    if (my_claim != 0) {
-        SpinLock_acquire(&stdout_lock);
-        print_startup(hart_id, my_claim);
-        SpinLock_release(&stdout_lock);
-
-        if (!EXAMPLE_PROCESSES_DISABLE) {
-            reset_stack_begin_processes();
-        }
-
-        SpinLock_acquire(&stdout_lock);
-        printf("end of kernel_main, hart id %d, hart claim 0x%x\n", hart_id,
-               my_claim);
-        SpinLock_release(&stdout_lock);
-
-        sbi_hart_stop();
-
-        while (1) {
-        }
-    }
-
+static void NORETURN primary_main(
+    const uintptr_t hart_id, const DeviceTreeHeadersRaw* device_tree_headers) {
     HartScratch_init_all();
 
     init_kernel_page_table();
@@ -127,7 +105,7 @@ static void kernel_main(const uintptr_t hart_id,
 
     SpinLock_acquire(&stdout_lock);
     {
-        print_startup(hart_id, my_claim);
+        print_startup(hart_id, true);
 
         const unsigned long lowest_hart_to_wake = board.num_monitor_harts;
         const unsigned long highest_hart_to_wake = board.num_normal_harts;
@@ -160,8 +138,7 @@ static void kernel_main(const uintptr_t hart_id,
 
     SpinLock_acquire(&stdout_lock);
     {
-        printf("end of kernel_main, hart id %d, hart claim 0x%x\n", hart_id,
-               my_claim);
+        printf("end of kernel_main, hart id %d\n", hart_id);
     }
     SpinLock_release(&stdout_lock);
 
@@ -169,32 +146,35 @@ static void kernel_main(const uintptr_t hart_id,
     exit(0);
 }
 
-SECTION(".text.boot")
-UNUSED NAKED void boot(UNUSED uintptr_t hart_id, UNUSED uintptr_t device_tree) {
-    // CANNOT CLOBBER a0 OR a1 (or a2??)
+static void NORETURN secondary_main(const uintptr_t hart_id) {
+    SpinLock_acquire(&stdout_lock);
+    print_startup(hart_id, false);
+    SpinLock_release(&stdout_lock);
 
-    // load hart id into t0
-    ASM("mv t0, a0\n");
-    // load size of hart scratch space into t1
-    ASM("li t1, %0\n" ::"i"(sizeof(HartScratch)));
-    // calculate offset of this hart's scratch space from base into t1
-    ASM("mul t1, t1, t0\n");
-    // load base address of all hart scratch spaces into t0
-    ASM("la t0, %0\n" ::"i"(hart_scratches));
-    // add offset and base address into sp
-    ASM("add sp, t0, t1\n");
+    if (!EXAMPLE_PROCESSES_DISABLE) {
+        reset_stack_begin_processes();
+    }
 
-    // set sscratch
-    ASM("csrw sscratch, sp\n");
+    SpinLock_acquire(&stdout_lock);
+    printf("end of kernel_main, hart id %d\n", hart_id);
+    SpinLock_release(&stdout_lock);
 
-    // move sp to work stack
-    ASM("addi sp, sp, %0\n" ::"i"(offsetof(HartScratch, work_stack)));
+    sbi_hart_stop();
 
-    // load stack size into t0
-    ASM("li t0, %0\n" ::"i"(WORK_STACK_SIZE));
-    // move sp to TOP of stack
-    ASM("add sp, sp, t0\n");
+    while (1) {
+    }
+}
 
-    // jump to kernel function
-    ASM("j %[func]\n" ::[func] "i"(kernel_main));
+void NORETURN kernel_main(const uintptr_t hart_id,
+                          const DeviceTreeHeadersRaw* device_tree_headers) {
+    uint32_t my_claim = atomic_or_memory_word(&claim, SECONDARY_CLAIM);
+
+    set_trap_vector();
+
+    // not the first hart to run
+    if (my_claim == 0) {
+        primary_main(hart_id, device_tree_headers);
+    } else {
+        secondary_main(hart_id);
+    }
 }

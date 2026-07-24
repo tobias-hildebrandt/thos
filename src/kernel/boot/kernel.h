@@ -2,4 +2,7 @@
 
 #include <stdint.h>
 
-void boot(uintptr_t hart_id, uintptr_t device_tree);
+#include "device/device_tree.h"
+
+void kernel_main(uintptr_t hart_id,
+                 const DeviceTreeHeadersRaw* device_tree_headers);
