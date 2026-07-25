@@ -69,7 +69,6 @@ void Process_print(Process* process) {
 
 Pid my_pid(void) {
     Process* current_process = my_hart_current_process();
-    // TODO: lock?
     if (current_process == NULL) {
         PANIC("my_pid called while no current process");
     }

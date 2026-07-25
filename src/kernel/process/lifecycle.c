@@ -9,6 +9,7 @@
 #include "flags.h"
 #include "hart.h"
 #include "io.h"
+#include "lock.h"
 #include "panic.h"
 #include "process/process.h"
 #include "process/switch.h"
@@ -17,6 +18,8 @@
 
 Process* Process_create(ProcessArguments args) {
     Process* process = NULL;
+
+    SpinLock_acquire(&processes_lock);
     int index = 0;
     for (; index < PROCESSES_MAXIMUM; index++) {
         if (processes[index].state == PROCESS_UNUSED) {
@@ -76,6 +79,8 @@ Process* Process_create(ProcessArguments args) {
         Process_print(process);
     }
 
+    SpinLock_release(&processes_lock);
+
     return process;
 }
 
@@ -83,7 +88,7 @@ Process* Process_create(ProcessArguments args) {
 // TODO: de-alloc user page table once alloc/de-alloc is implemented
 // Precondition: traps disabled
 void Process_destroy_current(void) {
-    // TODO: lock process list
+    SpinLock_acquire(&processes_lock);
 
     HartScratch* hart_scratch = my_hart_scratch();
 
@@ -104,4 +109,6 @@ void Process_destroy_current(void) {
     // TODO: de-alloc page table, memory, etc
 
     PRINTF_IF(DEBUG_CLEAN_PROCESS, "clean_process: wiped\n");
+
+    SpinLock_release(&processes_lock);
 }

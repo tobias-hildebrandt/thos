@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "bits.h"
 #include "buffer.h"
 #include "csr.h"
 #include "flags.h"
@@ -17,20 +16,31 @@
 // set up dynamically, first hart uses a dedicated space before starting others
 IN_GLOBAL_SPECIAL HartScratch hart_scratches[HART_MAXIMUM];
 
+// traps should be disabled before calling and during the entire lifetime of the
+// returned value
 uintptr_t my_hart_id(void) {
     uintptr_t sscratch = csr_read_sscratch();
     return (sscratch - (uintptr_t)&hart_scratches[0]) / sizeof(HartScratch);
 }
 
+// traps should be disabled before calling and during the entire lifetime of the
+// returned value
 HartScratch* my_hart_scratch(void) {
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
     return (HartScratch*)csr_read_sscratch();
 }
 
 Process* my_hart_current_process(void) {
-    return my_hart_scratch()->current_process;
+    bool enabled_before = disable_traps_now();
+    Process* proc = my_hart_scratch()->current_process;
+    if (enabled_before) {
+        enable_traps_now();
+    }
+    return proc;
 }
 
+// traps should be disabled before calling and during the entire lifetime of the
+// returned value
 Buffer* my_hart_or_process_output_buffer(bool were_interrupts_enabled) {
     HartScratch* hart_scratch = my_hart_scratch();
 
@@ -49,11 +59,10 @@ void HartScratch_init_all(void) {
     }
 }
 
+// returns previous traps state (enabled or disabled)
 bool my_hart_pre_lock_acquire(void) {
     // disable traps and get old state
-    bool were_interrupts_enabled =
-        BIT_GET(csr_clear_mask_sstatus(BIT_TO_INT(SSTATUS_TRAPS_NOW)),
-                SSTATUS_TRAPS_NOW);
+    bool were_interrupts_enabled = disable_traps_now();
 
     HartScratch* hart_scratch = my_hart_scratch();
 

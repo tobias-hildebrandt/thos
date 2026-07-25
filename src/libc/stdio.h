@@ -14,9 +14,13 @@ int getchar(void);
 int putc(int ch, FILE* stream);
 int getc(FILE* stream);
 
-int printf(const char* format_str, ...);
-int fprintf(FILE* stream, const char* format_str, ...);
-int vfprintf(FILE* stream, const char* format_str, va_list vlist);
+int printf(const char* restrict format_str, ...);
+int vprintf(const char* restrict format_str, va_list vlist);
+int fprintf(FILE* stream, const char* restrict format_str, ...);
+int vfprintf(FILE* stream, const char* restrict format_str, va_list vlist);
+int sprintf(char* restrict buffer, const char* restrict format_str, ...);
+int vsprintf(char* restrict buffer, const char* restrict format_str,
+             va_list vlist);
 
 // kernel and userlib MUST define these
 

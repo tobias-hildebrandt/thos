@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "io.h"
 #include "sbi.h"
 
 FILE* stdin = (File*)(&File_stdin);
@@ -25,6 +26,7 @@ int fclose(FILE* _stream) {
     // TODO
     return 0;
 }
+
 int fflush(FILE* _stream) {
     (void)_stream;
     // TODO
@@ -40,11 +42,12 @@ int fgetc(FILE* _stream) {
         return EOF;
     }
 }
+
 int fputc(int ch, FILE* _stream) {
     File* stream = (File*)_stream;
     if (stream->type == FILETYPE_STDOUT) {
-        SbiReturn ret = sbi_putchar(ch);
-        return (int)ret.value;
+        putchar_buffer(ch, NULL);
+        return ch;
     } else {
         return EOF;
     }

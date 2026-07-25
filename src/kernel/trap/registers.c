@@ -29,8 +29,9 @@ void prepare_sstatus_for_return(bool return_to_kernel_mode) {
 }
 
 // disable supervisor traps right now
-void disable_traps_now(void) {
-    csr_clear_mask_sstatus(BIT_TO_INT(SSTATUS_TRAPS_NOW));
+bool disable_traps_now(void) {
+    return BIT_GET(csr_clear_mask_sstatus(BIT_TO_INT(SSTATUS_TRAPS_NOW)),
+                   SSTATUS_TRAPS_NOW);
 }
 
 // enable supervisor traps right now

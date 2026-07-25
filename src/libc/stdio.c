@@ -32,6 +32,18 @@ int getc(FILE* stream) {
     return fgetc(stream);
 }
 
+struct PrintTarget {
+    enum PrintTargetType {
+        TARGET_TYPE_BUFFER = 1,
+        TARGET_TYPE_STREAM = 2,
+    } type;
+    union PrintTargetOutput {
+        FILE* stream;
+        char* restrict buffer;
+    } output;
+};
+typedef struct PrintTarget PrintTarget;
+
 struct PrintState {
     bool in_conversion_spec;
     uint8_t long_modifiers;
@@ -40,29 +52,40 @@ struct PrintState {
     bool alternative;
     const char* min_width_chars;
     int min_width;
-    FILE* stream;
+    PrintTarget target;
     va_list arguments;
 };
 typedef struct PrintState PrintState;
 
+// function pointer that can be passed to min_width_call
 typedef int(ConversionPrintFunc)(PrintState* state);
 
+// put a character to the target
+static void PrintTarget_putchar(PrintTarget* target, int character) {
+    if (target->type == TARGET_TYPE_BUFFER) {
+        *target->output.buffer = (char)character;
+        target->output.buffer += 1;
+    } else if (target->type == TARGET_TYPE_STREAM) {
+        fputc(character, target->output.stream);
+    }
+}
+
 static void PrintState_reset(PrintState* state) {
-    // save args and stream
-    va_list arguments = state->arguments;
-    FILE* stream = state->stream;
+    // new empty state
+    PrintState new_state = (PrintState){0};
 
-    *state = (PrintState){0};
+    // save args and target
+    new_state.arguments = state->arguments;
+    new_state.target = state->target;
 
-    state->arguments = arguments;
-    state->stream = stream;
+    *state = new_state;
 }
 
 // only putchar if not min_width
 // used to calculate length of real print before actually printing
 static void maybe_putchar(int character, PrintState* state) {
     if (state->min_width == 0) {
-        fputc(character, state->stream);
+        PrintTarget_putchar(&state->target, character);
     }
 }
 
@@ -241,9 +264,9 @@ static int print_padding(PrintState* state, int amount) {
     int printed = 0;
     for (int i = 0; i < amount; i++) {
         if (state->zero_pad) {
-            fputc('0', state->stream);
+            PrintTarget_putchar(&state->target, '0');
         } else {
-            fputc(' ', state->stream);
+            PrintTarget_putchar(&state->target, ' ');
         }
         printed += 1;
     }
@@ -332,7 +355,7 @@ static void handle_conversion_spec(char character, PrintState* state,
         // conversion specifiers
         case '%': {
             // %%
-            fputc('%', state->stream);
+            PrintTarget_putchar(&state->target, '%');
             *printed += 1;
             PrintState_reset(state);
             break;
@@ -389,9 +412,10 @@ static void handle_conversion_spec(char character, PrintState* state,
             }
 
             state->zero_pad = true;
+            state->left_pad = true;
 
-            fputc('0', state->stream);
-            fputc('x', state->stream);
+            PrintTarget_putchar(&state->target, '0');
+            PrintTarget_putchar(&state->target, 'x');
             *printed += 2;
 
             *printed += min_width_call(state, print_hex);
@@ -405,12 +429,13 @@ static void handle_conversion_spec(char character, PrintState* state,
     }
 }
 
-static int vfprintf_ref(FILE* stream, const char* format_str, va_list vlist) {
+static int PrintTarget_vprintf(PrintTarget target, const char* format_str,
+                               va_list vlist) {
     int printed = 0;
 
     PrintState state = {0};
 
-    state.stream = stream;
+    state.target = target;
     state.arguments = vlist;
 
     while (*format_str != '\0') {
@@ -420,7 +445,7 @@ static int vfprintf_ref(FILE* stream, const char* format_str, va_list vlist) {
             if (*format_str == '%') {
                 state.in_conversion_spec = true;
             } else {
-                fputc(*format_str, state.stream);
+                PrintTarget_putchar(&state.target, *format_str);
                 printed += 1;
             }
         } else {
@@ -467,30 +492,72 @@ static int vfprintf_ref(FILE* stream, const char* format_str, va_list vlist) {
     return printed;
 }
 
-int printf(const char* format_str, ...) {
+int printf(const char* restrict format_str, ...) {
     va_list args;
     va_start(args, format_str);
 
-    int printed = vfprintf_ref(stdout, format_str, args);
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stdout};
+
+    int printed = PrintTarget_vprintf(target, format_str, args);
 
     va_end(args);
 
     return printed;
 }
 
-int fprintf(FILE* stream, const char* format_str, ...) {
+int vprintf(const char* restrict format_str, va_list vlist) {
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stdout};
+
+    int printed = PrintTarget_vprintf(target, format_str, vlist);
+
+    return printed;
+}
+
+int fprintf(FILE* stream, const char* restrict format_str, ...) {
     va_list args;
     va_start(args, format_str);
 
-    int printed = vfprintf_ref(stream, format_str, args);
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stream};
+
+    int printed = PrintTarget_vprintf(target, format_str, args);
 
     va_end(args);
 
     return printed;
 }
 
-int vfprintf(FILE* stream, const char* format_str, va_list vlist) {
-    int printed = vfprintf_ref(stream, format_str, vlist);
+int vfprintf(FILE* stream, const char* restrict format_str, va_list vlist) {
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stream};
+
+    int printed = PrintTarget_vprintf(target, format_str, vlist);
+
+    return printed;
+}
+
+int sprintf(char* restrict buffer, const char* restrict format_str, ...) {
+    va_list args;
+    va_start(args, format_str);
+
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_BUFFER, .output.buffer = buffer};
+
+    int printed = PrintTarget_vprintf(target, format_str, args);
+
+    va_end(args);
+
+    return printed;
+}
+
+int vsprintf(char* restrict buffer, const char* restrict format_str,
+             va_list vlist) {
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_BUFFER, .output.buffer = buffer};
+
+    int printed = PrintTarget_vprintf(target, format_str, vlist);
 
     return printed;
 }

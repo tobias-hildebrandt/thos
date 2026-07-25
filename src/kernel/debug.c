@@ -131,6 +131,10 @@ void debug_printf(void) {
            0xffffffffffffffffLL);
     printf("printf longlong bool 0x0123456789abcdef = 0b%064llb\n",
            0x0123456789abcdefLL);
+
+    char buffer[64];
+    sprintf(buffer, "sprintf'd 123123\n");
+    printf("%s", buffer);
 }
 
 // TODO: assert

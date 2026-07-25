@@ -79,3 +79,32 @@ int strncmp(const char* lhs, const char* rhs, size_t count) {
     }
     return 0;
 }
+
+size_t strlen(const char* str) {
+    if (str == NULL) {
+        return 0;
+    }
+
+    size_t count = 0;
+
+    while (*str != 0) {
+        count += 1;
+        str += 1;
+    }
+
+    return count;
+}
+
+size_t strnlen_s(const char* str, size_t strsz) {
+    if (str == NULL) {
+        return 0;
+    }
+
+    size_t count = 0;
+    while (*str != 0 && strsz > 0) {
+        count += 1;
+        str += 1;
+        strsz -= 1;
+    }
+    return count;
+}

@@ -3,13 +3,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #include "buffer.h"
 #include "hart.h"
 #include "lock.h"
+#include "sbi.h"
 
 static SpinLock io_spinlock;
+
+// TODO: custom kprintf
 
 // TODO: lock at each printf instead of putchar
 
@@ -35,15 +37,16 @@ int putchar_buffer(int character, Buffer* buffer) {
 
 void put_direct_str(const char* str) {
     while (*str != 0) {
-        putchar(*str);
+        sbi_putchar(*str);
         str += 1;
     }
 }
+
 void put_direct_hex32(uint32_t val) {
     int shift = 8 - 1;
 
-    putchar('0');
-    putchar('x');
+    sbi_putchar('0');
+    sbi_putchar('x');
 
     bool started = false;
 
@@ -61,13 +64,13 @@ void put_direct_hex32(uint32_t val) {
             ascii = 'a' + place_value - 10;
         }
         started = true;
-        putchar((int)ascii);
+        sbi_putchar((int)ascii);
     }
 }
 
 void put_direct_u32(uint32_t val) {
     if (val == 0) {
-        putchar('0');
+        sbi_putchar('0');
         return;
     }
     uint32_t div = 1000000000U;
@@ -82,10 +85,10 @@ void put_direct_u32(uint32_t val) {
             }
 
             val -= digit * div;
-            putchar('0' + (int)digit);
+            sbi_putchar('0' + (int)digit);
         } else {
             if (started) {
-                putchar('0');
+                sbi_putchar('0');
             }
         };
 
