@@ -97,7 +97,10 @@ void debug_printf(void) {
 
     printf("min width 10, zero-pad \"12345\":   _%010u_\n", 12345);
     printf("min width 10, zero-pad \"ffff\":    _%010x_\n", 0xffff);
-    printf("min width  8, zero-pad \"ffff\":     _%08x_\n", 0xffff);
+    printf("min width  6, zero-pad \"ffff\":    _%06x_\n", 0xffff);
+
+    printf("many min width 4:    _%4d_ _%4x_ _%4s_\n", 1, 0xf, "a");
+    printf("many min width var4: _%*d_ _%*x_ _%*s_\n", 4, 1, 4, 0xf, 4, "a");
 
     printf("pointer 0x0:                %p\n", 0);
     printf("pointer 0xffff:             %p\n", 0xffff);
