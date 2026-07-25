@@ -283,6 +283,7 @@ static int min_width_call(PrintState* state, ConversionPrintFunc func) {
             // need to pad after
 
             // call normally
+            state->min_width = 0;
             printed += (func)(state);
 
             // fill rest
