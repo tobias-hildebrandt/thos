@@ -15,6 +15,7 @@ Checks: [
 
     # opinion
     -readability-else-after-return,
+    -bugprone-easily-swappable-parameters,
 
     # wrong
     -readability-implicit-bool-conversion,

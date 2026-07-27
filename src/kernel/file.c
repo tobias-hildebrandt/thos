@@ -10,7 +10,6 @@
 FILE* stdin = (File*)(&File_stdin);
 FILE* stdout = (File*)(&File_stdout);
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 FILE* fopen(const char* restrict filename, const char* restrict mode) {
     if (0 == strcmp(filename, "stdout") && 0 == strcmp(mode, "w")) {
         return stdout;

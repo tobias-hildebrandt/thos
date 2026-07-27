@@ -300,10 +300,8 @@ PageTable PageTable_kernel_init(void) {
 
 // TODO: deduplicate with init_kernel_page_table
 // map program address space
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 PageTable PageTable_user_init(uintptr_t start_virtual, uintptr_t start_physical,
                               uintptr_t end_physical) {
-    // NOLINTEND(bugprone-easily-swappable-parameters)
 
     // needs page for page_table
     PageTable page_table = (PageTable)Page_alloc();

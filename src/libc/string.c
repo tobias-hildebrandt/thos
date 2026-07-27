@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <string.h>
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void* memset(void* buf, char value, size_t count) {
     for (size_t i = 0; i < count; i++) {
         ((char*)buf)[i] = value;

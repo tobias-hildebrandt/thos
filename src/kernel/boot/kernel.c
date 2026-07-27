@@ -38,7 +38,6 @@ static Claim claim = FIRST_CLAIM;
 // initial printf lock, only used during kernel_main
 static SpinLock stdout_lock;
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 static void print_startup(const uintptr_t hart_id, const bool is_primary) {
     printf("Hello kernel_main\n");
 

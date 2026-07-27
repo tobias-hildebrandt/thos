@@ -98,7 +98,6 @@ uint32_t sifive_plic_claim(size_t normal_hart_number) {
     return *ptr;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void sifive_plic_complete(size_t normal_hart_number, uint32_t interrupt) {
     char* addr = GET_BOARD_DEVICE(board.sifive_plic);
 

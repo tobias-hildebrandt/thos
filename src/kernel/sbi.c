@@ -28,11 +28,9 @@
 #define SBI_CALL6(eid, fid, arg0, arg1, arg2, arg3, arg4, arg5) \
     _sbi_call(arg0, arg1, arg2, arg3, arg4, arg5, fid, eid)
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // USE MACRO!
 static SbiReturn _sbi_call(long arg0, long arg1, long arg2, long arg3,
                            long arg4, long arg5, long fid, long eid) {
-    // NOLINTEND(bugprone-easily-swappable-parameters)
     // load the data into registers,
     // even though they should already be in the right place
     REGS_START

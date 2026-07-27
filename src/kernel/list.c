@@ -17,7 +17,6 @@ void add_linked(void** base, void* next, size_t next_ptr_offset) {
     *insert_at = next;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void* next_free(void* array, size_t* next, size_t size, size_t max) {
     if (*next >= max - 1) {
         printf("list.h ran out of items\n");
