@@ -2,13 +2,13 @@
 `thos` is a RISC-V hobby OS targeting qemu, written in C and inline assembly.
 
 ## Current Features
-- Single core
+- Multi-processing support
 - Kernel and user processes
 - Supports qemu's `virt` and `sifive_u` machines
 - 64-bit and 32-bit support
 - Virtual memory (Sv39 or Sv32)
 - Full context switching
-- Software interrupts, timer interrupts, and syscalls
+- Software interrupts, timer interrupts, and system calls
 - Partial C standard library
 
 ## Build System
