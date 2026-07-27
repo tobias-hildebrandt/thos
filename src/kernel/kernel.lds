@@ -61,12 +61,6 @@ SECTIONS {
     . = ALIGN(4096);
     __USER_SPECIAL_END = .;
 
-    /* stack (grows down) */
-    . = ALIGN(16);
-    __STACK_START = .;
-    . += 64K;
-    __STACK_END = .;
-
     /* pages for allocation */
     . = ALIGN(4096);
     __PAGES_START = .;

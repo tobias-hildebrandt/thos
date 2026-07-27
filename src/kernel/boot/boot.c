@@ -5,6 +5,7 @@
 
 #include "asm.h"
 #include "boot/kernel.h"
+#include "flags.h"
 #include "hart.h"
 #include "util.h"
 

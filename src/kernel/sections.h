@@ -16,8 +16,6 @@ SECTION_DECLARE(MEMORY);
 SECTION_DECLARE(TEXT);
 SECTION_DECLARE(RODATA);
 SECTION_DECLARE(BSS);
-// don't forget stack is "backwards!"
-SECTION_DECLARE(STACK);
 SECTION_DECLARE(PAGES);
 
 // TODO: pass in via commandline -D define?
