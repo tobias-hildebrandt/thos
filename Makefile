@@ -60,6 +60,7 @@ CROSS_FILE_FINAL := ${CROSS_FILE_DIR}/final.ini
 COMPILE_WRAPPER ?= misc/rewrite_paths.sh
 
 # clangd IDE support
+COMP_DB_LINK ?= 1
 COMP_DB_FILENAME := compile_commands.json
 
 # gdb debugger support
@@ -104,8 +105,10 @@ help:
 # just makes a symlink to last-setup-target's compile_commands.json
 .PHONY: link-compdb
 link-compdb:
+ifneq ($(strip ${COMP_DB_LINK}),0)
 	mkdir -p ${BUILD_BASE}
 	ln -sf ${PWD}/${BUILD}/${COMP_DB_FILENAME} ${PWD}/${BUILD_BASE}/${COMP_DB_FILENAME}
+endif
 
 ### meson
 
@@ -129,7 +132,7 @@ build: setup
 	${COMPILE_WRAPPER} meson compile -C ${BUILD} ${COMPILE_ARGS} ${JOBS}
 # objdump kernels
 # TODO: move into meson?
-ifneq ($(strip ${DUMP}),)
+ifneq ($(strip ${DUMP}),0)
 	${OBJDUMP} -DS ${KERNEL_ELF} > ${KERNEL_ELF}.objdump
 	[ -f ${KERNEL_ELF_TEST} ] && ${OBJDUMP} -DS ${KERNEL_ELF_TEST} > ${KERNEL_ELF_TEST}.objdump
 # 	${OBJDUMP} -D ${BUILD}/subprojects/opensbi/fw_dynamic.elf > ${BUILD}/fw_dynamic.objdump

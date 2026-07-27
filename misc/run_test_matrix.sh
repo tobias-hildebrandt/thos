@@ -27,6 +27,7 @@ for FIRMWARE in $FIRMWARES; do
         TOOLCHAIN="$TOOLCHAIN" \
         MACHINE="$MACHINE" \
         OPENSBI_FW_TYPE="$FIRMWARE" \
+        DUMP=0 COMP_DB_LINK=0 \
         >> "$OUT"
     echo "$test_log_file" | tee -a "$TEST_RESULTS"
     cat "$test_log_file" >> "$TEST_RESULTS"
