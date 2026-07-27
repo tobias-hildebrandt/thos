@@ -129,15 +129,15 @@ void start_example_processes(void) {
 
     for (int i = 0; i < 10; i++) {
         Process* proc_load_a0 = Process_create((ProcessArguments){
-            .entry_address = (uintptr_t)process_load_a0,
             .is_user_program = false,
+            .kernel_entry_address = (uintptr_t)process_load_a0,
         });
         proc_load_a0->frame.a0 = i;
     }
 
     Process* proc_load_stack = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)process_load_from_stack,
         .is_user_program = false,
+        .kernel_entry_address = (uintptr_t)process_load_from_stack,
     });
     // allocate room on process's stack so process doesn't clobber it
     // (though this data will never be popped)
@@ -152,36 +152,29 @@ void start_example_processes(void) {
     proc_load_stack->frame.a0 = (uintptr_t)stack_data;
 
     Process* proc_returns = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)process_that_returns,
         .is_user_program = false,
+        .kernel_entry_address = (uintptr_t)process_that_returns,
     });
     (void)proc_returns;
 
     Process* proc_mem_ops = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)process_mem_ops,
+        .kernel_entry_address = (uintptr_t)process_mem_ops,
         .is_user_program = false,
     });
     (void)proc_mem_ops;
 
-    Process* proc_user_first = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)USER_first_START,
-        .is_user_program = true,
-        .user_program_end = (uintptr_t)USER_first_END,
-    });
-    (void)proc_user_first;
-
-    Process* proc_user_second = Process_create((ProcessArguments){
-        .entry_address = (uintptr_t)USER_second_START,
-        .is_user_program = true,
-        .user_program_end = (uintptr_t)USER_second_END,
-    });
-    (void)proc_user_second;
-
     for (int i = 0; i <= 10; i++) {
         Process* proc_never_yields = Process_create((ProcessArguments){
-            .entry_address = (uintptr_t)process_never_yields,
             .is_user_program = false,
+            .kernel_entry_address = (uintptr_t)process_never_yields,
         });
         (void)proc_never_yields;
+    }
+
+    for (size_t i = 0; i < num_user_programs; i++) {
+        Process* proc_user = Process_create(
+            (ProcessArguments){.is_user_program = true,
+                               .user_program_section = &user_programs[i]});
+        (void)proc_user;
     }
 }

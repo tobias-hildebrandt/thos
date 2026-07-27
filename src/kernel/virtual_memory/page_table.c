@@ -22,20 +22,9 @@
 IN_GLOBAL_SPECIAL PageTable kernel_page_table = NULL;
 
 #if POINTER_BITS == 64
-enum { PAGE_TABLE_TOP_LEVEL = 2 };
-#define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
-    {                                                   \
-        (ADDR).level0_entry_number,                     \
-        (ADDR).level1_entry_number,                     \
-        (ADDR).level2_entry_number,                     \
-    }
+enum { VIRTUAL_MEMORY_TOP_LEVEL = 2 };
 #else
-enum { PAGE_TABLE_TOP_LEVEL = 1 };
-#define VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(ADDR) \
-    {                                                   \
-        (ADDR).level0_entry_number,                     \
-        (ADDR).level1_entry_number,                     \
-    }
+enum { VIRTUAL_MEMORY_TOP_LEVEL = 1 };
 #endif
 
 static bool PageTableEntryFlags_is_leaf(PageTableEntryFlags flags) {
@@ -112,17 +101,16 @@ static void PageTable_map_address(PageTable first_table,
         VirtualAddress_print(virtual_address);
     }
 
-    uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
-        VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(virtual_address);
-
     PageTable current_table = first_table;
     PageTableEntry* entry = NULL;
 
     PRINTF_IF(DEBUG_MAP_ADDRESS, "(arg)   ");
 
     // work down from highest level to lowest level
-    for (uint8_t level = PAGE_TABLE_TOP_LEVEL; /* breaks inside */; level--) {
-        uint16_t entry_number = level_entry_number[level];
+    for (uint8_t level = VIRTUAL_MEMORY_TOP_LEVEL; /* breaks inside */;
+         level--) {
+        uint16_t entry_number =
+            VirtualAddress_get_level_entry_number(&virtual_address, level);
 
         if (current_table == NULL) {
             PANIC("null PageTable at level %u", level);
@@ -183,6 +171,9 @@ struct PrintPageTableRecurse {
 };
 typedef struct PrintPageTableRecurse PrintPageTableRecurse;
 
+static const PrintPageTableRecurse PrintPageTableRecurse_start =
+    (PrintPageTableRecurse){.recurse = true, .level = VIRTUAL_MEMORY_TOP_LEVEL};
+
 static void PageTable_print(PageTable table, bool only_valid_entries,
                             PrintPageTableRecurse recurse) {
     for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
@@ -193,10 +184,10 @@ static void PageTable_print(PageTable table, bool only_valid_entries,
         }
 
         if (recurse.recurse) {
-            printf("(level[%u]) ", recurse.level);
+            printf("(level[%-3u]) ", recurse.level);
         }
 
-        printf("PageTable %p entry[%u] = ", table, i);
+        printf("PageTable %p entry[%-3u] = ", table, i);
         PageTableEntry_print(entry);
 
         if (recurse.recurse && !PageTableEntryFlags_is_leaf(entry.flags)) {
@@ -208,22 +199,56 @@ static void PageTable_print(PageTable table, bool only_valid_entries,
     }
 }
 
-// adds the global special page, which is outside of normal memory, to the page
-// table at its physical address
-static void PageTable_map_global_special(PageTable page_table) {
-    // TODO: add global flag as optimization
+struct PrintPageTablePageAddresses {
+    VirtualAddress virtual_address;
+    uint8_t level;
+};
+typedef struct PrintPageTablePageAddresses PrintPageTablePageAddressesState;
 
-    // RWX but no user flag!
-    PageTableEntryFlags flags = {
-        .read = true,
-        .write = true,
-        .execute = true,
-    };
+static const PrintPageTablePageAddressesState
+    PrintPageTablePageAddressesState_start = (PrintPageTablePageAddressesState){
+        .virtual_address = {0}, .level = VIRTUAL_MEMORY_TOP_LEVEL};
 
-    for (uintptr_t addr = GLOBAL_SPECIAL_START; addr <= GLOBAL_SPECIAL_END;
-         addr += PAGE_SIZE) {
-        PageTable_map_address(page_table, (VirtualAddress){.value = addr}, addr,
+static void PageTable_print_page_addresses(
+    PageTable table, PrintPageTablePageAddressesState state) {
+    for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
+        PageTableEntry entry = table[i];
+
+        if (!entry.flags.valid) {
+            continue;
+        }
+
+        VirtualAddress_set_level_entry_number(&state.virtual_address,
+                                              state.level, i);
+
+        if (state.level == 0) {
+            uintptr_t physical_address = entry.physical_page_num * PAGE_SIZE;
+            if (state.virtual_address.value == physical_address) {
+                printf("vaddr %p => (transparent)\n", state.virtual_address);
+            } else {
+                printf("vaddr %p => paddr %p\n", state.virtual_address,
+                       physical_address);
+            }
+        } else {
+            PrintPageTablePageAddressesState next_state = state;
+            next_state.level -= 1;
+            PageTable_print_page_addresses(PageTableEntry_get_linked(entry),
+                                           next_state);
+        }
+    }
+}
+
+static void PageTable_map_section(PageTable page_table, const Section* section,
+                                  VirtualAddress virtual_address_start,
+                                  PageTableEntryFlags flags) {
+    uintptr_t physical_address = section->start_address;
+    VirtualAddress virtual_address = virtual_address_start;
+    while (physical_address <= section->end_address) {
+        PageTable_map_address(page_table, virtual_address, physical_address,
                               flags);
+
+        physical_address += PAGE_SIZE;
+        virtual_address.value += PAGE_SIZE;
     }
 }
 
@@ -240,20 +265,11 @@ PageTable PageTable_kernel_init(void) {
     // prepare kernel_page_satp
     kernel_page_satp = SatpRegister_from_PageTable(kernel_page_table);
 
-    for (uintptr_t physical_address = MEMORY_START;
-         physical_address < MEMORY_END; physical_address += PAGE_SIZE) {
-        // virtual address = physical address
-        VirtualAddress virtual_address = {.value = physical_address};
-
-        PageTableEntryFlags flags = {0};
-        // TODO: different flags for different sections
-        flags.execute = true;
-        flags.read = true;
-        flags.write = true;
-
-        PageTable_map_address(kernel_page_table, virtual_address,
-                              physical_address, flags);
-    }
+    // map entire kernel program memory transparently
+    PageTable_map_section(
+        kernel_page_table, &SECTION_MEMORY,
+        (VirtualAddress){.value = SECTION_MEMORY.start_address},
+        (PageTableEntryFlags){.read = true, .write = true, .execute = true});
 
     // map device addresses
 
@@ -288,11 +304,11 @@ PageTable PageTable_kernel_init(void) {
             (PageTableEntryFlags){.read = true, .write = true});
     }
 
-    PageTable_map_global_special(kernel_page_table);
-
-    if (DEBUG_MAP_ADDRESS) {
-        PageTable_print(kernel_page_table, true,
-                        (PrintPageTableRecurse){.recurse = true, .level = 0});
+    if (DEBUG_PAGETABLE_KERNEL == 1) {
+        PageTable_print_page_addresses(kernel_page_table,
+                                       PrintPageTablePageAddressesState_start);
+    } else if (DEBUG_PAGETABLE_KERNEL == 2) {
+        PageTable_print(kernel_page_table, true, PrintPageTableRecurse_start);
     }
 
     return kernel_page_table;
@@ -300,42 +316,32 @@ PageTable PageTable_kernel_init(void) {
 
 // TODO: deduplicate with init_kernel_page_table
 // map program address space
-PageTable PageTable_user_init(uintptr_t start_virtual, uintptr_t start_physical,
-                              uintptr_t end_physical) {
-
+PageTable PageTable_user_init(const Section* program_section,
+                              VirtualAddress start_virtual) {
     // needs page for page_table
     PageTable page_table = (PageTable)Page_alloc();
 
-    // virtual address starts at zero
-    VirtualAddress virtual_address = {.value = start_virtual};
+    // map program section at start address
+    PageTable_map_section(
+        page_table, program_section, start_virtual,
+        (PageTableEntryFlags){
+            .read = true, .write = true, .execute = true, .user = true});
 
-    for (uintptr_t physical_address = start_physical;
-         physical_address < end_physical; physical_address += PAGE_SIZE) {
-        PageTableEntryFlags flags = {0};
-        // TODO: different flags for different sections?
-        flags.execute = true;
-        flags.read = true;
-        flags.write = true;
-        flags.user = true;
+    // map special sections transparently
+    PageTable_map_section(
+        page_table, &SECTION_GLOBAL_SPECIAL,
+        (VirtualAddress){.value = SECTION_GLOBAL_SPECIAL.start_address},
+        (PageTableEntryFlags){.read = true, .write = true, .execute = true});
+    PageTable_map_section(
+        page_table, &SECTION_USER_SPECIAL,
+        (VirtualAddress){.value = SECTION_USER_SPECIAL.start_address},
+        (PageTableEntryFlags){.read = true, .write = true, .execute = true});
 
-        PageTable_map_address(page_table, virtual_address, physical_address,
-                              flags);
-
-        virtual_address.value += PAGE_SIZE;
-    }
-
-    PageTable_map_global_special(page_table);
-
-    // map user_special
-    for (uintptr_t addr = USER_SPECIAL_START; addr <= USER_SPECIAL_END;
-         addr += PAGE_SIZE) {
-        PageTableEntryFlags flags = (PageTableEntryFlags){
-            .read = true,
-            .execute = true,
-            .user = true,
-        };
-        PageTable_map_address(page_table, (VirtualAddress){.value = addr}, addr,
-                              flags);
+    if (DEBUG_PAGETABLE_USER == 1) {
+        PageTable_print_page_addresses(page_table,
+                                       PrintPageTablePageAddressesState_start);
+    } else if (DEBUG_PAGETABLE_USER == 2) {
+        PageTable_print(page_table, true, PrintPageTableRecurse_start);
     }
 
     return page_table;
@@ -345,14 +351,13 @@ PageTable PageTable_user_init(uintptr_t start_virtual, uintptr_t start_physical,
 // TODO: refactor into macro/function? deduplicate from map_address
 uintptr_t PageTable_get_physical_address(PageTable table,
                                          VirtualAddress virtual_address) {
-    uint16_t level_entry_number[PAGE_TABLE_TOP_LEVEL + 1] =
-        VIRTUAL_ADDRESS_LEVEL_ENRTY_NUMBERS_ARRAY(virtual_address);
-
     PageTable current_table = table;
     PageTableEntry entry = {0};
 
-    for (uint8_t level = PAGE_TABLE_TOP_LEVEL; /* breaks inside */; level--) {
-        uintptr_t entry_number = level_entry_number[level];
+    for (uint8_t level = VIRTUAL_MEMORY_TOP_LEVEL; /* breaks inside */;
+         level--) {
+        uintptr_t entry_number =
+            VirtualAddress_get_level_entry_number(&virtual_address, level);
 
         if (current_table == NULL) {
             PANIC("null PageTable at level %u", level);

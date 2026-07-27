@@ -12,10 +12,10 @@ static void* next_page = NULL;
 Page Page_alloc(void) {
     if (next_page == 0) {
         // NOLINTNEXTLINE(performance-no-int-to-ptr)
-        next_page = (void*)PAGES_START;
+        next_page = (void*)SECTION_PAGES.start_address;
     }
 
-    if ((uintptr_t)next_page > (PAGES_END - PAGE_SIZE)) {
+    if ((uintptr_t)next_page > (SECTION_PAGES.end_address - PAGE_SIZE)) {
         PANIC("page allocation would overflow page memory!");
     }
 

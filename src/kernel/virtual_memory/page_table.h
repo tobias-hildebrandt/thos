@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "build_info.h"
+#include "sections.h"
 #include "virtual_memory/page.h"
 #include "virtual_memory/virtual_address.h"
 
@@ -38,8 +39,8 @@ typedef PageTableEntry* PageTable;
 extern PageTable kernel_page_table;
 
 PageTable PageTable_kernel_init(void);
-PageTable PageTable_user_init(uintptr_t start_virtual, uintptr_t start_physical,
-                              uintptr_t end_physical);
+PageTable PageTable_user_init(const Section* program_section,
+                              VirtualAddress start_virtual);
 uintptr_t PageTable_get_physical_address(PageTable table,
                                          VirtualAddress address);
 

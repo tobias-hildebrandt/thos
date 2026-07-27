@@ -52,7 +52,8 @@ NORETURN void handle_trap(TrapFrame* frame) {
     SpinLock_acquire(&trap_print_lock);
     // TODO: debug flag for external interrupts
     if ((was_in_kernel_mode && fatal) ||
-        (((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS) ||
+        ((software_interrupt && DEBUG_SOFTWARE_INTERRUPTS) ||
+         (ecall && DEBUG_SYSCALL) ||
          (timer_interrupt && DEBUG_TIMER_INTERRUPTS) ||
          (external_interrupt && DEBUG_EXTERNAL_INTERRUPTS))) {
         printf(
@@ -65,8 +66,8 @@ NORETURN void handle_trap(TrapFrame* frame) {
             hart_id, pid, not_in_process ? "yes" : "no",
             was_in_kernel_mode ? "kernel" : "user");
 
-        if (fatal ||
-            ((software_interrupt || ecall) && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
+        if (fatal || (software_interrupt && DEBUG_SOFTWARE_INTERRUPTS == 2) ||
+            (ecall && DEBUG_SYSCALL == 2) ||
             (timer_interrupt && DEBUG_TIMER_INTERRUPTS == 2) ||
             (external_interrupt && DEBUG_EXTERNAL_INTERRUPTS == 2)) {
             TrapFrame_print(frame);
@@ -112,6 +113,9 @@ NORETURN void handle_trap(TrapFrame* frame) {
                 "sstatus: %p\n"
                 "pid: %d\n***\n",
                 decode_scause(scause), scause, stval, sepc, sstatus, pid);
+            if (DEBUG_USER_TRAPS == 2) {
+                TrapFrame_print(frame);
+            }
         } else {
             printf("killing pid %d: %s\n", pid, decode_scause(scause));
         }

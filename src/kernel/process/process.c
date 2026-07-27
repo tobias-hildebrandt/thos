@@ -23,7 +23,7 @@ static char* Process_type_str(Process* process) {
 }
 
 #define PRINT_CONTEXT_REG(context, reg) \
-    printf("\t" #reg ": 0x%p,\n", (context).reg);
+    printf("\t" #reg ": %p,\n", (context).reg);
 
 static void ProcessState_print(ProcessState state) {
     printf("%d(", state);
@@ -48,7 +48,7 @@ static void ProcessState_print(ProcessState state) {
 
 void Process_print(Process* process) {
     printf("Process {\n");
-    printf("\tpid: 0x%u,\n", process->id);
+    printf("\tpid: %u,\n", process->id);
     printf("\tpage_table: (%s) %p\n",
            process->page_table == 0 ? "NULL" : Process_type_str(process),
            process->page_table);

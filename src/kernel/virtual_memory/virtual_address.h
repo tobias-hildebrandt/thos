@@ -23,3 +23,8 @@ union VirtualAddress {
 typedef union VirtualAddress VirtualAddress;
 
 void VirtualAddress_print(VirtualAddress virtual_address);
+uint16_t VirtualAddress_get_level_entry_number(VirtualAddress* virtual_address,
+                                               uintptr_t level);
+void VirtualAddress_set_level_entry_number(VirtualAddress* virtual_address,
+                                           uintptr_t level,
+                                           uintptr_t entry_number);

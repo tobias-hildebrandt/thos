@@ -13,8 +13,10 @@
 #include "panic.h"
 #include "process/process.h"
 #include "process/switch.h"
+#include "sections.h"
 #include "virtual_memory/page.h"
 #include "virtual_memory/page_table.h"
+#include "virtual_memory/virtual_address.h"
 
 Process* Process_create(ProcessArguments args) {
     Process* process = NULL;
@@ -45,8 +47,9 @@ Process* Process_create(ProcessArguments args) {
     if (args.is_user_program) {
         // TODO: copy into owned version
         // map process memory
-        PageTable page_table = PageTable_user_init(
-            USER_PROGRAM_BASE, args.entry_address, args.user_program_end);
+        PageTable page_table =
+            PageTable_user_init(args.user_program_section,
+                                (VirtualAddress){.value = USER_PROGRAM_BASE});
 
         process->page_table = page_table;
 
@@ -54,9 +57,10 @@ Process* Process_create(ProcessArguments args) {
         // of all user programs
         process->frame.ra = USER_PROGRAM_BASE;
 
-        // set stack pointer to user_program_end
+        // set stack pointer to end of user program
         // TODO: maybe just leave it up to the user program?
-        process->frame.sp = args.user_program_end;
+        process->frame.sp =
+            USER_PROGRAM_BASE + Section_size(args.user_program_section);
     } else {
         // uses normal kernel page table
         process->page_table = kernel_page_table;
@@ -68,7 +72,7 @@ Process* Process_create(ProcessArguments args) {
         process->frame.sp = stack_page + PAGE_SIZE;
 
         // when switched into, "returns" to the entry address like normal
-        process->frame.ra = args.entry_address;
+        process->frame.ra = args.kernel_entry_address;
     }
 
     process->state = PROCESS_READY;

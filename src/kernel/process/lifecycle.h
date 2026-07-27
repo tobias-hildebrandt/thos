@@ -4,11 +4,14 @@
 #include <stdint.h>
 
 #include "process/process.h"
+#include "sections.h"
 
 struct ProcessArguments {
-    uintptr_t entry_address;
     bool is_user_program;
-    uintptr_t user_program_end;
+    union {
+        const Section* user_program_section;
+        uintptr_t kernel_entry_address;
+    };
 };
 typedef struct ProcessArguments ProcessArguments;
 

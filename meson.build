@@ -20,6 +20,7 @@ misc_dir = meson.current_source_dir() / 'misc'
 script_list_sources = find_program('list_sources.sh', dirs: [misc_dir])
 script_make_bin = find_program('make_bin.sh', dirs: [misc_dir])
 script_user_asm = find_program('make_userexec_blob_asm.sh', dirs: [misc_dir])
+script_user_info = find_program('make_userexec_info.sh', dirs: [misc_dir])
 script_find_libgcc = find_program('find_libgcc.sh', dirs: [misc_dir])
 script_find_tests = find_program('find_tests.sh', dirs: [misc_dir])
 script_make_testinfo = find_program('make_test_info.sh', dirs: [misc_dir])
@@ -289,6 +290,14 @@ foreach source_user : dict_c_sources[subdir_user]
 
     deps_userexec_blobs += dep_userexec_blob
 endforeach
+target_userinfo = custom_target(
+    command: [
+        script_user_info,
+        '@OUTPUT@',
+        dict_c_sources[subdir_user],
+    ],
+    output: 'user_program_info.c',
+)
 
 # kernel
 name_kernel = 'kernel'
@@ -301,7 +310,11 @@ name_kernel_testinfo = 'testinfo.c'
 # nontest kernel
 exec_kernel_nontest = executable(
     name_kernel + tag_nontest,
-    dict_c_sources[subdir_kernel] + header_flags,
+    [
+        dict_c_sources[subdir_kernel],
+        header_flags,
+        target_userinfo,
+    ],
     dependencies: [dep_libc, deps_userexec_blobs],
     include_directories: [includes_proj, include_kernel, include_build_dir],
     implicit_include_directories: false,
@@ -335,7 +348,12 @@ if option_tests
     # test kernel
     exec_kernel_test = executable(
         name_kernel + tag_test,
-        [dict_c_sources[subdir_kernel], target_testinfo, header_flags],
+        [
+            dict_c_sources[subdir_kernel],
+            target_testinfo,
+            header_flags,
+            target_userinfo,
+        ],
         dependencies: [dep_libc, deps_userexec_blobs],
         include_directories: [includes_proj, include_kernel, include_build_dir],
         implicit_include_directories: false,

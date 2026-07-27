@@ -110,7 +110,9 @@ static void NORETURN primary_main(
         const unsigned long highest_hart_to_wake = board.num_normal_harts;
 
         for (unsigned long hart_to_wake = lowest_hart_to_wake;
-             hart_to_wake <= highest_hart_to_wake; hart_to_wake++) {
+             hart_to_wake <= highest_hart_to_wake &&
+             hart_to_wake <= HART_MAXIMUM;
+             hart_to_wake++) {
             if (hart_to_wake == hart_id) {
                 printf("not starting own hart 0x%x\n", hart_to_wake);
                 continue;

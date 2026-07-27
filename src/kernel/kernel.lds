@@ -61,6 +61,15 @@ SECTIONS {
     . = ALIGN(4096);
     __USER_SPECIAL_END = .;
 
+    /* user programs section */
+    . = ALIGN(4096);
+    __USER_PROGRAMS_START = .;
+    .user_programs : ALIGN(4096) {
+        *(.user_programs);
+    }
+    . = ALIGN(4096);
+    __USER_PROGRAMS_END = .;
+
     /* pages for allocation */
     . = ALIGN(4096);
     __PAGES_START = .;
