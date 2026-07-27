@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdarg.h>
+#include <stddef.h>
 
 // NOLINTNEXTLINE(modernize-macro-to-enum)
 #define EOF (-1)
@@ -21,6 +22,8 @@ int vfprintf(FILE* stream, const char* restrict format_str, va_list vlist);
 int sprintf(char* restrict buffer, const char* restrict format_str, ...);
 int vsprintf(char* restrict buffer, const char* restrict format_str,
              va_list vlist);
+int snprintf(char* restrict buffer, size_t bufsz,
+             const char* restrict format_str, ...);
 
 // kernel and userlib MUST define these
 

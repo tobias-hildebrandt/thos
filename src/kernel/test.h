@@ -42,16 +42,31 @@ struct Test {
 typedef struct Test Test;
 
 #if TESTS_ENABLED
-#define TEST_ASSERT(CONDITION)                                        \
-    do {                                                              \
-        if (!(CONDITION)) {                                           \
-            printf("test assertion failed: %s:%u (%s): assert(%s)\n", \
-                   __FILE__, __LINE__, __func__, #CONDITION);         \
-            exit(1);                                                  \
-        }                                                             \
+#define TEST_ASSERT(CONDITION)                                             \
+    do {                                                                   \
+        if (!(CONDITION)) {                                                \
+            printf("test assertion failed: %s:%u (%s): TEST_ASSERT(%s)\n", \
+                   __FILE__, __LINE__, __func__, #CONDITION);              \
+            exit(1);                                                       \
+        }                                                                  \
+    } while (0)
+#define TEST_ASSERT_EQ(FIRST, SECOND, FORMAT)                                  \
+    do {                                                                       \
+        if ((FIRST) != (SECOND)) {                                             \
+            printf(                                                            \
+                "test assertion failed: %s:%u (%s): TEST_ASSERT_EQ(%s=" FORMAT \
+                ", %s=" FORMAT ")\n",                                          \
+                __FILE__, __LINE__, __func__, #FIRST, (FIRST), #SECOND,        \
+                SECOND);                                                       \
+            exit(1);                                                           \
+        }                                                                      \
     } while (0)
 #else
 #define TEST_ASSERT(CONDITION) ((void)(CONDITION))
+#define TEST_ASSERT_EQ(FIRST, SECOND, FORMAT) \
+    ((void)(FIRST));                          \
+    ((void)(SECOND));                         \
+    ((void)(FORMAT))
 #endif
 
 void run_test_from_bootargs(DeviceTree* device_tree);

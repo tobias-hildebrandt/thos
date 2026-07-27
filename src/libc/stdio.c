@@ -12,10 +12,6 @@
 // https://en.cppreference.com/c/io/fprintf
 // %[modifiers][min width][.precision][type length specifier]conversion_format
 
-#define SHOULD_USE_32(STATE)                               \
-    (POINTER_BITS == 32 && (STATE)->long_modifiers < 2) || \
-        (POINTER_BITS == 64 && (STATE)->long_modifiers == 0)
-
 int putchar(int character) {
     return fputc(character, stdout);
 }
@@ -44,21 +40,44 @@ struct PrintTarget {
 };
 typedef struct PrintTarget PrintTarget;
 
-struct PrintState {
-    bool in_conversion_spec;
+struct MaxOutput {
+    bool enabled;
+    size_t maximum;
+};
+typedef struct MaxOutput MaxOutput;
+
+#define NO_MAX_OUTPUT    \
+    (MaxOutput) {        \
+        .enabled = false \
+    }
+
+struct ConversionSpec {
     uint8_t long_modifiers;
     bool zero_pad;
     bool left_pad;
     bool alternative;
     const char* min_width_chars;
     int min_width;
+};
+typedef struct ConversionSpec ConversionSpec;
+
+struct PrintState {
+    bool in_conversion_spec;
+    ConversionSpec conversion;
+    int printed;
     PrintTarget target;
     va_list arguments;
+    MaxOutput max_output;
 };
 typedef struct PrintState PrintState;
 
 // function pointer that can be passed to min_width_call
-typedef int(ConversionPrintFunc)(PrintState* state);
+typedef void(ConversionPrintFunc)(PrintState* state);
+
+static bool ConversionSpec_value_is_32bit(ConversionSpec* spec) {
+    return (POINTER_BITS == 32 && spec->long_modifiers < 2) ||
+           (POINTER_BITS == 64 && spec->long_modifiers == 0);
+}
 
 // put a character to the target
 static void PrintTarget_putchar(PrintTarget* target, int character) {
@@ -77,42 +96,53 @@ static void PrintState_reset(PrintState* state) {
     // save args and target
     new_state.arguments = state->arguments;
     new_state.target = state->target;
+    new_state.max_output = state->max_output;
+    new_state.printed = state->printed;
 
     *state = new_state;
 }
 
+// only putchar if wouldn't exceed maximum output
+static void putchar_maybe_max(PrintState* state, int character) {
+    if (!state->max_output.enabled ||
+        ((state->max_output.maximum != 0) &&
+         (state->max_output.maximum - 1) > (size_t)state->printed)) {
+        PrintTarget_putchar(&state->target, character);
+    }
+    state->printed += 1;
+}
+
 // only putchar if not min_width
 // used to calculate length of real print before actually printing
-static void maybe_putchar(int character, PrintState* state) {
-    if (state->min_width == 0) {
-        PrintTarget_putchar(&state->target, character);
+static void putchar_maybe_minwidth(PrintState* state, int character) {
+    if (state->conversion.min_width == 0) {
+        putchar_maybe_max(state, character);
+    } else {
+        // pretend we printed one, handled and reset in min_width_call
+        state->printed += 1;
     }
 }
 
-static int print_char(PrintState* state) {
+static void print_char(PrintState* state) {
     int ch = va_arg(state->arguments, int);
-    maybe_putchar(ch, state);
-    return 1;
+    putchar_maybe_minwidth(state, ch);
 }
 
-static int print_string(PrintState* state) {
+static void print_string(PrintState* state) {
     char* str = va_arg(state->arguments, char*);
 
     int index = 0;
     for (; str[index] != '\0'; index++) {
-        maybe_putchar(str[index], state);
+        putchar_maybe_minwidth(state, str[index]);
     }
-
-    return index;
 }
 
-static int print_hex(PrintState* state) {
-    int printed = 0;
+static void print_hex(PrintState* state) {
     int shift;
     uint32_t value32 = 0;
     uint64_t value64 = 0;
     // TODO: just use platform's int/long/longlong types?
-    bool use_32 = SHOULD_USE_32(state);
+    bool use_32 = ConversionSpec_value_is_32bit(&state->conversion);
     if (use_32) {
         value32 = va_arg(state->arguments, int32_t);
         shift = 8 - 1;
@@ -121,10 +151,9 @@ static int print_hex(PrintState* state) {
         shift = 16 - 1;
     }
 
-    if (state->alternative) {
-        maybe_putchar('0', state);
-        maybe_putchar('x', state);
-        printed += 2;
+    if (state->conversion.alternative) {
+        putchar_maybe_minwidth(state, '0');
+        putchar_maybe_minwidth(state, 'x');
     }
 
     bool started = false;
@@ -144,20 +173,16 @@ static int print_hex(PrintState* state) {
             ascii = 'a' + place_value - 10;
         }
         started = true;
-        maybe_putchar((int)ascii, state);
-        printed += 1;
+        putchar_maybe_minwidth(state, (int)ascii);
     }
-
-    return printed;
 }
 
-static int print_binary(PrintState* state) {
-    int printed = 0;
+static void print_binary(PrintState* state) {
     int shift;
     uint32_t value32 = 0;
     uint64_t value64 = 0;
     // TODO: just use platform's int/long/longlong types?
-    bool use_32 = SHOULD_USE_32(state);
+    bool use_32 = ConversionSpec_value_is_32bit(&state->conversion);
     if (use_32) {
         value32 = va_arg(state->arguments, int32_t);
         shift = 32 - 1;
@@ -166,10 +191,9 @@ static int print_binary(PrintState* state) {
         shift = 64 - 1;
     }
 
-    if (state->alternative) {
-        maybe_putchar('0', state);
-        maybe_putchar('b', state);
-        printed += 2;
+    if (state->conversion.alternative) {
+        putchar_maybe_minwidth(state, '0');
+        putchar_maybe_minwidth(state, 'b');
     }
 
     bool started = false;
@@ -188,100 +212,84 @@ static int print_binary(PrintState* state) {
             ascii = '0';
         }
         started = true;
-        maybe_putchar(ascii, state);
-        printed += 1;
+        putchar_maybe_minwidth(state, ascii);
     }
-
-    return printed;
 }
 
-#define DECLARE_PRINT_UNSIGNED_X(type, starting_divisor)              \
-    static int print_unsigned_##type(type value, PrintState* state) { \
-        int printed = 0;                                              \
-        type divisor = starting_divisor;                              \
-        bool started = false;                                         \
-                                                                      \
-        /* edge case easier to handle here*/                          \
-        if (value == 0) {                                             \
-            maybe_putchar('0', state);                                \
-            return 1;                                                 \
-        }                                                             \
-                                                                      \
-        while (divisor > 0) {                                         \
-            if (value >= divisor) {                                   \
-                started = true;                                       \
-                const type digit = value / divisor;                   \
-                value -= digit * divisor;                             \
-                maybe_putchar('0' + digit, state);                    \
-                printed += 1;                                         \
-            } else if (started) {                                     \
-                maybe_putchar('0', state);                            \
-                printed += 1;                                         \
-            }                                                         \
-            divisor /= 10;                                            \
-        }                                                             \
-        return printed;                                               \
+#define DECLARE_PRINT_UNSIGNED_X(type, starting_divisor)               \
+    static void print_unsigned_##type(PrintState* state, type value) { \
+        type divisor = starting_divisor;                               \
+        bool started = false;                                          \
+                                                                       \
+        /* edge case easier to handle here*/                           \
+        if (value == 0) {                                              \
+            putchar_maybe_minwidth(state, '0');                        \
+            return;                                                    \
+        }                                                              \
+                                                                       \
+        while (divisor > 0) {                                          \
+            if (value >= divisor) {                                    \
+                started = true;                                        \
+                const type digit = value / divisor;                    \
+                value -= digit * divisor;                              \
+                putchar_maybe_minwidth(state, '0' + digit);            \
+            } else if (started) {                                      \
+                putchar_maybe_minwidth(state, '0');                    \
+            }                                                          \
+            divisor /= 10;                                             \
+        }                                                              \
     }
 
 DECLARE_PRINT_UNSIGNED_X(uint32_t, 1000000000U)
 DECLARE_PRINT_UNSIGNED_X(uint64_t, 10000000000000000000ULL)
 
-static int print_unsigned(PrintState* state) {
-    if (!SHOULD_USE_32(state)) {
+static void print_unsigned(PrintState* state) {
+    if (!ConversionSpec_value_is_32bit(&state->conversion)) {
         uint64_t value = va_arg(state->arguments, uint64_t);
-        return print_unsigned_uint64_t(value, state);
+        print_unsigned_uint64_t(state, value);
     } else {
         uint32_t value = va_arg(state->arguments, uint32_t);
-        return print_unsigned_uint32_t(value, state);
+        print_unsigned_uint32_t(state, value);
     }
 }
 
-static int print_signed(PrintState* state) {
-    int printed = 0;
-
-    if (!SHOULD_USE_32(state)) {
+static void print_signed(PrintState* state) {
+    if (!ConversionSpec_value_is_32bit(&state->conversion)) {
         int64_t value = va_arg(state->arguments, int64_t);
         if (value < 0) {
-            maybe_putchar('-', state);
-            printed += 1;
+            putchar_maybe_minwidth(state, '-');
             value *= -1;
         }
-        printed += print_unsigned_uint64_t((uint64_t)value, state);
+        print_unsigned_uint64_t(state, (uint64_t)value);
     } else {
         int32_t value = va_arg(state->arguments, int32_t);
         if (value < 0) {
-            maybe_putchar('-', state);
-            printed += 1;
+            putchar_maybe_minwidth(state, '-');
             value *= -1;
         }
-        printed += print_unsigned_uint32_t((uint32_t)value, state);
+        print_unsigned_uint32_t(state, (uint32_t)value);
     }
-
-    return printed;
 }
 
-static int print_padding(PrintState* state, int amount) {
-    int printed = 0;
-    for (int i = 0; i < amount; i++) {
-        if (state->zero_pad) {
-            PrintTarget_putchar(&state->target, '0');
+static void print_padding(PrintState* state, size_t amount) {
+    for (size_t i = 0; i < amount; i++) {
+        if (state->conversion.zero_pad) {
+            putchar_maybe_max(state, '0');
         } else {
-            PrintTarget_putchar(&state->target, ' ');
+            putchar_maybe_max(state, ' ');
         }
-        printed += 1;
     }
-    return printed;
 }
 
 // TODO: handle +/- sign with zero-padding
-static int min_width_call(PrintState* state, ConversionPrintFunc func) {
-    int printed = 0;
-    if (state->min_width > 0) {
+static void min_width_call(PrintState* state, ConversionPrintFunc func) {
+    if (state->conversion.min_width > 0) {
         // need to pad before or after
 
-        int requested = state->min_width;
+        int requested = state->conversion.min_width;
+        int old_printed = state->printed;
 
-        if (state->left_pad) {
+        if (state->conversion.left_pad) {
             // need to pad beforehand
 
             // backup arguments
@@ -289,41 +297,45 @@ static int min_width_call(PrintState* state, ConversionPrintFunc func) {
             va_copy(backup, state->arguments);
 
             // "fake" call
-            int would_print = (func)(state);
+            (func)(state);
+
+            // we didn't actually print anything yet
+            int fake_printed = state->printed - old_printed;
+            state->printed = old_printed;
 
             // reset real arguments
             va_copy(state->arguments, backup);
 
             // print padding
-            if (requested > would_print) {
-                printed += print_padding(state, requested - would_print);
+            if (requested > fake_printed) {
+                print_padding(state, requested - fake_printed);
             }
 
             // "real" call
-            state->min_width = 0;
-            printed += (func)(state);
+            state->conversion.min_width = 0;
+            (func)(state);
         } else {
             // need to pad after
 
-            // call normally
-            state->min_width = 0;
-            printed += (func)(state);
+            // real call
+            state->conversion.min_width = 0;
+            (func)(state);
+
+            int new_printed = state->printed - old_printed;
 
             // fill rest
-            if (requested > printed) {
-                printed += print_padding(state, requested - printed);
+            if (requested > new_printed) {
+                print_padding(state, requested - new_printed);
             }
         }
     } else {
-        // no padding
-        printed += (func)(state);
+        // no padding, call normally
+        (func)(state);
     }
-    return printed;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-static void handle_conversion_spec(char character, PrintState* state,
-                                   int* const printed) {
+static void handle_conversion_spec(char character, PrintState* state) {
     switch (character) {
         case '\0': {
             // undefined behavior
@@ -333,67 +345,66 @@ static void handle_conversion_spec(char character, PrintState* state,
         // modifiers
         case '#': {
             // alternative
-            state->alternative = true;
+            state->conversion.alternative = true;
             break;
         }
         case 'l': {
             // long
-            state->long_modifiers += 1;
+            state->conversion.long_modifiers += 1;
             break;
         }
         case '*': {
             // variable min width
             int width = va_arg(state->arguments, int);
-            state->min_width = width;
+            state->conversion.min_width = width;
             break;
         }
         case '-': {
-            state->left_pad = true;
+            state->conversion.left_pad = true;
             break;
         }
 
         // conversion specifiers
         case '%': {
             // %%
-            PrintTarget_putchar(&state->target, '%');
-            *printed += 1;
+            putchar_maybe_max(state, '%');
             PrintState_reset(state);
             break;
         }
         case 'c': {
             // character
-            *printed += min_width_call(state, print_char);
+            min_width_call(state, print_char);
             PrintState_reset(state);
             break;
         }
         case 's': {
             // string
-            *printed += min_width_call(state, print_string);
+            min_width_call(state, print_string);
             PrintState_reset(state);
             break;
         }
         case 'x': {
             // hexadecimal
-            *printed += min_width_call(state, print_hex);
+            min_width_call(state, print_hex);
             PrintState_reset(state);
             break;
         }
         case 'b': {
             // binary
-            *printed += min_width_call(state, print_binary);
+            min_width_call(state, print_binary);
             PrintState_reset(state);
             break;
         }
         case 'i':
         case 'd': {
             // signed decimal integer
-            *printed += min_width_call(state, print_signed);
+            min_width_call(state, print_signed);
             PrintState_reset(state);
             break;
         }
         case 'u': {
             // unsigned decimal integer
-            *printed += min_width_call(state, print_unsigned);
+            min_width_call(state, print_unsigned);
             PrintState_reset(state);
             break;
         }
@@ -403,22 +414,21 @@ static void handle_conversion_spec(char character, PrintState* state,
 
             if (POINTER_BITS == 64) {
                 // "0x%016lx"
-                state->long_modifiers = 1;
-                state->min_width = 16;
+                state->conversion.long_modifiers = 1;
+                state->conversion.min_width = 16;
             } else {
                 // "0x%08x"
-                state->long_modifiers = 0;
-                state->min_width = 8;
+                state->conversion.long_modifiers = 0;
+                state->conversion.min_width = 8;
             }
 
-            state->zero_pad = true;
-            state->left_pad = true;
+            state->conversion.zero_pad = true;
+            state->conversion.left_pad = true;
 
-            PrintTarget_putchar(&state->target, '0');
-            PrintTarget_putchar(&state->target, 'x');
-            *printed += 2;
+            putchar_maybe_max(state, '0');
+            putchar_maybe_max(state, 'x');
 
-            *printed += min_width_call(state, print_hex);
+            min_width_call(state, print_hex);
             PrintState_reset(state);
             break;
         }
@@ -429,14 +439,14 @@ static void handle_conversion_spec(char character, PrintState* state,
     }
 }
 
-static int PrintTarget_vprintf(PrintTarget target, const char* format_str,
-                               va_list vlist) {
-    int printed = 0;
-
+// common function for entire {vsnf}*printf family
+static int PrintTarget_do_print(PrintTarget target, const char* format_str,
+                                va_list vlist, MaxOutput max_output) {
     PrintState state = {0};
 
     state.target = target;
     state.arguments = vlist;
+    state.max_output = max_output;
 
     while (*format_str != '\0') {
         if (!state.in_conversion_spec) {
@@ -445,15 +455,15 @@ static int PrintTarget_vprintf(PrintTarget target, const char* format_str,
             if (*format_str == '%') {
                 state.in_conversion_spec = true;
             } else {
-                PrintTarget_putchar(&state.target, *format_str);
-                printed += 1;
+                putchar_maybe_max(&state, *format_str);
             }
         } else {
-            if (state.zero_pad == false && state.min_width_chars == NULL &&
+            if (state.conversion.zero_pad == false &&
+                state.conversion.min_width_chars == NULL &&
                 *format_str == '0') {
                 // zero-pad
 
-                state.zero_pad = true;
+                state.conversion.zero_pad = true;
 
                 // done parsing this character
                 format_str += 1;
@@ -463,9 +473,9 @@ static int PrintTarget_vprintf(PrintTarget target, const char* format_str,
             if (*format_str >= '0' && *format_str <= '9') {
                 // min width
 
-                if (state.min_width_chars == NULL) {
+                if (state.conversion.min_width_chars == NULL) {
                     // start of min width string
-                    state.min_width_chars = format_str;
+                    state.conversion.min_width_chars = format_str;
                 } else {
                     // middle of min width string
                 }
@@ -473,23 +483,24 @@ static int PrintTarget_vprintf(PrintTarget target, const char* format_str,
                 // done parsing this character
                 format_str += 1;
                 continue;
-            } else if (state.min_width_chars != NULL) {
+            } else if (state.conversion.min_width_chars != NULL) {
                 // end of min width string
-                state.min_width = atoi(state.min_width_chars);
-                state.min_width_chars = NULL;
+                state.conversion.min_width =
+                    atoi(state.conversion.min_width_chars);
+                state.conversion.min_width_chars = NULL;
 
                 // keep parsing this char
             }
 
             // we are currently parsing a conversion spec
-            handle_conversion_spec(*format_str, &state, &printed);
+            handle_conversion_spec(*format_str, &state);
         }
 
         // go to next character
         format_str += 1;
     }
 
-    return printed;
+    return state.printed;
 }
 
 int printf(const char* restrict format_str, ...) {
@@ -499,7 +510,7 @@ int printf(const char* restrict format_str, ...) {
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stdout};
 
-    int printed = PrintTarget_vprintf(target, format_str, args);
+    int printed = PrintTarget_do_print(target, format_str, args, NO_MAX_OUTPUT);
 
     va_end(args);
 
@@ -510,7 +521,8 @@ int vprintf(const char* restrict format_str, va_list vlist) {
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stdout};
 
-    int printed = PrintTarget_vprintf(target, format_str, vlist);
+    int printed =
+        PrintTarget_do_print(target, format_str, vlist, NO_MAX_OUTPUT);
 
     return printed;
 }
@@ -522,7 +534,7 @@ int fprintf(FILE* stream, const char* restrict format_str, ...) {
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stream};
 
-    int printed = PrintTarget_vprintf(target, format_str, args);
+    int printed = PrintTarget_do_print(target, format_str, args, NO_MAX_OUTPUT);
 
     va_end(args);
 
@@ -533,7 +545,8 @@ int vfprintf(FILE* stream, const char* restrict format_str, va_list vlist) {
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_STREAM, .output.stream = stream};
 
-    int printed = PrintTarget_vprintf(target, format_str, vlist);
+    int printed =
+        PrintTarget_do_print(target, format_str, vlist, NO_MAX_OUTPUT);
 
     return printed;
 }
@@ -545,7 +558,10 @@ int sprintf(char* restrict buffer, const char* restrict format_str, ...) {
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_BUFFER, .output.buffer = buffer};
 
-    int printed = PrintTarget_vprintf(target, format_str, args);
+    int printed = PrintTarget_do_print(target, format_str, args, NO_MAX_OUTPUT);
+
+    // write nul terminator
+    buffer[printed] = 0;
 
     va_end(args);
 
@@ -557,7 +573,39 @@ int vsprintf(char* restrict buffer, const char* restrict format_str,
     PrintTarget target =
         (PrintTarget){.type = TARGET_TYPE_BUFFER, .output.buffer = buffer};
 
-    int printed = PrintTarget_vprintf(target, format_str, vlist);
+    int printed =
+        PrintTarget_do_print(target, format_str, vlist, NO_MAX_OUTPUT);
+
+    // write nul terminator
+    buffer[printed] = 0;
+
+    return printed;
+}
+
+int snprintf(char* restrict buffer, size_t bufsz,
+             const char* restrict format_str, ...) {
+    va_list args;
+    va_start(args, format_str);
+
+    PrintTarget target =
+        (PrintTarget){.type = TARGET_TYPE_BUFFER, .output.buffer = buffer};
+
+    MaxOutput max_output = {.enabled = true, .maximum = bufsz};
+
+    int printed = PrintTarget_do_print(target, format_str, args, max_output);
+
+    // write nul terminator
+    if (bufsz > (size_t)printed) {
+        // write at end of written string
+        buffer[printed] = 0;
+    } else if (bufsz == 0) {
+        // don't write anything
+    } else {
+        // write at max size index
+        buffer[bufsz - 1] = 0;
+    }
+
+    va_end(args);
 
     return printed;
 }
