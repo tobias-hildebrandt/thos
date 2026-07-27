@@ -54,7 +54,7 @@ typedef struct MaxOutput MaxOutput;
 struct ConversionSpec {
     uint8_t long_modifiers;
     bool zero_pad;
-    bool left_pad;
+    bool left_justify;
     bool alternative;
     const char* min_width_chars;
     int min_width;
@@ -144,10 +144,10 @@ static void print_hex(PrintState* state) {
     // TODO: just use platform's int/long/longlong types?
     bool use_32 = ConversionSpec_value_is_32bit(&state->conversion);
     if (use_32) {
-        value32 = va_arg(state->arguments, int32_t);
+        value32 = va_arg(state->arguments, uint32_t);
         shift = 8 - 1;
     } else {
-        value64 = va_arg(state->arguments, int64_t);
+        value64 = va_arg(state->arguments, uint64_t);
         shift = 16 - 1;
     }
 
@@ -289,7 +289,7 @@ static void min_width_call(PrintState* state, ConversionPrintFunc func) {
         int requested = state->conversion.min_width;
         int old_printed = state->printed;
 
-        if (state->conversion.left_pad) {
+        if (!state->conversion.left_justify) {
             // need to pad beforehand
 
             // backup arguments
@@ -360,7 +360,7 @@ static void handle_conversion_spec(char character, PrintState* state) {
             break;
         }
         case '-': {
-            state->conversion.left_pad = true;
+            state->conversion.left_justify = true;
             break;
         }
 
@@ -423,7 +423,6 @@ static void handle_conversion_spec(char character, PrintState* state) {
             }
 
             state->conversion.zero_pad = true;
-            state->conversion.left_pad = true;
 
             putchar_maybe_max(state, '0');
             putchar_maybe_max(state, 'x');
