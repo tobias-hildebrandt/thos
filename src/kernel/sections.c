@@ -27,6 +27,8 @@ static char* SectionType_str(SectionType type) {
             return "special";
         case SECTION_TYPE_USER_PROGRAM:
             return "user program";
+        default:
+            return "invalid section type";
     }
 }
 

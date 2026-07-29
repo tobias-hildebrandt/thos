@@ -1,13 +1,12 @@
 #pragma once
 
-#define BIG_TO_LITTLE16(num) (((num) >> 8) | ((num) << 8))
-#define BIG_TO_LITTLE32(num)                                \
+#define SWAP_ENDIANNESS16(num) (((num) >> 8) | ((num) << 8))
+#define SWAP_ENDIANNESS32(num)                              \
     ((/* byte 3 to byte 0 */ ((num) >> 24) & (0xFF << 0)) | \
      (/* byte 2 to byte 1 */ ((num) >> 8) & (0xFF << 8)) |  \
      (/* byte 1 to byte 2 */ ((num) << 8) & (0xFF << 16)) | \
      (/* byte 0 to byte 3 */ ((num) << 24) & (0XFF << 24)))
-
-#define BIG_TO_LITTLE64(num)                                   \
+#define SWAP_ENDIANNESS64(num)                                 \
     ((/* byte 7 to byte 0 */ ((num) >> 56) & (0xFFLL << 0)) |  \
      (/* byte 6 to byte 1 */ ((num) >> 40) & (0xFFLL << 8)) |  \
      (/* byte 5 to byte 2 */ ((num) >> 24) & (0xFFLL << 16)) | \

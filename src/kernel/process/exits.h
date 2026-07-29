@@ -1,8 +1,6 @@
 #pragma once
 
-#include "util.h"
+typedef void(ProcessExitFunc)(void);
 
-typedef NORETURN void(ProcessExit)(void);
-
-ProcessExit ProcessExit_user;
-ProcessExit ProcessExit_kernel;
+ProcessExitFunc ProcessExit_user;
+ProcessExitFunc ProcessExit_kernel;

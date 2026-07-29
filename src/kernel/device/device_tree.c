@@ -13,14 +13,14 @@
 #include "list.h"
 #include "panic.h"
 
-enum { DEVICE_TREE_VERSION = BIG_TO_LITTLE32(17) };
+enum { DEVICE_TREE_VERSION = 17 };
 
 enum DeviceTreeStructureBlockToken {
-    STRUCTURE_BEGIN_NODE = BIG_TO_LITTLE32(0x01),
-    STRUCTURE_END_NODE = BIG_TO_LITTLE32(0x02),
-    STRUCTURE_PROP = BIG_TO_LITTLE32(0x03),
-    STRUCTURE_NOP = BIG_TO_LITTLE32(0x04),
-    STRUCTURE_END = BIG_TO_LITTLE32(0x09),
+    STRUCTURE_BEGIN_NODE = 0x01,
+    STRUCTURE_END_NODE = 0x02,
+    STRUCTURE_PROP = 0x03,
+    STRUCTURE_NOP = 0x04,
+    STRUCTURE_END = 0x09,
 };
 typedef enum DeviceTreeStructureBlockToken DeviceTreeStructureBlockToken;
 
@@ -38,7 +38,7 @@ ALLOCATE_ARRAY_AND_COUNTER(props, DeviceTreeProperty,
                            NUM_DEVICE_TREE_PROPERTIES);
 
 static void skip_nops(const uint32_t** pointer) {
-    while (**pointer == STRUCTURE_NOP) {
+    while (**pointer == SWAP_ENDIANNESS32(STRUCTURE_NOP)) {
         PRINTF_IF(DEBUG_DEVICE_TREE, "skipping NOP\n");
         *pointer += 1;
     }
@@ -55,7 +55,7 @@ static char* parse_node_name(char** pointer) {
               node_name_end - node_name, node_name);
 
     // move pointer up to end and align it
-    *pointer = (void*)align_up((uintptr_t)node_name_end, 4);
+    *pointer = (void*)align_up_ptr(node_name_end, 4);
     PRINTF_IF(DEBUG_DEVICE_TREE, "after node name: %p\n", *pointer);
 
     return node_name;
@@ -65,7 +65,7 @@ static DeviceTreeProperty* DeviceTreeProperty_parse(
     const DeviceTreeHeadersRaw* header, const uint32_t** pointer) {
     skip_nops(pointer);
 
-    if (**pointer != STRUCTURE_PROP) {
+    if (**pointer != SWAP_ENDIANNESS32(STRUCTURE_PROP)) {
         return NULL;
     }
     PRINTF_IF(DEBUG_DEVICE_TREE, "PROP @ %p, offset = %#x\n", *pointer,
@@ -84,16 +84,16 @@ static DeviceTreeProperty* DeviceTreeProperty_parse(
         (void*)(((char*)*pointer) + sizeof(DeviceTreeStructurePropertyRaw));
 
     // grab name via header offset
-    parsed->name = ((char*)header + BIG_TO_LITTLE32(header->off_dt_strings) +
-                    BIG_TO_LITTLE32(property_raw->nameoff));
+    parsed->name = ((char*)header + SWAP_ENDIANNESS32(header->off_dt_strings) +
+                    SWAP_ENDIANNESS32(property_raw->nameoff));
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "prop name: \"%s\"\n", parsed->name);
     PRINTF_IF(DEBUG_DEVICE_TREE, "prop name nameoff: %d\n",
-              BIG_TO_LITTLE32(property_raw->nameoff));
+              SWAP_ENDIANNESS32(property_raw->nameoff));
 
     // store pointer and length
     parsed->value = (void*)*pointer;
-    parsed->value_len = BIG_TO_LITTLE32(property_raw->len);
+    parsed->value_len = SWAP_ENDIANNESS32(property_raw->len);
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "prop len: %d\n", parsed->value_len);
 
@@ -109,7 +109,7 @@ static DeviceTreeProperty* DeviceTreeProperty_parse(
     *pointer = (void*)((char*)*pointer + parsed->value_len);
 
     // align
-    *pointer = (void*)(align_up((uintptr_t)*pointer, 4));
+    *pointer = (void*)(align_up_ptr((uintptr_t)*pointer, 4));
 
     PRINTF_IF(DEBUG_DEVICE_TREE, "post-prop pointer: %p\n", *pointer);
 
@@ -120,7 +120,7 @@ static DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
                                             const uint32_t** pointer) {
     skip_nops(pointer);
 
-    if (**pointer != STRUCTURE_BEGIN_NODE) {
+    if (**pointer != SWAP_ENDIANNESS32(STRUCTURE_BEGIN_NODE)) {
         return NULL;
     }
     PRINTF_IF(DEBUG_DEVICE_TREE, "BEGIN_NODE\n");
@@ -157,7 +157,7 @@ static DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
 
     skip_nops(pointer);
 
-    if (**pointer != STRUCTURE_END_NODE) {
+    if (**pointer != SWAP_ENDIANNESS32(STRUCTURE_END_NODE)) {
         PANIC("unclosed device tree node");
     }
     PRINTF_IF(DEBUG_DEVICE_TREE, "END_NODE\n");
@@ -168,22 +168,22 @@ static DeviceTreeNode* DeviceTreeNode_parse(const DeviceTreeHeadersRaw* header,
 }
 
 DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header) {
-    if (header->magic != DEVICE_TREE_MAGIC) {
+    if (header->magic != SWAP_ENDIANNESS32(DEVICE_TREE_MAGIC)) {
         PANIC("bad magic on device tree header: 0x%08x",
-              BIG_TO_LITTLE32(header->magic));
+              SWAP_ENDIANNESS32(header->magic));
     }
-    if (header->version != DEVICE_TREE_VERSION &&
-        header->last_comp_version != DEVICE_TREE_VERSION) {
+    if (header->version != SWAP_ENDIANNESS32(DEVICE_TREE_VERSION) &&
+        header->last_comp_version != SWAP_ENDIANNESS32(DEVICE_TREE_VERSION)) {
         PANIC("bad version/comp_version on device tree header: %d",
-              BIG_TO_LITTLE32(header->version));
+              SWAP_ENDIANNESS32(header->version));
     }
 
     const uint32_t* pointer =
-        (void*)((char*)header + BIG_TO_LITTLE32(header->off_dt_struct));
+        (void*)((char*)header + SWAP_ENDIANNESS32(header->off_dt_struct));
 
     DeviceTreeNode* root = DeviceTreeNode_parse(header, &pointer);
 
-    if (*pointer != STRUCTURE_END) {
+    if (*pointer != SWAP_ENDIANNESS32(STRUCTURE_END)) {
         PANIC("device tree structure not closed");
     }
 
@@ -192,7 +192,7 @@ DeviceTree DeviceTree_parse(const DeviceTreeHeadersRaw* header) {
     }
 
     DeviceTree tree = {
-        .boot_cpuid_phys = BIG_TO_LITTLE32(header->boot_cpuid_phys),
+        .boot_cpuid_phys = SWAP_ENDIANNESS32(header->boot_cpuid_phys),
         .root = root,
     };
 
@@ -353,7 +353,7 @@ void DeviceTree_dump_raw(const DeviceTreeHeadersRaw* header) {
     printf("raw header address: %p\n", header);
     printf("--- start DeviceTree dump ---\n");
 
-    for (uintptr_t i = 0; i < BIG_TO_LITTLE32(header->totalsize); i++) {
+    for (uintptr_t i = 0; i < SWAP_ENDIANNESS32(header->totalsize); i++) {
         char* this_ptr = (char*)header + i;
         if (i != 0 && i % 16 == 0) {
             printf("\n");

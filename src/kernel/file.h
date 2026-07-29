@@ -22,12 +22,12 @@ struct File {
 };
 typedef struct File File;
 
-const File File_stdout = (File){
+const File File_stdout = {
     .type = FILETYPE_STDOUT,
     .data = {NULL},
 };
 
-const File File_stdin = (File){
+const File File_stdin = {
     .type = FILETYPE_STDIN,
     .data = {NULL},
 };

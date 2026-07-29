@@ -3,9 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "endian.h"
-
-#define DEVICE_TREE_MAGIC BIG_TO_LITTLE32(0xD00DFEED)
+// too large for enum (int)
+#define DEVICE_TREE_MAGIC 0xD00DFEED
 
 #define DEVICE_TREE_ROOT_PATH ""
 
