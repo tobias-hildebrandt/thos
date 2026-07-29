@@ -165,17 +165,17 @@ static void PageTableEntry_print(PageTableEntry entry) {
     printf(", physical_page_num: 0x%llx }\n", entry.physical_page_num);
 }
 
-struct PrintPageTableRecurse {
+struct PageTablePrintState {
     bool recurse;
     uint8_t level;
 };
-typedef struct PrintPageTableRecurse PrintPageTableRecurse;
+typedef struct PageTablePrintState PageTablePrintState;
 
-static const PrintPageTableRecurse PrintPageTableRecurse_start =
-    (PrintPageTableRecurse){.recurse = true, .level = VIRTUAL_MEMORY_TOP_LEVEL};
+static const PageTablePrintState PageTablePrintState_start = {
+    .recurse = true, .level = VIRTUAL_MEMORY_TOP_LEVEL};
 
 static void PageTable_print(PageTable table, bool only_valid_entries,
-                            PrintPageTableRecurse recurse) {
+                            PageTablePrintState state) {
     for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
         PageTableEntry entry = table[i];
 
@@ -183,15 +183,15 @@ static void PageTable_print(PageTable table, bool only_valid_entries,
             continue;
         }
 
-        if (recurse.recurse) {
-            printf("(level[%-3u]) ", recurse.level);
+        if (state.recurse) {
+            printf("(level[%-3u]) ", state.level);
         }
 
         printf("PageTable %p entry[%-3u] = ", table, i);
         PageTableEntry_print(entry);
 
-        if (recurse.recurse && !PageTableEntryFlags_is_leaf(entry.flags)) {
-            PrintPageTableRecurse next_recurse = recurse;
+        if (state.recurse && !PageTableEntryFlags_is_leaf(entry.flags)) {
+            PageTablePrintState next_recurse = state;
             next_recurse.level -= 1;
             PageTable_print(PageTableEntry_get_linked(entry),
                             only_valid_entries, next_recurse);
@@ -199,18 +199,19 @@ static void PageTable_print(PageTable table, bool only_valid_entries,
     }
 }
 
-struct PrintPageTablePageAddresses {
+struct PageTablePrintPageAddressesState {
     VirtualAddress virtual_address;
     uint8_t level;
 };
-typedef struct PrintPageTablePageAddresses PrintPageTablePageAddressesState;
+typedef struct PageTablePrintPageAddressesState
+    PageTablePrintPageAddressesState;
 
-static const PrintPageTablePageAddressesState
-    PrintPageTablePageAddressesState_start = (PrintPageTablePageAddressesState){
-        .virtual_address = {0}, .level = VIRTUAL_MEMORY_TOP_LEVEL};
+static const PageTablePrintPageAddressesState
+    PageTablePrintPageAddressesState_start = {
+        .virtual_address = {.value = 0}, .level = VIRTUAL_MEMORY_TOP_LEVEL};
 
 static void PageTable_print_page_addresses(
-    PageTable table, PrintPageTablePageAddressesState state) {
+    PageTable table, PageTablePrintPageAddressesState state) {
     for (size_t i = 0; i < (PAGE_SIZE / sizeof(uintptr_t)); i++) {
         PageTableEntry entry = table[i];
 
@@ -230,7 +231,7 @@ static void PageTable_print_page_addresses(
                        physical_address);
             }
         } else {
-            PrintPageTablePageAddressesState next_state = state;
+            PageTablePrintPageAddressesState next_state = state;
             next_state.level -= 1;
             PageTable_print_page_addresses(PageTableEntry_get_linked(entry),
                                            next_state);
@@ -306,9 +307,9 @@ PageTable PageTable_kernel_init(void) {
 
     if (DEBUG_PAGETABLE_KERNEL == 1) {
         PageTable_print_page_addresses(kernel_page_table,
-                                       PrintPageTablePageAddressesState_start);
+                                       PageTablePrintPageAddressesState_start);
     } else if (DEBUG_PAGETABLE_KERNEL == 2) {
-        PageTable_print(kernel_page_table, true, PrintPageTableRecurse_start);
+        PageTable_print(kernel_page_table, true, PageTablePrintState_start);
     }
 
     return kernel_page_table;
@@ -339,9 +340,9 @@ PageTable PageTable_user_init(const Section* program_section,
 
     if (DEBUG_PAGETABLE_USER == 1) {
         PageTable_print_page_addresses(page_table,
-                                       PrintPageTablePageAddressesState_start);
+                                       PageTablePrintPageAddressesState_start);
     } else if (DEBUG_PAGETABLE_USER == 2) {
-        PageTable_print(page_table, true, PrintPageTableRecurse_start);
+        PageTable_print(page_table, true, PageTablePrintState_start);
     }
 
     return page_table;
