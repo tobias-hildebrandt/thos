@@ -14,7 +14,8 @@
 
 // TODO:
 // set up dynamically, first hart uses a dedicated space before starting others
-IN_GLOBAL_SPECIAL HartScratch hart_scratches[HART_MAXIMUM];
+static IN_GLOBAL_SPECIAL HartScratch hart_scratches_data[HART_MAXIMUM];
+IN_GLOBAL_SPECIAL HartScratch* hart_scratches = hart_scratches_data;
 
 // traps should be disabled before calling and during the entire lifetime of the
 // returned value

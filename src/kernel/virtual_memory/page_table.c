@@ -225,9 +225,10 @@ static void PageTable_print_page_addresses(
         if (state.level == 0) {
             uintptr_t physical_address = entry.physical_page_num * PAGE_SIZE;
             if (state.virtual_address.value == physical_address) {
-                printf("vaddr %p => (transparent)\n", state.virtual_address);
+                printf("vaddr %p => (transparent)\n",
+                       state.virtual_address.value);
             } else {
-                printf("vaddr %p => paddr %p\n", state.virtual_address,
+                printf("vaddr %p => paddr %p\n", state.virtual_address.value,
                        physical_address);
             }
         } else {

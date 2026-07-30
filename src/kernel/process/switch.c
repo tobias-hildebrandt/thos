@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef __FRAMAC__
+#include <stdlib.h>
+#endif
+
 #include "asm.h"
 #include "csr.h"
 #include "flags.h"
@@ -180,7 +184,11 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
     // set interrupt timer
     set_timer(TIMER_INTERRUPT_DELAY);
 
+#ifdef __FRAMAC__
+    exit(1);
+#else
     restore_after_trap(&scratch->frame);
+#endif
 }
 
 // Entry point into processes from kernel main and kernel_exit

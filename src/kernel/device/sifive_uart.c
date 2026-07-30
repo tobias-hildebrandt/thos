@@ -133,7 +133,7 @@ void sifive_uart_drain(void) {
         if (pending) {
             uint32_t read = sifive_uart_read_register(receive);
             // empty
-            if (read & (1 << 31)) {
+            if (read & (1U << 31)) {
                 printf("SiFiveUart empty???\n");
             } else {
                 char ch = (char)(read & 0xff);

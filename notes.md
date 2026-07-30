@@ -29,3 +29,7 @@
 - https://www.devicetree.org/specifications
 - https://popovicu.com/posts/risc-v-interrupts-with-timer-example/
 - https://www.sifive.com/boards/hifive-unleashed#documentation
+- https://thierr26.github.io/frama-c_install.html
+- https://git.frama-c.com/pub/frama-c
+- https://frama-c.com/download/frama-c-user-manual.pdf
+- https://github.com/nikolaushuber/frama_c_tutorial/

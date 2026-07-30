@@ -76,6 +76,28 @@ DEVICETREE_SCRIPT := misc/parse-device-tree.sh
 OBJDUMP ?= llvm-objdump
 DUMP ?= 1
 
+# frama-c
+FC_ROOT := ${BUILD}/framac
+FC_COMPDB := ${FC_ROOT}/fc_fixed_${COMP_DB_FILENAME}
+FC_SCRIPT_COMPDB := misc/make_framac_compdb.sh
+FC_MACHDEP := ${FC_ROOT}/frama-c-machdep.yaml
+FC_DEBUG ?= 0
+FC_CONFIG_ARGS ?=
+override FRAMA_C_ARGS ?= \
+	-rte -eva \
+	-wp -wp-no-split -wp-no-split-switch -wp-max-split 512 \
+	-wp-prover=alt-ergo,cvc5,z3
+ifeq ($(strip FC_DEBUG),1)
+override FC_CONFIG_ARGS := -kernel-msg-key pp \
+	-debug 99 \
+	-verbose 99 \
+	-kernel-debug 99 \
+	-kernel-verbose 99 \
+	-wp-debug 99 \
+	-wp-verbose 99 \
+	-wp-msg-key *
+endif
+
 ### general
 
 # `make` runs build
@@ -197,3 +219,83 @@ device-tree: override DEFINES += DUMP_DEVICE_TREE=1 EXAMPLE_PROCESSES_DISABLE=1
 device-tree: build
 	${QEMU_WRAP} ${QEMU_OUTFILE} ${QEMU} ${QEMU_FLAGS}
 	${DEVICETREE_SCRIPT} ${QEMU_OUTFILE} ${BUILD}/dt.hex ${BUILD}/dt.dtb ${BUILD}/dt.dts
+
+### Frama-C
+
+# TODO: move into meson, use its compiler and machine args
+
+# c machine definitions
+${FC_MACHDEP}:
+	mkdir -p ${FC_ROOT}
+	frama-c-script make-machdep \
+		--compiler clang --compiler-args='--target=riscv64-unknown-elf' \
+		-o $@
+
+# fix compile_command.json
+${FC_COMPDB}: build
+	mkdir -p ${FC_ROOT}
+	${FC_SCRIPT_COMPDB} ${BUILD}/${COMP_DB_FILENAME} $@ ${BUILD}
+
+.PHONY: frama-c
+frama-c: build ${FC_MACHDEP} ${FC_COMPDB}
+# TODO: real pipes
+	: > ${FC_ROOT}/frama-c.log.ansi
+	mkdir -p ${FC_ROOT}/fc-session
+	mkdir -p ${FC_ROOT}/wp-session
+
+	cd ${FC_ROOT}; \
+		pipetty \
+		frama-c \
+		-session ./fc-session \
+		-cache-size 8 \
+		-memory-footprint 8 \
+		-wp-memlimit 8192 \
+		-wp-timeout 15 \
+		-wp-session ./wp-session \
+		-machdep=$(shell realpath ${FC_MACHDEP}) \
+		-compilation-db=$(shell realpath ${FC_COMPDB}) \
+		$(shell find ${PWD}/src/kernel/ -iname '*.c') \
+		-main boot \
+		${FRAMA_C_ARGS} \
+		${FC_CONFIG_ARGS} \
+		| tee -a frama-c.log.ansi || true
+
+# 	cd ${BUILD}; for file in $$(find ${PWD}/src/kernel/ -iname '*.c'); do \
+# 		echo "FILE: $$file"; \
+# 		pipetty \
+# 		frama-c \
+# 		-cache-size 8 \
+# 		-memory-footprint 8 \
+# 		-verbose 5 \
+# 		-kernel-verbose 5 \
+# 		-machdep=$(shell realpath ${FC_MACHDEP}) \
+# 		-compilation-db=$(shell realpath ${FC_COMPDB}) \
+# 		$$file \
+# 		-main boot \
+# 		${FRAMA_C_ARGS} | tee -a frama-c.log.ansi; \
+# 	done || true
+
+	ansi2txt < ${FC_ROOT}/frama-c.log.ansi > ${FC_ROOT}/frama-c.log
+
+.PHONY: frama-c-gui
+frama-c-gui: build ${FC_MACHDEP} ${FC_COMPDB}
+	frama-c-gui \
+		-machdep=$(shell realpath ${FC_MACHDEP}) \
+		-compilation-db=$(shell realpath ${FC_COMPDB}) \
+		$(shell find ${PWD}/src/kernel/ -iname '*.c') \
+		-main boot
+
+# 	frama-c-gui \
+# 		-session ./fc-session \
+# 		-cache-size 8 \
+# 		-memory-footprint 8 \
+# 		-wp-memlimit 8192 \
+# 		-wp-timeout 15 \
+# 		-wp-session ./wp-session \
+# 		-machdep=$(shell realpath ${FC_MACHDEP}) \
+# 		-compilation-db=$(shell realpath ${FC_COMPDB}) \
+# 		$(shell find ${PWD}/src/kernel/ -iname '*.c') \
+# 		-main boot \
+# 		${FC_CONFIG_ARGS}
+
+

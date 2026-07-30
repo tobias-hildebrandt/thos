@@ -31,7 +31,7 @@ struct HartScratch {
 typedef struct HartScratch HartScratch;
 
 // array of hart scratch spaces
-IN_GLOBAL_SPECIAL extern HartScratch hart_scratches[];
+IN_GLOBAL_SPECIAL extern HartScratch* hart_scratches;
 
 uintptr_t my_hart_id(void);
 HartScratch* my_hart_scratch(void);

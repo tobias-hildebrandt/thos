@@ -9,8 +9,13 @@
 #include "hart.h"
 #include "util.h"
 
-SECTION(".text.boot")
-UNUSED NAKED void boot(UNUSED uintptr_t hart_id, UNUSED uintptr_t device_tree) {
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+SECTION(".text.boot") UNUSED NAKED NORETURN void boot(void) {
+    ASM("j %[func]\n" ::[func] "i"(real_boot));
+}
+
+NAKED NORETURN void real_boot(UNUSED uintptr_t hart_id,
+                              UNUSED uintptr_t device_tree) {
     // CANNOT CLOBBER a0 OR a1 (or a2??)
 
     // load hart id into t0
@@ -20,7 +25,7 @@ UNUSED NAKED void boot(UNUSED uintptr_t hart_id, UNUSED uintptr_t device_tree) {
     // calculate offset of this hart's scratch space from base into t1
     ASM("mul t1, t1, t0\n");
     // load base address of all hart scratch spaces into t0
-    ASM("la t0, %0\n" ::"i"(hart_scratches));
+    ASM(ASM_LOAD "t0, %0\n" ::"A"(hart_scratches));
     // add offset and base address into sp
     ASM("add sp, t0, t1\n");
 

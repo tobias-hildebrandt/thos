@@ -120,8 +120,9 @@ static void NORETURN primary_main(
 
             printf("starting hart id 0x%x\n", hart_to_wake);
 
-            SbiReturn ret = sbi_hart_start(hart_to_wake, (unsigned long)boot,
-                                           (unsigned long)device_tree_headers);
+            SbiReturn ret =
+                sbi_hart_start(hart_to_wake, (unsigned long)real_boot,
+                               (unsigned long)device_tree_headers);
             if (0 != ret.error) {
                 printf("hart_start return { error %d, value %d }\n", ret.error,
                        ret.value);

@@ -4,7 +4,7 @@
 
 #include "build_info.h"
 
-#if COMPILER_IS_CLANG
+#if COMPILER_IS_CLANG && !defined(__FRAMAC__)
 #define align_up(value, align) __builtin_align_up(value, align)
 #define is_aligned(value, align) __builtin_is_aligned(value, align)
 #define align_up_ptr(ptr, align) __builtin_align_up(ptr, align)
