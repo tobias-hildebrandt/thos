@@ -48,33 +48,37 @@ static Process* Process_find_next(Pid start_id) {
     return NULL;
 }
 
-// switch to a different process
+// switches the hart scratch's current process to a new one.
+// backs up old trapframe if hart's current proces is not NULL.
 // TODO: scheduling algorithm
-// TODO: pass boolean, pull frame directly from hart scratch?
+// TODO: refactor steps (backup, find new, restore) to functions
 // Precondition: traps disabled
-NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
-    HartScratch* scratch = my_hart_scratch();
+// Postcondition: hart_scratch->current_process != NULL
+void kernel_switch(void) {
+    HartScratch* hart_scratch = my_hart_scratch();
+    TrapFrame* scratch_trap_frame = &hart_scratch->frame;
     uintptr_t hart_id = my_hart_id();
 
     uint8_t start_search_id = 0;
 
-    // back up previous process
-    // can only happen if we started in trap_vector and didn't clean_up_process
-    if (scratch->current_process != NULL && scratch_trap_frame != NULL) {
-        TrapFrame* process_frame = &(scratch->current_process->frame);
+    // back up previous (current) process
+    // can only happen if we started in trap_vector and didn't destroy process
+    if (hart_scratch->current_process != NULL) {
+        TrapFrame* process_frame = &(hart_scratch->current_process->frame);
         // copy frame into old context
         memcpy(process_frame, scratch_trap_frame, sizeof(TrapFrame));
 
         // if user process, we have to add 4 to PC
-        if (!Process_is_kernel_process(scratch->current_process)) {
-            scratch->current_process->frame.pc += 4;
+        if (!Process_is_kernel_process(hart_scratch->current_process)) {
+            hart_scratch->current_process->frame.pc += 4;
         }
         PRINTF_IF(DEBUG_SWITCH,
                   "kernel_switch: hart 0x%x switch off pid %2d "
                   "(%-6s process), pc %p\n",
-                  hart_id, scratch->current_process->id,
-                  Process_is_kernel_process(scratch->current_process) ? "kernel"
-                                                                      : "user",
+                  hart_id, hart_scratch->current_process->id,
+                  Process_is_kernel_process(hart_scratch->current_process)
+                      ? "kernel"
+                      : "user",
                   process_frame->pc);
         if (DEBUG_SWITCH == 2) {
             printf("kernel_switch: hart 0x%x old context:\n", hart_id);
@@ -83,18 +87,20 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
 
         ASM("fence\n");
 
-        start_search_id = Pid_next(scratch->current_process->id);
+        start_search_id = Pid_next(hart_scratch->current_process->id);
 
         // other harts can now choose this process
-        scratch->current_process->state = PROCESS_RUNNABLE;
+        hart_scratch->current_process->state = PROCESS_RUNNABLE;
 
-        scratch->current_process = NULL;
+        hart_scratch->current_process = NULL;
     }
 
-    assert(scratch->current_process == NULL);
+    assert(hart_scratch->current_process == NULL);
 
     bool process_first_run;
 
+    // TODO: while no processes ready, suspend/shutdown hart
+    // TODO: wake sleeping harts if mulitple processes ready
     while (1) {
         SpinLock_acquire(&processes_lock);
 
@@ -105,13 +111,13 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
             continue;
             // PANIC("next_process NULL");
         } else {
-            scratch->current_process = next_process;
+            hart_scratch->current_process = next_process;
 
             process_first_run =
-                (scratch->current_process->state == PROCESS_READY);
+                (hart_scratch->current_process->state == PROCESS_READY);
 
             // process now running, other harts will not try to choose this
-            scratch->current_process->state = PROCESS_RUNNING;
+            hart_scratch->current_process->state = PROCESS_RUNNING;
 
             SpinLock_release(&processes_lock);
             break;
@@ -125,26 +131,28 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
         // first time this process is going to run
 
         // set sepc to return address (which is actually the entry point)
-        new_pc = scratch->current_process->frame.ra;
+        new_pc = hart_scratch->current_process->frame.ra;
 
         // set up new return address
-        if (Process_is_kernel_process(scratch->current_process)) {
-            scratch->current_process->frame.ra = (uintptr_t)ProcessExit_kernel;
+        if (Process_is_kernel_process(hart_scratch->current_process)) {
+            hart_scratch->current_process->frame.ra =
+                (uintptr_t)ProcessExit_kernel;
         } else {
-            scratch->current_process->frame.ra = (uintptr_t)ProcessExit_user;
+            hart_scratch->current_process->frame.ra =
+                (uintptr_t)ProcessExit_user;
         }
     } else {
         // go back to stored frame's PC
-        new_pc = scratch->current_process->frame.pc;
+        new_pc = hart_scratch->current_process->frame.pc;
     }
 
     if (DEBUG_SWITCH) {
         printf(
             "kernel_switch: hart 0x%x switch on  pid %2d "
             "(%-6s process), pc %p\n",
-            hart_id, scratch->current_process->id,
-            Process_is_kernel_process(scratch->current_process) ? "kernel"
-                                                                : "user",
+            hart_id, hart_scratch->current_process->id,
+            Process_is_kernel_process(hart_scratch->current_process) ? "kernel"
+                                                                     : "user",
             new_pc);
     }
 
@@ -152,52 +160,50 @@ NORETURN void kernel_switch(TrapFrame* scratch_trap_frame) {
 
     // make sure kernel traps are active post-sret
     prepare_sstatus_for_return(
-        Process_is_kernel_process(scratch->current_process));
+        Process_is_kernel_process(hart_scratch->current_process));
 
     // enable necessary supervisor interrupts (will only actually be active
     // after return)
     enable_interrupts();
 
     SatpRegister new_satp =
-        SatpRegister_from_PageTable(scratch->current_process->page_table);
+        SatpRegister_from_PageTable(hart_scratch->current_process->page_table);
 
     if (DEBUG_SWITCH == 2) {
         printf("kernel_switch: hart 0x%x new page table %p, new satp: %p\n",
-               hart_id, scratch->current_process->page_table, new_satp.value);
+               hart_id, hart_scratch->current_process->page_table,
+               new_satp.value);
     }
     if (DEBUG_SWITCH == 2) {
         printf("kernel_switch: hart 0x%x new context:\n", hart_id);
-        TrapFrame_print(&scratch->current_process->frame);
+        TrapFrame_print(&hart_scratch->current_process->frame);
     }
 
     // TODO: just set it in allocate_process?
-    scratch->current_process->frame.satp = new_satp.value;
+    hart_scratch->current_process->frame.satp = new_satp.value;
 
     // copy process's trapframe into hart scratch's frame
-    memcpy(&scratch->frame, &scratch->current_process->frame,
+    memcpy(&hart_scratch->frame, &hart_scratch->current_process->frame,
            sizeof(TrapFrame));
 
     // set interrupt timer
     set_timer(TIMER_INTERRUPT_DELAY);
-
-    restore_after_trap(&scratch->frame);
 }
 
 // Entry point into processes from kernel main and kernel_exit
 // Precondition: traps disabled
 void NAKED NORETURN jump_into_processes(void) {
-    // clang-format off
-    ASM(
-        // reset (clobber) stack to top of work stack
-        "csrr sp, sscratch\n"
+    // reset (clobber) stack to top of work stack
+    ASM("csrr sp, sscratch\n"
         "li a0, %[offset]\n"
         "add sp, sp, a0\n"
+        //
+        ::[offset] "i"(offsetof(HartScratch, work_stack) + WORK_STACK_SIZE));
 
-        // switch into a new process
-        "mv a0, x0\n"
-        "j %[jump]\n"
-        ::
-        [offset]"i"(offsetof(HartScratch, work_stack)+ WORK_STACK_SIZE),
-        [jump]"i"(kernel_switch));
-    // clang-format on
+    // switch hart process to a new one (call with NULL argument)
+    ASM("li a0, 0\n"
+        "jal %0\n" ::"i"(kernel_switch));
+
+    // restore process
+    ASM("jal %0\n" ::"i"(restore_after_trap));
 }

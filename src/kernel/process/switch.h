@@ -1,12 +1,13 @@
 #pragma once
 
+#include <stdbool.h>
+
 #include "flags.h"
 #include "lock.h"
 #include "process/process.h"
-#include "trap/frame.h"
 #include "util.h"
 
-void NORETURN kernel_switch(TrapFrame* frame);
+void kernel_switch(void);
 void NORETURN jump_into_processes(void);
 
 extern Process processes[PROCESSES_MAXIMUM];

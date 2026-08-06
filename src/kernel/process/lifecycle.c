@@ -91,6 +91,7 @@ Process* Process_create(ProcessArguments args) {
 // wipes the current process
 // TODO: de-alloc user page table once alloc/de-alloc is implemented
 // Precondition: traps disabled
+// Postcondition: hart_scratch->current_process == NULL
 void Process_destroy_current(void) {
     SpinLock_acquire(&processes_lock);
 

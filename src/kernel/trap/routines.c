@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "asm.h"
+#include "flags.h"
 #include "hart.h"
 #include "sections.h"
 #include "trap/frame.h"
@@ -115,20 +116,21 @@ NORETURN IN_GLOBAL_SPECIAL NAKED __attribute__((aligned(4))) void trap_vector(
 
     ASM(ASM_SET_LABEL(TRAP_VECTOR_STACK_OK));
 
-    // point a0 (first function argument) to TrapFrame on stack
-    ASM("csrr a0, sscratch\n"
-        "addi a0, a0, %0\n" ::"i"(offsetof(HartScratch, frame)));
-
     // call handle_trap
     ASM("j %[trap_addr]\n" ::[trap_addr] "i"(handle_trap));
 }
 
 // restores context
 // sepc should be set before jumping here!
-NORETURN IN_GLOBAL_SPECIAL NAKED void restore_after_trap(
-    UNUSED TrapFrame* frame) {
+NORETURN IN_GLOBAL_SPECIAL NAKED void restore_after_trap(void) {
     // hart scratch pointer currently in sscratch
     // hart scratch spaces are in global special, mapped for all processes
+
+    // load frame from scratch space
+    ASM("csrr a0, sscratch\n"
+        "addi a0, a0, %0\n"
+        //
+        ::"i"(offsetof(HartScratch, frame)));
 
     // start in kernel page table
 
