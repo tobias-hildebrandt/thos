@@ -1,5 +1,6 @@
 #include "virtual_memory/page.h"
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -26,4 +27,22 @@ Page Page_alloc(void) {
     memset(this_page, 0, PAGE_SIZE);
 
     return this_page;
+}
+
+Page Page_alloc_contiguous(size_t size) {
+    // handle weird edge case
+    if (size == 0) {
+        return Page_alloc();
+    }
+
+    size_t num_pages = (size / PAGE_SIZE) + ((size % PAGE_SIZE > 0) ? 1 : 0);
+    Page first = NULL;
+    for (size_t i = 0; i < num_pages; i++) {
+        Page this = Page_alloc();
+        if (first == NULL) {
+            first = this;
+        }
+    }
+    assert(first != NULL);
+    return first;
 }

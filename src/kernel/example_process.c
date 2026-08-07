@@ -124,6 +124,16 @@ static void process_never_yields(void) {
     }
 }
 
+static void process_io(void) {
+    print_process_start(__func__);
+    while (1) {
+        int ch = fgetc(stdin);
+        if (ch != -1) {
+            printf("process_io: got 0x%x \n", ch);
+        }
+    }
+}
+
 void start_example_processes(void) {
     // TODO: make a variety of processes up to PROCESSES_MAXIMUM
 
@@ -177,4 +187,9 @@ void start_example_processes(void) {
                                .user_program_section = &user_programs[i]});
         (void)proc_user;
     }
+
+    Process* proc_io = Process_create(
+        (ProcessArguments){.is_user_program = false,
+                           .kernel_entry_address = (uintptr_t)process_io});
+    (void)proc_io;
 }

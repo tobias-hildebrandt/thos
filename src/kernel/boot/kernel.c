@@ -13,6 +13,7 @@
 #include "device/board.h"
 #include "device/device_tree.h"
 #include "device/sifive_uart.h"
+#include "device/virtio.h"
 #include "example_process.h"
 #include "flags.h"
 #include "hart.h"
@@ -78,6 +79,10 @@ static void NORETURN primary_main(
         // TODO: move into a board init function
         if (board.sifive_uart1) {
             sifive_uart_init();
+        }
+
+        if (board.virtio[0]) {
+            virtio_init();
         }
 
         if (DEBUG_SECTIONS) {

@@ -17,6 +17,8 @@ struct Board {
     void* sifive_plic;
     // Sifive Uart 1
     void* sifive_uart1;
+    // Virtio MMIO devices
+    void* virtio[8];
     // Does the board support CSR stimecmp writes?
     // else falls back to sbi set_timer
     bool csr_stimecmp;

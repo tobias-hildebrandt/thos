@@ -61,3 +61,7 @@ static inline uint32_t atomic_or_memory_word(const uint32_t* ptr,
         : "memory");
     return out;
 }
+
+static inline void fence(void) {
+    ASM("fence\n");
+}

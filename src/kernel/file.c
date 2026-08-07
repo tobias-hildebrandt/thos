@@ -36,7 +36,7 @@ int fgetc(FILE* _stream) {
     File* stream = (File*)_stream;
     if (stream->type == FILETYPE_STDIN) {
         SbiReturn ret = sbi_getchar();
-        return (int)ret.value;
+        return (int)ret.error;
     } else {
         return EOF;
     }

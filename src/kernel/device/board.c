@@ -6,6 +6,7 @@
 #include "device/sifive_plic.h"
 #include "device/sifive_test.h"
 #include "device/sifive_uart.h"
+#include "device/virtio.h"
 #include "panic.h"
 #include "util.h"
 
@@ -34,6 +35,7 @@ static UNUSED const Board board_virt = {
     .sifive_test = (void*)SIFIVE_TEST_ADDRESS,
     .sifive_plic = (void*)SIFIVE_PLIC_ADDRESS,
     .sifive_uart1 = 0,
+    .virtio = VIRTIO_ARRAY,
     .csr_stimecmp = true,
     .csr_time = true,
 };
